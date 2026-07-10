@@ -1,0 +1,123 @@
+import pandas as pd
+import pytest
+
+from project_alpha.validation import split_by_date
+
+
+def test_split_by_date_separates_periods() -> None:
+    frame = pd.DataFrame(
+        {
+            "timestamp": pd.date_range(
+                "2024-01-01",
+                periods=6,
+                freq="D",
+                tz="UTC",
+            ),
+            "close": [
+                100.0,
+                101.0,
+                102.0,
+                103.0,
+                104.0,
+                105.0,
+            ],
+        }
+    )
+
+    result = split_by_date(
+        frame,
+        "2024-01-04",
+    )
+
+    assert len(result.in_sample) == 3
+    assert len(result.out_of_sample) == 3
+
+    assert (
+        result.in_sample["timestamp"].max()
+        < result.split_timestamp
+    )
+
+    assert (
+        result.out_of_sample["timestamp"].min()
+        >= result.split_timestamp
+    )
+
+
+def test_split_date_belongs_to_out_of_sample() -> None:
+    frame = pd.DataFrame(
+        {
+            "timestamp": [
+                "2024-01-01",
+                "2024-01-02",
+                "2024-01-03",
+            ],
+            "close": [
+                100.0,
+                101.0,
+                102.0,
+            ],
+        }
+    )
+
+    result = split_by_date(
+        frame,
+        "2024-01-02",
+    )
+
+    assert result.in_sample["close"].tolist() == [
+        100.0,
+    ]
+
+    assert result.out_of_sample["close"].tolist() == [
+        101.0,
+        102.0,
+    ]
+
+
+def test_split_by_date_rejects_empty_frame() -> None:
+    frame = pd.DataFrame()
+
+    with pytest.raises(
+        ValueError,
+        match="dataset da dividere è vuoto",
+    ):
+        split_by_date(
+            frame,
+            "2024-01-01",
+        )
+
+
+def test_split_by_date_rejects_empty_partition() -> None:
+    frame = pd.DataFrame(
+        {
+            "timestamp": pd.date_range(
+                "2024-01-01",
+                periods=3,
+                freq="D",
+                tz="UTC",
+            ),
+            "close": [
+                100.0,
+                101.0,
+                102.0,
+            ],
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="in-sample è vuota",
+    ):
+        split_by_date(
+            frame,
+            "2024-01-01",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="out-of-sample è vuota",
+    ):
+        split_by_date(
+            frame,
+            "2025-01-01",
+        )
