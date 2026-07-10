@@ -10,7 +10,7 @@ import pandas as pd
 @dataclass(frozen=True)
 class BacktestResult:
     equity_curve: pd.DataFrame
-    metrics: dict[str, float | int]
+    metrics: dict[str, float | int | None]
 
 
 def _max_drawdown(equity: pd.Series) -> float:
@@ -19,72 +19,258 @@ def _max_drawdown(equity: pd.Series) -> float:
     return float(drawdown.min())
 
 
+def _completed_trade_returns(data: pd.DataFrame) -> list[float]:
+    trade_returns: list[float] = []
+    entry_index: int | None = None
+
+    position_changes = (
+        data["executed_position"]
+        .diff()
+        .fillna(data["executed_position"])
+    )
+
+    for index, change in position_changes.items():
+        if change == 1:
+            entry_index = int(index)
+
+        elif change == -1 and entry_index is not None:
+            trade_slice = data.loc[
+                entry_index:index,
+                "strategy_return",
+            ]
+
+            trade_return = float(
+                (1.0 + trade_slice).prod() - 1.0
+            )
+
+            trade_returns.append(trade_return)
+            entry_index = None
+
+    return trade_returns
+
+
 def run_long_only_backtest(
     frame: pd.DataFrame,
     initial_capital: float = 10_000.0,
     cost_per_side: float = 0.001,
 ) -> BacktestResult:
     if initial_capital <= 0:
-        raise ValueError("Il capitale iniziale deve essere positivo.")
+        raise ValueError(
+            "Il capitale iniziale deve essere positivo."
+        )
+
     if cost_per_side < 0:
-        raise ValueError("Il costo per lato non può essere negativo.")
+        raise ValueError(
+            "Il costo per lato non può essere negativo."
+        )
 
-    required = {"timestamp", "close", "target_position"}
+    required = {
+        "timestamp",
+        "close",
+        "target_position",
+    }
+
     missing = required.difference(frame.columns)
+
     if missing:
-        raise ValueError(f"Colonne mancanti per il backtest: {sorted(missing)}")
+        raise ValueError(
+            f"Colonne mancanti per il backtest: {sorted(missing)}"
+        )
 
-    data = frame.sort_values("timestamp").copy()
+    data = (
+        frame.sort_values("timestamp")
+        .reset_index(drop=True)
+        .copy()
+    )
+
+    if data.empty:
+        raise ValueError(
+            "Il dataset del backtest è vuoto."
+        )
+
     if data["timestamp"].duplicated().any():
-        raise ValueError("Timestamp duplicati nel dataset del simbolo.")
+        raise ValueError(
+            "Timestamp duplicati nel dataset del simbolo."
+        )
 
-    data["asset_return"] = data["close"].pct_change().fillna(0.0)
-
-    # Il target calcolato alla chiusura è applicato dalla seduta successiva.
-    data["executed_position"] = data["target_position"].shift(1).fillna(0.0)
-    data["turnover"] = data["executed_position"].diff().abs().fillna(
-        data["executed_position"].abs()
+    data["asset_return"] = (
+        data["close"]
+        .pct_change()
+        .fillna(0.0)
     )
-    data["trading_cost"] = data["turnover"] * cost_per_side
+
+    # Il target calcolato alla chiusura viene applicato
+    # dalla seduta successiva.
+    data["executed_position"] = (
+        data["target_position"]
+        .shift(1)
+        .fillna(0.0)
+    )
+
+    data["turnover"] = (
+        data["executed_position"]
+        .diff()
+        .abs()
+        .fillna(data["executed_position"].abs())
+    )
+
+    data["trading_cost"] = (
+        data["turnover"] * cost_per_side
+    )
+
     data["strategy_return"] = (
-        data["executed_position"] * data["asset_return"] - data["trading_cost"]
+        data["executed_position"] * data["asset_return"]
+        - data["trading_cost"]
     )
 
-    data["equity"] = initial_capital * (1.0 + data["strategy_return"]).cumprod()
-    data["benchmark_equity"] = initial_capital * (1.0 + data["asset_return"]).cumprod()
+    data["equity"] = (
+        initial_capital
+        * (1.0 + data["strategy_return"]).cumprod()
+    )
+
+    data["benchmark_equity"] = (
+        initial_capital
+        * (1.0 + data["asset_return"]).cumprod()
+    )
 
     observations = max(len(data) - 1, 1)
     years = observations / 252.0
-    total_return = data["equity"].iloc[-1] / initial_capital - 1.0
-    benchmark_return = data["benchmark_equity"].iloc[-1] / initial_capital - 1.0
+
+    total_return = (
+        data["equity"].iloc[-1]
+        / initial_capital
+        - 1.0
+    )
+
+    benchmark_return = (
+        data["benchmark_equity"].iloc[-1]
+        / initial_capital
+        - 1.0
+    )
 
     cagr = (
-        (data["equity"].iloc[-1] / initial_capital) ** (1.0 / years) - 1.0
+        (
+            data["equity"].iloc[-1]
+            / initial_capital
+        )
+        ** (1.0 / years)
+        - 1.0
         if years > 0 and data["equity"].iloc[-1] > 0
         else float("nan")
     )
 
     daily_mean = data["strategy_return"].mean()
     daily_std = data["strategy_return"].std(ddof=1)
+
     sharpe = (
-        float(daily_mean / daily_std * sqrt(252.0))
-        if daily_std and not np.isnan(daily_std)
+        float(
+            daily_mean
+            / daily_std
+            * sqrt(252.0)
+        )
+        if daily_std
+        and not np.isnan(daily_std)
         else float("nan")
     )
 
-    trade_count = int((data["turnover"] > 0).sum())
+    trade_events = int(
+        (data["turnover"] > 0).sum()
+    )
 
-    metrics: dict[str, float | int] = {
+    completed_trade_returns = _completed_trade_returns(
+        data
+    )
+
+    winning_trade_returns = [
+        trade_return
+        for trade_return in completed_trade_returns
+        if trade_return > 0
+    ]
+
+    losing_trade_returns = [
+        trade_return
+        for trade_return in completed_trade_returns
+        if trade_return < 0
+    ]
+
+    completed_trades = len(
+        completed_trade_returns
+    )
+
+    winning_trades = len(
+        winning_trade_returns
+    )
+
+    losing_trades = len(
+        losing_trade_returns
+    )
+
+    win_rate = (
+        winning_trades / completed_trades
+        if completed_trades > 0
+        else None
+    )
+
+    average_trade_return = (
+        float(np.mean(completed_trade_returns))
+        if completed_trade_returns
+        else None
+    )
+
+    average_win = (
+        float(np.mean(winning_trade_returns))
+        if winning_trade_returns
+        else None
+    )
+
+    average_loss = (
+        float(np.mean(losing_trade_returns))
+        if losing_trade_returns
+        else None
+    )
+
+    gross_profit = float(
+        sum(winning_trade_returns)
+    )
+
+    gross_loss = abs(
+        float(sum(losing_trade_returns))
+    )
+
+    profit_factor = (
+        gross_profit / gross_loss
+        if gross_loss > 0
+        else None
+    )
+
+    metrics: dict[str, float | int | None] = {
         "initial_capital": float(initial_capital),
         "final_equity": float(data["equity"].iloc[-1]),
         "total_return": float(total_return),
-        "benchmark_total_return": float(benchmark_return),
+        "benchmark_total_return": float(
+            benchmark_return
+        ),
         "cagr": float(cagr),
         "annualized_sharpe": sharpe,
-        "max_drawdown": _max_drawdown(data["equity"]),
-        "trade_events": trade_count,
-        "market_exposure": float(data["executed_position"].mean()),
+        "max_drawdown": _max_drawdown(
+            data["equity"]
+        ),
+        "trade_events": trade_events,
+        "completed_trades": completed_trades,
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
+        "win_rate": win_rate,
+        "average_trade_return": average_trade_return,
+        "average_win": average_win,
+        "average_loss": average_loss,
+        "profit_factor": profit_factor,
+        "market_exposure": float(
+            data["executed_position"].mean()
+        ),
         "cost_per_side": float(cost_per_side),
     }
 
-    return BacktestResult(equity_curve=data, metrics=metrics)
+    return BacktestResult(
+        equity_curve=data,
+        metrics=metrics,
+    )
