@@ -1,3 +1,5 @@
+[![Tests](https://github.com/Nebur0/project-alpha/actions/workflows/tests.yml/badge.svg)](https://github.com/Nebur0/project-alpha/actions/workflows/tests.yml)
+
 # Project Alpha — Starter MVP
 
 Primo nucleo verificabile di un assistente quantitativo per il trading.
