@@ -60,3 +60,55 @@ def test_batch_validate_requires_symbols() -> None:
                 "2023-01-01",
             ]
         )
+
+
+def test_walk_forward_parser_reads_arguments() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "walk-forward",
+            "--input",
+            "data/processed/features.csv",
+            "--symbol",
+            "SPY",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--step-size",
+            "126",
+            "--initial-capital",
+            "20000",
+            "--cost-per-side",
+            "0.0015",
+        ]
+    )
+
+    assert args.command == "walk-forward"
+    assert args.input == Path(
+        "data/processed/features.csv"
+    )
+    assert args.symbol == "SPY"
+    assert args.train_size == 1000
+    assert args.test_size == 252
+    assert args.step_size == 126
+    assert args.initial_capital == pytest.approx(
+        20_000.0
+    )
+    assert args.cost_per_side == pytest.approx(
+        0.0015
+    )
+
+
+def test_walk_forward_requires_window_sizes() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "walk-forward",
+                "--symbol",
+                "SPY",
+            ]
+        )
