@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from project_alpha.backtest import run_long_only_backtest
+from project_alpha.config import StrategyParameters
 from project_alpha.pipeline import (
     analyze_and_save,
     backtest_and_save,
@@ -51,6 +52,72 @@ def _add_backtest_arguments(
         "--cost-per-side",
         type=float,
         default=0.001,
+    )
+
+
+def _add_strategy_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--fast-ema-period",
+        type=int,
+        default=20,
+    )
+    parser.add_argument(
+        "--slow-ema-period",
+        type=int,
+        default=50,
+    )
+    parser.add_argument(
+        "--trend-ema-period",
+        type=int,
+        default=200,
+    )
+    parser.add_argument(
+        "--rsi-period",
+        type=int,
+        default=14,
+    )
+    parser.add_argument(
+        "--rsi-lower",
+        type=float,
+        default=50.0,
+    )
+    parser.add_argument(
+        "--rsi-upper",
+        type=float,
+        default=70.0,
+    )
+    parser.add_argument(
+        "--atr-period",
+        type=int,
+        default=14,
+    )
+    parser.add_argument(
+        "--volume-period",
+        type=int,
+        default=20,
+    )
+    parser.add_argument(
+        "--breakout-period",
+        type=int,
+        default=20,
+    )
+
+
+def _strategy_parameters_from_args(
+    args: argparse.Namespace,
+) -> StrategyParameters:
+    return StrategyParameters(
+        fast_ema_period=args.fast_ema_period,
+        slow_ema_period=args.slow_ema_period,
+        trend_ema_period=args.trend_ema_period,
+        rsi_period=args.rsi_period,
+        rsi_lower=args.rsi_lower,
+        rsi_upper=args.rsi_upper,
+        atr_period=args.atr_period,
+        volume_period=args.volume_period,
+        breakout_period=args.breakout_period,
     )
 
 
@@ -103,6 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/processed/features.csv"),
     )
+    _add_strategy_arguments(analyze)
 
     backtest = commands.add_parser(
         "backtest",
@@ -320,6 +388,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.001,
     )
+    _add_strategy_arguments(run)
 
     return parser
 
@@ -339,9 +408,14 @@ def main() -> None:
         return
 
     if args.command == "analyze":
+        parameters = (
+            _strategy_parameters_from_args(args)
+        )
+
         frame = analyze_and_save(
             args.input,
             args.output,
+            parameters=parameters,
         )
 
         print(f"Salvate {len(frame):,} righe in {args.output}")
@@ -1035,9 +1109,14 @@ def main() -> None:
             raw_path,
         )
 
+        parameters = (
+            _strategy_parameters_from_args(args)
+        )
+
         analyze_and_save(
             raw_path,
             processed_path,
+            parameters=parameters,
         )
 
         symbol = (

@@ -182,3 +182,77 @@ def test_batch_walk_forward_requires_arguments() -> None:
                 "QQQ",
             ]
         )
+
+
+def test_analyze_parser_reads_custom_strategy_parameters() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "analyze",
+            "--input",
+            "data/raw/bars.csv",
+            "--output",
+            "data/processed/custom.csv",
+            "--fast-ema-period",
+            "10",
+            "--slow-ema-period",
+            "30",
+            "--trend-ema-period",
+            "100",
+            "--rsi-period",
+            "7",
+            "--rsi-lower",
+            "40",
+            "--rsi-upper",
+            "80",
+            "--atr-period",
+            "10",
+            "--volume-period",
+            "15",
+            "--breakout-period",
+            "25",
+        ]
+    )
+
+    assert args.command == "analyze"
+    assert args.input == Path(
+        "data/raw/bars.csv"
+    )
+    assert args.output == Path(
+        "data/processed/custom.csv"
+    )
+    assert args.fast_ema_period == 10
+    assert args.slow_ema_period == 30
+    assert args.trend_ema_period == 100
+    assert args.rsi_period == 7
+    assert args.rsi_lower == pytest.approx(40.0)
+    assert args.rsi_upper == pytest.approx(80.0)
+    assert args.atr_period == 10
+    assert args.volume_period == 15
+    assert args.breakout_period == 25
+
+
+def test_run_parser_uses_default_strategy_parameters() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "run",
+            "--symbols",
+            "SPY",
+            "--start",
+            "2020-01-01",
+        ]
+    )
+
+    assert args.command == "run"
+    assert args.fast_ema_period == 20
+    assert args.slow_ema_period == 50
+    assert args.trend_ema_period == 200
+    assert args.rsi_period == 14
+    assert args.rsi_lower == pytest.approx(50.0)
+    assert args.rsi_upper == pytest.approx(70.0)
+    assert args.atr_period == 14
+    assert args.volume_period == 20
+    assert args.breakout_period == 20

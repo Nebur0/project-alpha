@@ -2,39 +2,106 @@ from __future__ import annotations
 
 import pandas as pd
 
+from project_alpha.config import StrategyParameters
 
-def add_baseline_position(frame: pd.DataFrame) -> pd.DataFrame:
+
+def add_baseline_position(
+    frame: pd.DataFrame,
+    parameters: StrategyParameters | None = None,
+) -> pd.DataFrame:
+    parameters = (
+        parameters
+        if parameters is not None
+        else StrategyParameters()
+    )
+
+    fast_ema_column = (
+        f"ema_{parameters.fast_ema_period}"
+    )
+    slow_ema_column = (
+        f"ema_{parameters.slow_ema_period}"
+    )
+    trend_ema_column = (
+        f"ema_{parameters.trend_ema_period}"
+    )
+    rsi_column = (
+        f"rsi_{parameters.rsi_period}"
+    )
+    volume_column = (
+        f"volume_sma_{parameters.volume_period}"
+    )
+    breakout_column = (
+        f"previous_high_"
+        f"{parameters.breakout_period}"
+    )
+
     required = {
         "symbol",
         "timestamp",
         "close",
         "volume",
-        "ema_20",
-        "ema_50",
-        "ema_200",
-        "rsi_14",
-        "volume_sma_20",
-        "previous_high_20",
+        fast_ema_column,
+        slow_ema_column,
+        trend_ema_column,
+        rsi_column,
+        volume_column,
+        breakout_column,
     }
-    missing = required.difference(frame.columns)
+
+    missing = required.difference(
+        frame.columns
+    )
+
     if missing:
-        raise ValueError(f"Colonne mancanti per la strategia: {sorted(missing)}")
+        raise ValueError(
+            "Colonne mancanti per la strategia: "
+            f"{sorted(missing)}"
+        )
 
     parts: list[pd.DataFrame] = []
 
-    for _, group in frame.groupby("symbol", sort=False):
-        group = group.sort_values("timestamp").copy()
-
-        entry = (
-            (group["close"] > group["ema_200"])
-            & (group["ema_20"] > group["ema_50"])
-            & group["rsi_14"].between(50.0, 70.0, inclusive="both")
-            & (group["close"] > group["previous_high_20"])
-            & (group["volume"] > group["volume_sma_20"])
+    for _, group in frame.groupby(
+        "symbol",
+        sort=False,
+    ):
+        group = (
+            group.sort_values("timestamp")
+            .copy()
         )
 
-        exit_signal = (group["close"] < group["ema_20"]) | (
-            group["ema_20"] < group["ema_50"]
+        entry = (
+            (
+                group["close"]
+                > group[trend_ema_column]
+            )
+            & (
+                group[fast_ema_column]
+                > group[slow_ema_column]
+            )
+            & group[rsi_column].between(
+                parameters.rsi_lower,
+                parameters.rsi_upper,
+                inclusive="both",
+            )
+            & (
+                group["close"]
+                > group[breakout_column]
+            )
+            & (
+                group["volume"]
+                > group[volume_column]
+            )
+        )
+
+        exit_signal = (
+            (
+                group["close"]
+                < group[fast_ema_column]
+            )
+            | (
+                group[fast_ema_column]
+                < group[slow_ema_column]
+            )
         )
 
         state = 0
@@ -42,13 +109,17 @@ def add_baseline_position(frame: pd.DataFrame) -> pd.DataFrame:
         entries: list[bool] = []
         exits: list[bool] = []
 
-        for enter_now, exit_now in zip(entry.fillna(False), exit_signal.fillna(False)):
+        for enter_now, exit_now in zip(
+            entry.fillna(False),
+            exit_signal.fillna(False),
+        ):
             did_enter = False
             did_exit = False
 
             if state == 0 and bool(enter_now):
                 state = 1
                 did_enter = True
+
             elif state == 1 and bool(exit_now):
                 state = 0
                 did_exit = True
@@ -60,8 +131,19 @@ def add_baseline_position(frame: pd.DataFrame) -> pd.DataFrame:
         group["entry_signal"] = entries
         group["exit_signal"] = exits
         group["target_position"] = positions
+
         parts.append(group)
 
-    return pd.concat(parts, ignore_index=True).sort_values(
-        ["symbol", "timestamp"]
-    ).reset_index(drop=True)
+    return (
+        pd.concat(
+            parts,
+            ignore_index=True,
+        )
+        .sort_values(
+            [
+                "symbol",
+                "timestamp",
+            ]
+        )
+        .reset_index(drop=True)
+    )
