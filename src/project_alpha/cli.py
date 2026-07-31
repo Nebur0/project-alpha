@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from datetime import date
 from pathlib import Path
 
@@ -9,6 +10,10 @@ import pandas as pd
 
 from project_alpha.backtest import run_long_only_backtest
 from project_alpha.config import StrategyParameters
+from project_alpha.optimization import (
+    grid_search_results_to_frame,
+    run_parameter_grid_search,
+)
 from project_alpha.pipeline import (
     analyze_and_save,
     backtest_and_save,
@@ -351,6 +356,112 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
     )
     walk_forward.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
+    grid_search = commands.add_parser(
+        "grid-search",
+        help=(
+            "Ricerca e ordina combinazioni di "
+            "parametri strategici."
+        ),
+    )
+    grid_search.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/raw/bars.csv"),
+        help=(
+            "Dataset OHLCV grezzo usato per "
+            "rigenerare indicatori e segnali."
+        ),
+    )
+    grid_search.add_argument(
+        "--symbol",
+        required=True,
+    )
+    grid_search.add_argument(
+        "--fast-ema-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    grid_search.add_argument(
+        "--slow-ema-periods",
+        nargs="+",
+        type=int,
+        default=[50],
+    )
+    grid_search.add_argument(
+        "--trend-ema-periods",
+        nargs="+",
+        type=int,
+        default=[200],
+    )
+    grid_search.add_argument(
+        "--rsi-periods",
+        nargs="+",
+        type=int,
+        default=[14],
+    )
+    grid_search.add_argument(
+        "--rsi-lowers",
+        nargs="+",
+        type=float,
+        default=[50.0],
+    )
+    grid_search.add_argument(
+        "--rsi-uppers",
+        nargs="+",
+        type=float,
+        default=[70.0],
+    )
+    grid_search.add_argument(
+        "--atr-periods",
+        nargs="+",
+        type=int,
+        default=[14],
+    )
+    grid_search.add_argument(
+        "--volume-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    grid_search.add_argument(
+        "--breakout-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    grid_search.add_argument(
+        "--score-metric",
+        choices=[
+            "annualized_sharpe",
+            "total_return",
+            "cagr",
+            "profit_factor",
+            "win_rate",
+            "max_drawdown",
+        ],
+        default="annualized_sharpe",
+    )
+    grid_search.add_argument(
+        "--top",
+        type=int,
+        default=10,
+        help=(
+            "Numero di combinazioni migliori "
+            "da mostrare nel terminale."
+        ),
+    )
+    grid_search.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    grid_search.add_argument(
         "--cost-per-side",
         type=float,
         default=0.001,
@@ -1086,6 +1197,152 @@ def main() -> None:
         print(report_content)
         print(
             "\nReport JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV salvato in "
+            f"{csv_report_path}"
+        )
+        return
+
+    if args.command == "grid-search":
+        if args.top <= 0:
+            raise ValueError(
+                "top deve essere positivo."
+            )
+
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        symbol = args.symbol.upper()
+
+        selected = frame.loc[
+            frame["symbol"].astype(str).str.upper()
+            == symbol
+        ].copy()
+
+        if selected.empty:
+            raise ValueError(
+                f"Simbolo {symbol} non trovato in "
+                f"{args.input}."
+            )
+
+        grid = {
+            "fast_ema_period": (
+                args.fast_ema_periods
+            ),
+            "slow_ema_period": (
+                args.slow_ema_periods
+            ),
+            "trend_ema_period": (
+                args.trend_ema_periods
+            ),
+            "rsi_period": args.rsi_periods,
+            "rsi_lower": args.rsi_lowers,
+            "rsi_upper": args.rsi_uppers,
+            "atr_period": args.atr_periods,
+            "volume_period": (
+                args.volume_periods
+            ),
+            "breakout_period": (
+                args.breakout_periods
+            ),
+        }
+
+        results = run_parameter_grid_search(
+            selected,
+            grid,
+            initial_capital=(
+                args.initial_capital
+            ),
+            cost_per_side=(
+                args.cost_per_side
+            ),
+            score_metric=args.score_metric,
+        )
+
+        result_frame = (
+            grid_search_results_to_frame(
+                results
+            )
+        )
+
+        top_count = min(
+            args.top,
+            len(results),
+        )
+
+        report_rows = [
+            {
+                "rank": rank,
+                "parameters": asdict(
+                    result.parameters
+                ),
+                "score_metric": (
+                    result.score_metric
+                ),
+                "score": result.score,
+                "metrics": result.metrics,
+            }
+            for rank, result in enumerate(
+                results,
+                start=1,
+            )
+        ]
+
+        report = {
+            "symbol": symbol,
+            "score_metric": (
+                args.score_metric
+            ),
+            "combination_count": (
+                len(results)
+            ),
+            "displayed_top_count": (
+                top_count
+            ),
+            "results": report_rows,
+        }
+
+        json_report_path = Path(
+            f"reports/{symbol}_grid_search.json"
+        )
+        csv_report_path = Path(
+            f"reports/{symbol}_grid_search.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        json_report_path.write_text(
+            json.dumps(
+                report,
+                indent=2,
+                allow_nan=False,
+            ),
+            encoding="utf-8",
+        )
+
+        result_frame.to_csv(
+            csv_report_path,
+            index=False,
+        )
+
+        print(
+            result_frame
+            .head(top_count)
+            .to_string(index=False)
+        )
+        print(
+            "\nCombinazioni valutate: "
+            f"{len(results)}"
+        )
+        print(
+            "Report JSON salvato in "
             f"{json_report_path}"
         )
         print(
