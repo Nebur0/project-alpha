@@ -13,7 +13,12 @@ from project_alpha.pipeline import (
     backtest_and_save,
     fetch_and_save,
 )
-from project_alpha.reporting import save_batch_summary_csv
+
+from project_alpha.reporting import (
+    save_batch_summary_csv,
+    summarize_walk_forward_metrics,
+)
+
 from project_alpha.validation import (
     generate_walk_forward_splits,
     split_by_date,
@@ -600,6 +605,7 @@ def main() -> None:
 
         windows = []
         summary_rows = []
+        out_of_sample_metrics = []
 
         for split in splits:
             in_sample_result = (
@@ -624,6 +630,10 @@ def main() -> None:
                         args.cost_per_side
                     ),
                 )
+            )
+
+            out_of_sample_metrics.append(
+                out_of_sample_result.metrics
             )
 
             metadata = {
@@ -672,12 +682,29 @@ def main() -> None:
                 }
             )
 
+        windows_overlap = (
+            effective_step_size
+            < args.test_size
+        )
+
+        summary = summarize_walk_forward_metrics(
+            out_of_sample_metrics,
+            allow_compounding=(
+                not windows_overlap
+            ),
+        )
+
         report = {
             "symbol": symbol,
             "train_size": args.train_size,
             "test_size": args.test_size,
             "step_size": effective_step_size,
             "window_count": len(windows),
+            "windows_overlap": windows_overlap,
+            "compounding_enabled": (
+                not windows_overlap
+            ),
+            "summary": summary,
             "windows": windows,
         }
 
