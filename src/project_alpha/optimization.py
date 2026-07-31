@@ -14,9 +14,13 @@ from project_alpha.config import StrategyParameters
 from project_alpha.indicators import add_indicators
 from project_alpha.reporting import (
     sanitize_metric_values,
+    summarize_walk_forward_metrics,
 )
 from project_alpha.strategy import (
     add_baseline_position,
+)
+from project_alpha.validation import (
+    generate_walk_forward_splits,
 )
 
 
@@ -30,6 +34,36 @@ class GridSearchResult:
     metrics: dict[str, MetricValue]
     score_metric: str
     score: float | None
+
+
+@dataclass(frozen=True)
+class WalkForwardOptimizationWindow:
+    window_number: int
+    train_start: pd.Timestamp
+    train_end: pd.Timestamp
+    test_start: pd.Timestamp
+    test_end: pd.Timestamp
+    selected_parameters: StrategyParameters
+    selected_score: float
+    in_sample_metrics: dict[str, MetricValue]
+    out_of_sample_metrics: dict[str, MetricValue]
+
+
+@dataclass(frozen=True)
+class WalkForwardOptimizationResult:
+    symbol: str
+    score_metric: str
+    train_size: int
+    test_size: int
+    step_size: int
+    minimum_completed_trades: int
+    windows_overlap: bool
+    compounding_enabled: bool
+    windows: tuple[
+        WalkForwardOptimizationWindow,
+        ...,
+    ]
+    summary: dict[str, MetricValue]
 
 
 def generate_strategy_parameters(
@@ -132,22 +166,12 @@ def _metric_as_float(
     return float(value)
 
 
-def run_parameter_grid_search(
+def _validate_single_symbol_frame(
     frame: pd.DataFrame,
-    grid: Mapping[
-        str,
-        Sequence[GridValue],
-    ],
-    *,
-    initial_capital: float = 10_000.0,
-    cost_per_side: float = 0.001,
-    score_metric: str = (
-        "annualized_sharpe"
-    ),
-) -> list[GridSearchResult]:
+) -> str:
     if frame.empty:
         raise ValueError(
-            "Il dataset della grid search è vuoto."
+            "Il dataset è vuoto."
         )
 
     if "symbol" not in frame.columns:
@@ -164,10 +188,17 @@ def run_parameter_grid_search(
 
     if len(symbols) != 1:
         raise ValueError(
-            "La grid search deve ricevere "
+            "L'ottimizzazione deve ricevere "
             "un solo simbolo alla volta."
         )
 
+    return str(symbols[0])
+
+
+def _validate_backtest_arguments(
+    initial_capital: float,
+    cost_per_side: float,
+) -> None:
     if initial_capital <= 0.0:
         raise ValueError(
             "initial_capital deve essere positivo."
@@ -177,6 +208,27 @@ def run_parameter_grid_search(
         raise ValueError(
             "cost_per_side non può essere negativo."
         )
+
+
+def run_parameter_grid_search(
+    frame: pd.DataFrame,
+    grid: Mapping[
+        str,
+        Sequence[GridValue],
+    ],
+    *,
+    initial_capital: float = 10_000.0,
+    cost_per_side: float = 0.001,
+    score_metric: str = (
+        "annualized_sharpe"
+    ),
+) -> list[GridSearchResult]:
+    _validate_single_symbol_frame(frame)
+
+    _validate_backtest_arguments(
+        initial_capital,
+        cost_per_side,
+    )
 
     parameter_sets = (
         generate_strategy_parameters(grid)
@@ -240,18 +292,14 @@ def run_parameter_grid_search(
             else float("-inf")
         )
 
-        total_return = (
-            _metric_as_float(
-                result.metrics,
-                "total_return",
-            )
+        total_return = _metric_as_float(
+            result.metrics,
+            "total_return",
         )
 
-        max_drawdown = (
-            _metric_as_float(
-                result.metrics,
-                "max_drawdown",
-            )
+        max_drawdown = _metric_as_float(
+            result.metrics,
+            "max_drawdown",
         )
 
         return (
@@ -295,6 +343,400 @@ def grid_search_results_to_frame(
                 ),
                 "score": result.score,
                 **result.metrics,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def _select_best_training_result(
+    results: Sequence[
+        GridSearchResult
+    ],
+    *,
+    minimum_completed_trades: int,
+) -> GridSearchResult:
+    for result in results:
+        completed_trades = _metric_as_float(
+            result.metrics,
+            "completed_trades",
+        )
+
+        if result.score is None:
+            continue
+
+        if completed_trades is None:
+            continue
+
+        if (
+            completed_trades
+            < minimum_completed_trades
+        ):
+            continue
+
+        return result
+
+    raise ValueError(
+        "Nessuna combinazione soddisfa i "
+        "requisiti minimi nella finestra "
+        "in-sample."
+    )
+
+
+def _prepare_out_of_sample_frame(
+    in_sample: pd.DataFrame,
+    out_of_sample: pd.DataFrame,
+    parameters: StrategyParameters,
+) -> pd.DataFrame:
+    context = pd.concat(
+        [
+            in_sample,
+            out_of_sample,
+        ],
+        ignore_index=True,
+    )
+
+    context = (
+        context
+        .sort_values(
+            "timestamp",
+            kind="stable",
+        )
+        .reset_index(drop=True)
+    )
+
+    enriched_context = add_indicators(
+        context,
+        parameters,
+    )
+
+    test_start = pd.Timestamp(
+        out_of_sample["timestamp"].min()
+    )
+    test_end = pd.Timestamp(
+        out_of_sample["timestamp"].max()
+    )
+
+    timestamp_series = pd.to_datetime(
+        enriched_context["timestamp"]
+    )
+
+    selected = enriched_context.loc[
+        timestamp_series.between(
+            test_start,
+            test_end,
+            inclusive="both",
+        )
+    ].copy()
+
+    if selected.empty:
+        raise ValueError(
+            "La finestra out-of-sample "
+            "preparata è vuota."
+        )
+
+    return add_baseline_position(
+        selected,
+        parameters,
+    )
+
+
+def run_walk_forward_optimization(
+    frame: pd.DataFrame,
+    grid: Mapping[
+        str,
+        Sequence[GridValue],
+    ],
+    *,
+    train_size: int,
+    test_size: int,
+    step_size: int | None = None,
+    initial_capital: float = 10_000.0,
+    cost_per_side: float = 0.001,
+    score_metric: str = (
+        "annualized_sharpe"
+    ),
+    minimum_completed_trades: int = 1,
+) -> WalkForwardOptimizationResult:
+    symbol = _validate_single_symbol_frame(
+        frame
+    )
+
+    _validate_backtest_arguments(
+        initial_capital,
+        cost_per_side,
+    )
+
+    if (
+        isinstance(
+            minimum_completed_trades,
+            bool,
+        )
+        or not isinstance(
+            minimum_completed_trades,
+            int,
+        )
+        or minimum_completed_trades < 0
+    ):
+        raise ValueError(
+            "minimum_completed_trades deve "
+            "essere un intero non negativo."
+        )
+
+    splits = generate_walk_forward_splits(
+        frame=frame,
+        train_size=train_size,
+        test_size=test_size,
+        step_size=step_size,
+    )
+
+    effective_step_size = (
+        test_size
+        if step_size is None
+        else step_size
+    )
+
+    windows_overlap = (
+        effective_step_size
+        < test_size
+    )
+
+    windows: list[
+        WalkForwardOptimizationWindow
+    ] = []
+
+    out_of_sample_metrics: list[
+        dict[str, MetricValue]
+    ] = []
+
+    for split in splits:
+        training_results = (
+            run_parameter_grid_search(
+                split.in_sample,
+                grid,
+                initial_capital=(
+                    initial_capital
+                ),
+                cost_per_side=(
+                    cost_per_side
+                ),
+                score_metric=score_metric,
+            )
+        )
+
+        selected_result = (
+            _select_best_training_result(
+                training_results,
+                minimum_completed_trades=(
+                    minimum_completed_trades
+                ),
+            )
+        )
+
+        positioned_out_of_sample = (
+            _prepare_out_of_sample_frame(
+                split.in_sample,
+                split.out_of_sample,
+                selected_result.parameters,
+            )
+        )
+
+        out_of_sample_result = (
+            run_long_only_backtest(
+                positioned_out_of_sample,
+                initial_capital=(
+                    initial_capital
+                ),
+                cost_per_side=(
+                    cost_per_side
+                ),
+            )
+        )
+
+        sanitized_out_of_sample_metrics = (
+            sanitize_metric_values(
+                out_of_sample_result.metrics
+            )
+        )
+
+        out_of_sample_metrics.append(
+            sanitized_out_of_sample_metrics
+        )
+
+        windows.append(
+            WalkForwardOptimizationWindow(
+                window_number=(
+                    split.window_number
+                ),
+                train_start=(
+                    split.train_start
+                ),
+                train_end=(
+                    split.train_end
+                ),
+                test_start=(
+                    split.test_start
+                ),
+                test_end=(
+                    split.test_end
+                ),
+                selected_parameters=(
+                    selected_result.parameters
+                ),
+                selected_score=(
+                    selected_result.score
+                ),
+                in_sample_metrics=(
+                    selected_result.metrics
+                ),
+                out_of_sample_metrics=(
+                    sanitized_out_of_sample_metrics
+                ),
+            )
+        )
+
+    summary = summarize_walk_forward_metrics(
+        out_of_sample_metrics,
+        allow_compounding=(
+            not windows_overlap
+        ),
+    )
+
+    return WalkForwardOptimizationResult(
+        symbol=symbol,
+        score_metric=score_metric,
+        train_size=train_size,
+        test_size=test_size,
+        step_size=effective_step_size,
+        minimum_completed_trades=(
+            minimum_completed_trades
+        ),
+        windows_overlap=windows_overlap,
+        compounding_enabled=(
+            not windows_overlap
+        ),
+        windows=tuple(windows),
+        summary=summary,
+    )
+
+
+def walk_forward_optimization_to_dict(
+    result: WalkForwardOptimizationResult,
+) -> dict[str, object]:
+    windows = []
+
+    for window in result.windows:
+        windows.append(
+            {
+                "window_number": (
+                    window.window_number
+                ),
+                "train_start": (
+                    window.train_start
+                    .isoformat()
+                ),
+                "train_end": (
+                    window.train_end
+                    .isoformat()
+                ),
+                "test_start": (
+                    window.test_start
+                    .isoformat()
+                ),
+                "test_end": (
+                    window.test_end
+                    .isoformat()
+                ),
+                "selected_parameters": asdict(
+                    window.selected_parameters
+                ),
+                "selected_score": (
+                    window.selected_score
+                ),
+                "in_sample": (
+                    window.in_sample_metrics
+                ),
+                "out_of_sample": (
+                    window.out_of_sample_metrics
+                ),
+            }
+        )
+
+    return {
+        "symbol": result.symbol,
+        "score_metric": result.score_metric,
+        "train_size": result.train_size,
+        "test_size": result.test_size,
+        "step_size": result.step_size,
+        "minimum_completed_trades": (
+            result.minimum_completed_trades
+        ),
+        "window_count": len(
+            result.windows
+        ),
+        "windows_overlap": (
+            result.windows_overlap
+        ),
+        "compounding_enabled": (
+            result.compounding_enabled
+        ),
+        "summary": result.summary,
+        "windows": windows,
+    }
+
+
+def walk_forward_optimization_to_frame(
+    result: WalkForwardOptimizationResult,
+) -> pd.DataFrame:
+    rows = []
+
+    for window in result.windows:
+        rows.append(
+            {
+                "symbol": result.symbol,
+                "window_number": (
+                    window.window_number
+                ),
+                "train_start": (
+                    window.train_start
+                ),
+                "train_end": (
+                    window.train_end
+                ),
+                "test_start": (
+                    window.test_start
+                ),
+                "test_end": (
+                    window.test_end
+                ),
+                **asdict(
+                    window.selected_parameters
+                ),
+                "score_metric": (
+                    result.score_metric
+                ),
+                "selected_score": (
+                    window.selected_score
+                ),
+                **{
+                    f"in_sample_{name}": value
+                    for name, value in (
+                        window
+                        .in_sample_metrics
+                        .items()
+                    )
+                },
+                **{
+                    (
+                        "out_of_sample_"
+                        f"{name}"
+                    ): value
+                    for name, value in (
+                        window
+                        .out_of_sample_metrics
+                        .items()
+                    )
+                },
             }
         )
 

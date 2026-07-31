@@ -438,3 +438,210 @@ def test_grid_search_requires_symbol() -> None:
                 "grid-search",
             ]
         )
+
+
+def test_optimize_walk_forward_parser_reads_arguments() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "optimize-walk-forward",
+            "--input",
+            "data/raw/bars.csv",
+            "--symbol",
+            "SPY",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--step-size",
+            "126",
+            "--fast-ema-periods",
+            "10",
+            "20",
+            "--slow-ema-periods",
+            "30",
+            "50",
+            "--trend-ema-periods",
+            "100",
+            "200",
+            "--rsi-periods",
+            "7",
+            "14",
+            "--rsi-lowers",
+            "40",
+            "50",
+            "--rsi-uppers",
+            "70",
+            "80",
+            "--atr-periods",
+            "10",
+            "14",
+            "--volume-periods",
+            "15",
+            "20",
+            "--breakout-periods",
+            "20",
+            "25",
+            "--score-metric",
+            "total_return",
+            "--minimum-completed-trades",
+            "5",
+            "--initial-capital",
+            "25000",
+            "--cost-per-side",
+            "0.002",
+        ]
+    )
+
+    assert args.command == (
+        "optimize-walk-forward"
+    )
+    assert args.input == Path(
+        "data/raw/bars.csv"
+    )
+    assert args.symbol == "SPY"
+    assert args.train_size == 1000
+    assert args.test_size == 252
+    assert args.step_size == 126
+    assert args.fast_ema_periods == [
+        10,
+        20,
+    ]
+    assert args.slow_ema_periods == [
+        30,
+        50,
+    ]
+    assert args.trend_ema_periods == [
+        100,
+        200,
+    ]
+    assert args.rsi_periods == [
+        7,
+        14,
+    ]
+    assert args.rsi_lowers == pytest.approx(
+        [
+            40.0,
+            50.0,
+        ]
+    )
+    assert args.rsi_uppers == pytest.approx(
+        [
+            70.0,
+            80.0,
+        ]
+    )
+    assert args.atr_periods == [
+        10,
+        14,
+    ]
+    assert args.volume_periods == [
+        15,
+        20,
+    ]
+    assert args.breakout_periods == [
+        20,
+        25,
+    ]
+    assert args.score_metric == "total_return"
+    assert args.minimum_completed_trades == 5
+    assert args.initial_capital == pytest.approx(
+        25_000.0
+    )
+    assert args.cost_per_side == pytest.approx(
+        0.002
+    )
+
+
+def test_optimize_walk_forward_parser_uses_defaults() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "optimize-walk-forward",
+            "--symbol",
+            "SPY",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+        ]
+    )
+
+    assert args.command == (
+        "optimize-walk-forward"
+    )
+    assert args.input == Path(
+        "data/raw/bars.csv"
+    )
+    assert args.symbol == "SPY"
+    assert args.train_size == 1000
+    assert args.test_size == 252
+    assert args.step_size is None
+    assert args.fast_ema_periods == [
+        20,
+    ]
+    assert args.slow_ema_periods == [
+        50,
+    ]
+    assert args.trend_ema_periods == [
+        200,
+    ]
+    assert args.rsi_periods == [
+        14,
+    ]
+    assert args.rsi_lowers == pytest.approx(
+        [
+            50.0,
+        ]
+    )
+    assert args.rsi_uppers == pytest.approx(
+        [
+            70.0,
+        ]
+    )
+    assert args.atr_periods == [
+        14,
+    ]
+    assert args.volume_periods == [
+        20,
+    ]
+    assert args.breakout_periods == [
+        20,
+    ]
+    assert (
+        args.score_metric
+        == "annualized_sharpe"
+    )
+    assert args.minimum_completed_trades == 1
+    assert args.initial_capital == pytest.approx(
+        10_000.0
+    )
+    assert args.cost_per_side == pytest.approx(
+        0.001
+    )
+
+
+def test_optimize_walk_forward_requires_arguments() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "optimize-walk-forward",
+                "--train-size",
+                "1000",
+                "--test-size",
+                "252",
+            ]
+        )
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "optimize-walk-forward",
+                "--symbol",
+                "SPY",
+            ]
+        )
