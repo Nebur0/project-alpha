@@ -4,17 +4,17 @@ import argparse
 import json
 from datetime import date
 from pathlib import Path
+
 import pandas as pd
-from project_alpha.reporting import save_batch_summary_csv
+
 from project_alpha.backtest import run_long_only_backtest
-from project_alpha.validation import split_by_date
-
-
 from project_alpha.pipeline import (
     analyze_and_save,
     backtest_and_save,
     fetch_and_save,
 )
+from project_alpha.reporting import save_batch_summary_csv
+from project_alpha.validation import split_by_date
 
 
 def _iso_date(value: str) -> date:
@@ -26,10 +26,23 @@ def _iso_date(value: str) -> date:
         ) from exc
 
 
-def _add_backtest_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--symbol", required=True)
-    parser.add_argument("--initial-capital", type=float, default=10_000.0)
-    parser.add_argument("--cost-per-side", type=float, default=0.001)
+def _add_backtest_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--symbol",
+        required=True,
+    )
+    parser.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    parser.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,9 +60,20 @@ def build_parser() -> argparse.ArgumentParser:
         "fetch",
         help="Scarica candele giornaliere.",
     )
-    fetch.add_argument("--symbols", nargs="+", required=True)
-    fetch.add_argument("--start", type=_iso_date, required=True)
-    fetch.add_argument("--end", type=_iso_date)
+    fetch.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    fetch.add_argument(
+        "--start",
+        type=_iso_date,
+        required=True,
+    )
+    fetch.add_argument(
+        "--end",
+        type=_iso_date,
+    )
     fetch.add_argument(
         "--output",
         type=Path,
@@ -91,9 +115,21 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/processed/features.csv"),
     )
-    batch.add_argument("--symbols", nargs="+", required=True)
-    batch.add_argument("--initial-capital", type=float, default=10_000.0)
-    batch.add_argument("--cost-per-side", type=float, default=0.001)
+    batch.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    batch.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    batch.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
 
     validate = commands.add_parser(
         "validate",
@@ -104,7 +140,10 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/processed/features.csv"),
     )
-    validate.add_argument("--symbol", required=True)
+    validate.add_argument(
+        "--symbol",
+        required=True,
+    )
     validate.add_argument(
         "--split-date",
         type=_iso_date,
@@ -120,19 +159,69 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.001,
     )
+
+    batch_validate = commands.add_parser(
+        "batch-validate",
+        help="Valida più simboli in-sample e out-of-sample.",
+    )
+    batch_validate.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/processed/features.csv"),
+    )
+    batch_validate.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    batch_validate.add_argument(
+        "--split-date",
+        type=_iso_date,
+        required=True,
+    )
+    batch_validate.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    batch_validate.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
     run = commands.add_parser(
         "run",
         help="Esegue fetch, analisi e backtest.",
     )
-    run.add_argument("--symbols", nargs="+", required=True)
-    run.add_argument("--start", type=_iso_date, required=True)
-    run.add_argument("--end", type=_iso_date)
+    run.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    run.add_argument(
+        "--start",
+        type=_iso_date,
+        required=True,
+    )
+    run.add_argument(
+        "--end",
+        type=_iso_date,
+    )
     run.add_argument(
         "--symbol",
         help="Simbolo da testare; predefinito: il primo in --symbols.",
     )
-    run.add_argument("--initial-capital", type=float, default=10_000.0)
-    run.add_argument("--cost-per-side", type=float, default=0.001)
+    run.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    run.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
 
     return parser
 
@@ -192,7 +281,9 @@ def main() -> None:
 
             results[normalized_symbol] = result.metrics
 
-        report_path = Path("reports/batch_metrics.json")
+        report_path = Path(
+            "reports/batch_metrics.json"
+        )
         report_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -214,8 +305,12 @@ def main() -> None:
         )
 
         print(report_content)
-        print(f"\nReport JSON salvato in {report_path}")
-        print(f"Report CSV salvato in {csv_report_path}")
+        print(
+            f"\nReport JSON salvato in {report_path}"
+        )
+        print(
+            f"Report CSV salvato in {csv_report_path}"
+        )
         return
 
     if args.command == "validate":
@@ -227,12 +322,14 @@ def main() -> None:
         symbol = args.symbol.upper()
 
         selected = frame.loc[
-            frame["symbol"].str.upper() == symbol
+            frame["symbol"].astype(str).str.upper()
+            == symbol
         ].copy()
 
         if selected.empty:
             raise ValueError(
-                f"Simbolo {symbol} non trovato in {args.input}."
+                f"Simbolo {symbol} non trovato in "
+                f"{args.input}."
             )
 
         validation_split = split_by_date(
@@ -260,13 +357,14 @@ def main() -> None:
                 .isoformat()
             ),
             "in_sample": in_sample_result.metrics,
-            "out_of_sample": out_of_sample_result.metrics,
+            "out_of_sample": (
+                out_of_sample_result.metrics
+            ),
         }
 
         report_path = Path(
             f"reports/{symbol}_validation.json"
         )
-
         report_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -284,11 +382,147 @@ def main() -> None:
         )
 
         print(report_content)
-        print(f"\nReport salvato in {report_path}")
+        print(
+            f"\nReport salvato in {report_path}"
+        )
+        return
+
+    if args.command == "batch-validate":
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        normalized_symbols = list(
+            dict.fromkeys(
+                symbol.upper()
+                for symbol in args.symbols
+            )
+        )
+
+        results = {}
+        summary_rows = []
+
+        for symbol in normalized_symbols:
+            selected = frame.loc[
+                frame["symbol"].astype(str).str.upper()
+                == symbol
+            ].copy()
+
+            if selected.empty:
+                raise ValueError(
+                    f"Simbolo {symbol} non trovato in "
+                    f"{args.input}."
+                )
+
+            validation_split = split_by_date(
+                selected,
+                args.split_date,
+            )
+
+            in_sample_result = (
+                run_long_only_backtest(
+                    validation_split.in_sample,
+                    initial_capital=(
+                        args.initial_capital
+                    ),
+                    cost_per_side=(
+                        args.cost_per_side
+                    ),
+                )
+            )
+
+            out_of_sample_result = (
+                run_long_only_backtest(
+                    validation_split.out_of_sample,
+                    initial_capital=(
+                        args.initial_capital
+                    ),
+                    cost_per_side=(
+                        args.cost_per_side
+                    ),
+                )
+            )
+
+            split_timestamp = (
+                validation_split
+                .split_timestamp
+                .isoformat()
+            )
+
+            results[symbol] = {
+                "split_date": split_timestamp,
+                "in_sample": (
+                    in_sample_result.metrics
+                ),
+                "out_of_sample": (
+                    out_of_sample_result.metrics
+                ),
+            }
+
+            summary_rows.append(
+                {
+                    "symbol": symbol,
+                    "sample": "in_sample",
+                    "split_date": split_timestamp,
+                    **in_sample_result.metrics,
+                }
+            )
+
+            summary_rows.append(
+                {
+                    "symbol": symbol,
+                    "sample": "out_of_sample",
+                    "split_date": split_timestamp,
+                    **out_of_sample_result.metrics,
+                }
+            )
+
+        json_report_path = Path(
+            "reports/batch_validation.json"
+        )
+        csv_report_path = Path(
+            "reports/batch_validation.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        report_content = json.dumps(
+            results,
+            indent=2,
+            allow_nan=False,
+        )
+
+        json_report_path.write_text(
+            report_content,
+            encoding="utf-8",
+        )
+
+        pd.DataFrame(
+            summary_rows
+        ).to_csv(
+            csv_report_path,
+            index=False,
+        )
+
+        print(report_content)
+        print(
+            "\nReport JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV salvato in "
+            f"{csv_report_path}"
+        )
         return
 
     if args.command == "run":
-        raw_path = Path("data/raw/bars.csv")
+        raw_path = Path(
+            "data/raw/bars.csv"
+        )
         processed_path = Path(
             "data/processed/features.csv"
         )
@@ -308,44 +542,6 @@ def main() -> None:
         symbol = (
             args.symbol or args.symbols[0]
         ).upper()
-
-        result = backtest_and_save(
-            processed_path,
-            symbol,
-            args.initial_capital,
-            args.cost_per_side,
-        )
-
-        print(
-            json.dumps(
-                result.metrics,
-                indent=2,
-                allow_nan=False,
-            )
-        )
-        return
-
-    raise RuntimeError(
-        f"Comando non gestito: {args.command}"
-    )
-
-    if args.command == "run":
-        raw_path = Path("data/raw/bars.csv")
-        processed_path = Path("data/processed/features.csv")
-
-        fetch_and_save(
-            args.symbols,
-            args.start,
-            args.end,
-            raw_path,
-        )
-
-        analyze_and_save(
-            raw_path,
-            processed_path,
-        )
-
-        symbol = (args.symbol or args.symbols[0]).upper()
 
         result = backtest_and_save(
             processed_path,
