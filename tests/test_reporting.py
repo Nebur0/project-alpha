@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from project_alpha.reporting import (
+    sanitize_metric_values,
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
@@ -119,6 +120,13 @@ def test_summarize_walk_forward_metrics() -> None:
         "compounded_excess_return"
     ] == pytest.approx(-0.026)
 
+    assert (
+        summary[
+            "valid_sharpe_window_count"
+        ]
+        == 2
+    )
+
     assert summary[
         "mean_window_annualized_sharpe"
     ] == pytest.approx(0.80)
@@ -169,6 +177,115 @@ def test_summarize_walk_forward_metrics_can_disable_compounding(
         ]
         is None
     )
+
+
+def test_summarize_walk_forward_metrics_ignores_non_finite_sharpes(
+) -> None:
+    results = [
+        {
+            "total_return": 0.10,
+            "benchmark_total_return": 0.05,
+            "annualized_sharpe": float("nan"),
+            "max_drawdown": -0.08,
+            "completed_trades": 2,
+        },
+        {
+            "total_return": 0.05,
+            "benchmark_total_return": 0.03,
+            "annualized_sharpe": 0.80,
+            "max_drawdown": -0.06,
+            "completed_trades": 3,
+        },
+        {
+            "total_return": -0.02,
+            "benchmark_total_return": 0.01,
+            "annualized_sharpe": float("inf"),
+            "max_drawdown": -0.10,
+            "completed_trades": 1,
+        },
+    ]
+
+    summary = (
+        summarize_walk_forward_metrics(
+            results
+        )
+    )
+
+    assert summary["window_count"] == 3
+
+    assert (
+        summary[
+            "valid_sharpe_window_count"
+        ]
+        == 1
+    )
+
+    assert summary[
+        "mean_window_annualized_sharpe"
+    ] == pytest.approx(0.80)
+
+
+def test_summarize_walk_forward_metrics_returns_none_when_all_sharpes_invalid(
+) -> None:
+    results = [
+        {
+            "total_return": 0.02,
+            "benchmark_total_return": 0.03,
+            "annualized_sharpe": float("nan"),
+            "max_drawdown": -0.05,
+            "completed_trades": 1,
+        },
+        {
+            "total_return": -0.01,
+            "benchmark_total_return": 0.01,
+            "annualized_sharpe": float("-inf"),
+            "max_drawdown": -0.07,
+            "completed_trades": 2,
+        },
+    ]
+
+    summary = (
+        summarize_walk_forward_metrics(
+            results
+        )
+    )
+
+    assert (
+        summary[
+            "valid_sharpe_window_count"
+        ]
+        == 0
+    )
+
+    assert (
+        summary[
+            "mean_window_annualized_sharpe"
+        ]
+        is None
+    )
+
+
+def test_sanitize_metric_values_replaces_non_finite_values(
+) -> None:
+    metrics = {
+        "total_return": 0.10,
+        "annualized_sharpe": float("nan"),
+        "profit_factor": float("inf"),
+        "completed_trades": 3,
+        "average_win": None,
+    }
+
+    sanitized = sanitize_metric_values(
+        metrics
+    )
+
+    assert sanitized["total_return"] == pytest.approx(
+        0.10
+    )
+    assert sanitized["annualized_sharpe"] is None
+    assert sanitized["profit_factor"] is None
+    assert sanitized["completed_trades"] == 3
+    assert sanitized["average_win"] is None
 
 
 def test_summarize_walk_forward_metrics_rejects_empty_results(

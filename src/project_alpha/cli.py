@@ -15,6 +15,7 @@ from project_alpha.pipeline import (
 )
 
 from project_alpha.reporting import (
+    sanitize_metric_values,
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
@@ -193,6 +194,51 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
     )
     batch_validate.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
+    batch_walk_forward = commands.add_parser(
+        "batch-walk-forward",
+        help="Esegue la validazione walk-forward su più simboli.",
+    )
+    batch_walk_forward.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/processed/features.csv"),
+    )
+    batch_walk_forward.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    batch_walk_forward.add_argument(
+        "--train-size",
+        type=int,
+        required=True,
+        help="Numero di righe nella prima finestra in-sample.",
+    )
+    batch_walk_forward.add_argument(
+        "--test-size",
+        type=int,
+        required=True,
+        help="Numero di righe in ogni finestra out-of-sample.",
+    )
+    batch_walk_forward.add_argument(
+        "--step-size",
+        type=int,
+        help=(
+            "Avanzamento tra le finestre; "
+            "predefinito: test-size."
+        ),
+    )
+    batch_walk_forward.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    batch_walk_forward.add_argument(
         "--cost-per-side",
         type=float,
         default=0.001,
@@ -571,6 +617,220 @@ def main() -> None:
         )
         return
 
+    if args.command == "batch-walk-forward":
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        normalized_symbols = list(
+            dict.fromkeys(
+                symbol.upper()
+                for symbol in args.symbols
+            )
+        )
+
+        effective_step_size = (
+            args.test_size
+            if args.step_size is None
+            else args.step_size
+        )
+
+        windows_overlap = (
+            effective_step_size
+            < args.test_size
+        )
+
+        results = {}
+        comparison_rows = []
+
+        for symbol in normalized_symbols:
+            selected = frame.loc[
+                frame["symbol"].astype(str).str.upper()
+                == symbol
+            ].copy()
+
+            if selected.empty:
+                raise ValueError(
+                    f"Simbolo {symbol} non trovato in "
+                    f"{args.input}."
+                )
+
+            splits = generate_walk_forward_splits(
+                frame=selected,
+                train_size=args.train_size,
+                test_size=args.test_size,
+                step_size=args.step_size,
+            )
+
+            windows = []
+            out_of_sample_metrics = []
+
+            for split in splits:
+                in_sample_result = (
+                    run_long_only_backtest(
+                        split.in_sample,
+                        initial_capital=(
+                            args.initial_capital
+                        ),
+                        cost_per_side=(
+                            args.cost_per_side
+                        ),
+                    )
+                )
+
+                out_of_sample_result = (
+                    run_long_only_backtest(
+                        split.out_of_sample,
+                        initial_capital=(
+                            args.initial_capital
+                        ),
+                        cost_per_side=(
+                            args.cost_per_side
+                        ),
+                    )
+                )
+
+                in_sample_metrics = (
+                    sanitize_metric_values(
+                        in_sample_result.metrics
+                    )
+                )
+                sanitized_out_of_sample_metrics = (
+                    sanitize_metric_values(
+                        out_of_sample_result.metrics
+                    )
+                )
+
+                out_of_sample_metrics.append(
+                    sanitized_out_of_sample_metrics
+                )
+
+                windows.append(
+                    {
+                        "window_number": (
+                            split.window_number
+                        ),
+                        "train_start": (
+                            split.train_start
+                            .isoformat()
+                        ),
+                        "train_end": (
+                            split.train_end
+                            .isoformat()
+                        ),
+                        "test_start": (
+                            split.test_start
+                            .isoformat()
+                        ),
+                        "test_end": (
+                            split.test_end
+                            .isoformat()
+                        ),
+                        "in_sample": (
+                            in_sample_metrics
+                        ),
+                        "out_of_sample": (
+                            sanitized_out_of_sample_metrics
+                        ),
+                    }
+                )
+
+            summary = (
+                summarize_walk_forward_metrics(
+                    out_of_sample_metrics,
+                    allow_compounding=(
+                        not windows_overlap
+                    ),
+                )
+            )
+
+            results[symbol] = {
+                "train_size": args.train_size,
+                "test_size": args.test_size,
+                "step_size": effective_step_size,
+                "window_count": len(windows),
+                "windows_overlap": (
+                    windows_overlap
+                ),
+                "compounding_enabled": (
+                    not windows_overlap
+                ),
+                "summary": summary,
+                "windows": windows,
+            }
+
+            comparison_rows.append(
+                {
+                    "symbol": symbol,
+                    "train_size": args.train_size,
+                    "test_size": args.test_size,
+                    "step_size": (
+                        effective_step_size
+                    ),
+                    "windows_overlap": (
+                        windows_overlap
+                    ),
+                    "compounding_enabled": (
+                        not windows_overlap
+                    ),
+                    **summary,
+                }
+            )
+
+        json_report_path = Path(
+            "reports/batch_walk_forward.json"
+        )
+        csv_report_path = Path(
+            "reports/batch_walk_forward.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        report = {
+            "symbols": normalized_symbols,
+            "train_size": args.train_size,
+            "test_size": args.test_size,
+            "step_size": effective_step_size,
+            "windows_overlap": windows_overlap,
+            "compounding_enabled": (
+                not windows_overlap
+            ),
+            "results": results,
+        }
+
+        report_content = json.dumps(
+            report,
+            indent=2,
+            allow_nan=False,
+        )
+
+        json_report_path.write_text(
+            report_content,
+            encoding="utf-8",
+        )
+
+        pd.DataFrame(
+            comparison_rows
+        ).to_csv(
+            csv_report_path,
+            index=False,
+        )
+
+        print(report_content)
+        print(
+            "\nReport JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV comparativo salvato in "
+            f"{csv_report_path}"
+        )
+        return
+
     if args.command == "walk-forward":
         frame = pd.read_csv(
             args.input,
@@ -632,8 +892,19 @@ def main() -> None:
                 )
             )
 
+            in_sample_metrics = (
+                sanitize_metric_values(
+                    in_sample_result.metrics
+                )
+            )
+            sanitized_out_of_sample_metrics = (
+                sanitize_metric_values(
+                    out_of_sample_result.metrics
+                )
+            )
+
             out_of_sample_metrics.append(
-                out_of_sample_result.metrics
+                sanitized_out_of_sample_metrics
             )
 
             metadata = {
@@ -656,10 +927,10 @@ def main() -> None:
                 {
                     **metadata,
                     "in_sample": (
-                        in_sample_result.metrics
+                        in_sample_metrics
                     ),
                     "out_of_sample": (
-                        out_of_sample_result.metrics
+                        sanitized_out_of_sample_metrics
                     ),
                 }
             )
