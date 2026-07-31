@@ -14,7 +14,10 @@ from project_alpha.pipeline import (
     fetch_and_save,
 )
 from project_alpha.reporting import save_batch_summary_csv
-from project_alpha.validation import split_by_date
+from project_alpha.validation import (
+    generate_walk_forward_splits,
+    split_by_date,
+)
 
 
 def _iso_date(value: str) -> date:
@@ -185,6 +188,50 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
     )
     batch_validate.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
+    walk_forward = commands.add_parser(
+        "walk-forward",
+        help="Esegue una validazione walk-forward su un simbolo.",
+    )
+    walk_forward.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/processed/features.csv"),
+    )
+    walk_forward.add_argument(
+        "--symbol",
+        required=True,
+    )
+    walk_forward.add_argument(
+        "--train-size",
+        type=int,
+        required=True,
+        help="Numero di righe nella prima finestra in-sample.",
+    )
+    walk_forward.add_argument(
+        "--test-size",
+        type=int,
+        required=True,
+        help="Numero di righe in ogni finestra out-of-sample.",
+    )
+    walk_forward.add_argument(
+        "--step-size",
+        type=int,
+        help=(
+            "Avanzamento tra le finestre; "
+            "predefinito: test-size."
+        ),
+    )
+    walk_forward.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    walk_forward.add_argument(
         "--cost-per-side",
         type=float,
         default=0.001,
@@ -492,6 +539,162 @@ def main() -> None:
 
         report_content = json.dumps(
             results,
+            indent=2,
+            allow_nan=False,
+        )
+
+        json_report_path.write_text(
+            report_content,
+            encoding="utf-8",
+        )
+
+        pd.DataFrame(
+            summary_rows
+        ).to_csv(
+            csv_report_path,
+            index=False,
+        )
+
+        print(report_content)
+        print(
+            "\nReport JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV salvato in "
+            f"{csv_report_path}"
+        )
+        return
+
+    if args.command == "walk-forward":
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        symbol = args.symbol.upper()
+
+        selected = frame.loc[
+            frame["symbol"].astype(str).str.upper()
+            == symbol
+        ].copy()
+
+        if selected.empty:
+            raise ValueError(
+                f"Simbolo {symbol} non trovato in "
+                f"{args.input}."
+            )
+
+        splits = generate_walk_forward_splits(
+            frame=selected,
+            train_size=args.train_size,
+            test_size=args.test_size,
+            step_size=args.step_size,
+        )
+
+        effective_step_size = (
+            args.test_size
+            if args.step_size is None
+            else args.step_size
+        )
+
+        windows = []
+        summary_rows = []
+
+        for split in splits:
+            in_sample_result = (
+                run_long_only_backtest(
+                    split.in_sample,
+                    initial_capital=(
+                        args.initial_capital
+                    ),
+                    cost_per_side=(
+                        args.cost_per_side
+                    ),
+                )
+            )
+
+            out_of_sample_result = (
+                run_long_only_backtest(
+                    split.out_of_sample,
+                    initial_capital=(
+                        args.initial_capital
+                    ),
+                    cost_per_side=(
+                        args.cost_per_side
+                    ),
+                )
+            )
+
+            metadata = {
+                "window_number": split.window_number,
+                "train_start": (
+                    split.train_start.isoformat()
+                ),
+                "train_end": (
+                    split.train_end.isoformat()
+                ),
+                "test_start": (
+                    split.test_start.isoformat()
+                ),
+                "test_end": (
+                    split.test_end.isoformat()
+                ),
+            }
+
+            windows.append(
+                {
+                    **metadata,
+                    "in_sample": (
+                        in_sample_result.metrics
+                    ),
+                    "out_of_sample": (
+                        out_of_sample_result.metrics
+                    ),
+                }
+            )
+
+            summary_rows.append(
+                {
+                    "symbol": symbol,
+                    "sample": "in_sample",
+                    **metadata,
+                    **in_sample_result.metrics,
+                }
+            )
+
+            summary_rows.append(
+                {
+                    "symbol": symbol,
+                    "sample": "out_of_sample",
+                    **metadata,
+                    **out_of_sample_result.metrics,
+                }
+            )
+
+        report = {
+            "symbol": symbol,
+            "train_size": args.train_size,
+            "test_size": args.test_size,
+            "step_size": effective_step_size,
+            "window_count": len(windows),
+            "windows": windows,
+        }
+
+        json_report_path = Path(
+            f"reports/{symbol}_walk_forward.json"
+        )
+        csv_report_path = Path(
+            f"reports/{symbol}_walk_forward.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        report_content = json.dumps(
+            report,
             indent=2,
             allow_nan=False,
         )
