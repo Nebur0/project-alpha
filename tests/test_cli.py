@@ -112,3 +112,73 @@ def test_walk_forward_requires_window_sizes() -> None:
                 "SPY",
             ]
         )
+
+
+def test_batch_walk_forward_parser_reads_arguments() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "batch-walk-forward",
+            "--input",
+            "data/processed/features.csv",
+            "--symbols",
+            "SPY",
+            "QQQ",
+            "AAPL",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--step-size",
+            "126",
+            "--initial-capital",
+            "25000",
+            "--cost-per-side",
+            "0.002",
+        ]
+    )
+
+    assert args.command == "batch-walk-forward"
+    assert args.input == Path(
+        "data/processed/features.csv"
+    )
+    assert args.symbols == [
+        "SPY",
+        "QQQ",
+        "AAPL",
+    ]
+    assert args.train_size == 1000
+    assert args.test_size == 252
+    assert args.step_size == 126
+    assert args.initial_capital == pytest.approx(
+        25_000.0
+    )
+    assert args.cost_per_side == pytest.approx(
+        0.002
+    )
+
+
+def test_batch_walk_forward_requires_arguments() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "batch-walk-forward",
+                "--train-size",
+                "1000",
+                "--test-size",
+                "252",
+            ]
+        )
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "batch-walk-forward",
+                "--symbols",
+                "SPY",
+                "QQQ",
+            ]
+        )

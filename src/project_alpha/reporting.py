@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from numbers import Real
+from numbers import Integral, Real
 from pathlib import Path
 
 import pandas as pd
@@ -38,6 +38,32 @@ def _required_float(
     return numeric_value
 
 
+def _optional_finite_float(
+    metrics: Mapping[str, MetricValue],
+    metric_name: str,
+) -> float | None:
+    value = metrics.get(metric_name)
+
+    if value is None:
+        return None
+
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, Real)
+    ):
+        raise ValueError(
+            f"La metrica '{metric_name}' "
+            "non è numerica."
+        )
+
+    numeric_value = float(value)
+
+    if not math.isfinite(numeric_value):
+        return None
+
+    return numeric_value
+
+
 def _required_non_negative_int(
     metrics: Mapping[str, MetricValue],
     metric_name: str,
@@ -57,6 +83,37 @@ def _required_non_negative_int(
         )
 
     return int(numeric_value)
+
+
+def sanitize_metric_values(
+    metrics: Mapping[str, MetricValue],
+) -> dict[str, MetricValue]:
+    sanitized: dict[str, MetricValue] = {}
+
+    for metric_name, value in metrics.items():
+        if value is None:
+            sanitized[metric_name] = None
+            continue
+
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, Real)
+        ):
+            raise ValueError(
+                f"La metrica '{metric_name}' "
+                "non è numerica."
+            )
+
+        numeric_value = float(value)
+
+        if not math.isfinite(numeric_value):
+            sanitized[metric_name] = None
+        elif isinstance(value, Integral):
+            sanitized[metric_name] = int(value)
+        else:
+            sanitized[metric_name] = numeric_value
+
+    return sanitized
 
 
 def summarize_walk_forward_metrics(
@@ -89,11 +146,15 @@ def summarize_walk_forward_metrics(
     ]
 
     sharpes = [
-        _required_float(
-            metrics,
-            "annualized_sharpe",
-        )
+        sharpe
         for metrics in out_of_sample_results
+        if (
+            sharpe := _optional_finite_float(
+                metrics,
+                "annualized_sharpe",
+            )
+        )
+        is not None
     ]
 
     drawdowns = [
@@ -112,12 +173,26 @@ def summarize_walk_forward_metrics(
         for metrics in out_of_sample_results
     ]
 
-    window_count = len(out_of_sample_results)
+    window_count = len(
+        out_of_sample_results
+    )
 
     positive_window_count = sum(
         total_return > 0.0
         for total_return in total_returns
     )
+
+    valid_sharpe_window_count = len(
+        sharpes
+    )
+
+    mean_sharpe: float | None = None
+
+    if sharpes:
+        mean_sharpe = (
+            sum(sharpes)
+            / valid_sharpe_window_count
+        )
 
     compounded_total_return: float | None = None
     compounded_benchmark_return: float | None = None
@@ -164,8 +239,11 @@ def summarize_walk_forward_metrics(
         "compounded_excess_return": (
             compounded_excess_return
         ),
+        "valid_sharpe_window_count": (
+            valid_sharpe_window_count
+        ),
         "mean_window_annualized_sharpe": (
-            sum(sharpes) / window_count
+            mean_sharpe
         ),
         "worst_max_drawdown": min(
             drawdowns
