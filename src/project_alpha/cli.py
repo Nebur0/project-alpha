@@ -13,6 +13,9 @@ from project_alpha.config import StrategyParameters
 from project_alpha.optimization import (
     grid_search_results_to_frame,
     run_parameter_grid_search,
+    run_walk_forward_optimization,
+    walk_forward_optimization_to_dict,
+    walk_forward_optimization_to_frame,
 )
 from project_alpha.pipeline import (
     analyze_and_save,
@@ -124,6 +127,103 @@ def _strategy_parameters_from_args(
         volume_period=args.volume_period,
         breakout_period=args.breakout_period,
     )
+
+
+def _add_parameter_grid_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--fast-ema-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    parser.add_argument(
+        "--slow-ema-periods",
+        nargs="+",
+        type=int,
+        default=[50],
+    )
+    parser.add_argument(
+        "--trend-ema-periods",
+        nargs="+",
+        type=int,
+        default=[200],
+    )
+    parser.add_argument(
+        "--rsi-periods",
+        nargs="+",
+        type=int,
+        default=[14],
+    )
+    parser.add_argument(
+        "--rsi-lowers",
+        nargs="+",
+        type=float,
+        default=[50.0],
+    )
+    parser.add_argument(
+        "--rsi-uppers",
+        nargs="+",
+        type=float,
+        default=[70.0],
+    )
+    parser.add_argument(
+        "--atr-periods",
+        nargs="+",
+        type=int,
+        default=[14],
+    )
+    parser.add_argument(
+        "--volume-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    parser.add_argument(
+        "--breakout-periods",
+        nargs="+",
+        type=int,
+        default=[20],
+    )
+    parser.add_argument(
+        "--score-metric",
+        choices=[
+            "annualized_sharpe",
+            "total_return",
+            "cagr",
+            "profit_factor",
+            "win_rate",
+            "max_drawdown",
+        ],
+        default="annualized_sharpe",
+    )
+
+
+def _parameter_grid_from_args(
+    args: argparse.Namespace,
+) -> dict[str, list[int | float]]:
+    return {
+        "fast_ema_period": (
+            args.fast_ema_periods
+        ),
+        "slow_ema_period": (
+            args.slow_ema_periods
+        ),
+        "trend_ema_period": (
+            args.trend_ema_periods
+        ),
+        "rsi_period": args.rsi_periods,
+        "rsi_lower": args.rsi_lowers,
+        "rsi_upper": args.rsi_uppers,
+        "atr_period": args.atr_periods,
+        "volume_period": (
+            args.volume_periods
+        ),
+        "breakout_period": (
+            args.breakout_periods
+        ),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -381,72 +481,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--symbol",
         required=True,
     )
-    grid_search.add_argument(
-        "--fast-ema-periods",
-        nargs="+",
-        type=int,
-        default=[20],
-    )
-    grid_search.add_argument(
-        "--slow-ema-periods",
-        nargs="+",
-        type=int,
-        default=[50],
-    )
-    grid_search.add_argument(
-        "--trend-ema-periods",
-        nargs="+",
-        type=int,
-        default=[200],
-    )
-    grid_search.add_argument(
-        "--rsi-periods",
-        nargs="+",
-        type=int,
-        default=[14],
-    )
-    grid_search.add_argument(
-        "--rsi-lowers",
-        nargs="+",
-        type=float,
-        default=[50.0],
-    )
-    grid_search.add_argument(
-        "--rsi-uppers",
-        nargs="+",
-        type=float,
-        default=[70.0],
-    )
-    grid_search.add_argument(
-        "--atr-periods",
-        nargs="+",
-        type=int,
-        default=[14],
-    )
-    grid_search.add_argument(
-        "--volume-periods",
-        nargs="+",
-        type=int,
-        default=[20],
-    )
-    grid_search.add_argument(
-        "--breakout-periods",
-        nargs="+",
-        type=int,
-        default=[20],
-    )
-    grid_search.add_argument(
-        "--score-metric",
-        choices=[
-            "annualized_sharpe",
-            "total_return",
-            "cagr",
-            "profit_factor",
-            "win_rate",
-            "max_drawdown",
-        ],
-        default="annualized_sharpe",
-    )
+    _add_parameter_grid_arguments(grid_search)
     grid_search.add_argument(
         "--top",
         type=int,
@@ -462,6 +497,75 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
     )
     grid_search.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
+    optimize_walk_forward = commands.add_parser(
+        "optimize-walk-forward",
+        help=(
+            "Ottimizza i parametri in-sample e "
+            "li valuta out-of-sample."
+        ),
+    )
+    optimize_walk_forward.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/raw/bars.csv"),
+        help=(
+            "Dataset OHLCV grezzo usato per "
+            "rigenerare indicatori e segnali."
+        ),
+    )
+    optimize_walk_forward.add_argument(
+        "--symbol",
+        required=True,
+    )
+    optimize_walk_forward.add_argument(
+        "--train-size",
+        type=int,
+        required=True,
+        help=(
+            "Numero di righe nella prima "
+            "finestra in-sample."
+        ),
+    )
+    optimize_walk_forward.add_argument(
+        "--test-size",
+        type=int,
+        required=True,
+        help=(
+            "Numero di righe in ogni finestra "
+            "out-of-sample."
+        ),
+    )
+    optimize_walk_forward.add_argument(
+        "--step-size",
+        type=int,
+        help=(
+            "Avanzamento tra le finestre; "
+            "predefinito: test-size."
+        ),
+    )
+    _add_parameter_grid_arguments(
+        optimize_walk_forward
+    )
+    optimize_walk_forward.add_argument(
+        "--minimum-completed-trades",
+        type=int,
+        default=1,
+        help=(
+            "Numero minimo di trade completati "
+            "richiesto nella finestra in-sample."
+        ),
+    )
+    optimize_walk_forward.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    optimize_walk_forward.add_argument(
         "--cost-per-side",
         type=float,
         default=0.001,
@@ -1229,27 +1333,9 @@ def main() -> None:
                 f"{args.input}."
             )
 
-        grid = {
-            "fast_ema_period": (
-                args.fast_ema_periods
-            ),
-            "slow_ema_period": (
-                args.slow_ema_periods
-            ),
-            "trend_ema_period": (
-                args.trend_ema_periods
-            ),
-            "rsi_period": args.rsi_periods,
-            "rsi_lower": args.rsi_lowers,
-            "rsi_upper": args.rsi_uppers,
-            "atr_period": args.atr_periods,
-            "volume_period": (
-                args.volume_periods
-            ),
-            "breakout_period": (
-                args.breakout_periods
-            ),
-        }
+        grid = _parameter_grid_from_args(
+            args
+        )
 
         results = run_parameter_grid_search(
             selected,
@@ -1340,6 +1426,108 @@ def main() -> None:
         print(
             "\nCombinazioni valutate: "
             f"{len(results)}"
+        )
+        print(
+            "Report JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV salvato in "
+            f"{csv_report_path}"
+        )
+        return
+
+    if args.command == "optimize-walk-forward":
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        symbol = args.symbol.upper()
+
+        selected = frame.loc[
+            frame["symbol"].astype(str).str.upper()
+            == symbol
+        ].copy()
+
+        if selected.empty:
+            raise ValueError(
+                f"Simbolo {symbol} non trovato in "
+                f"{args.input}."
+            )
+
+        grid = _parameter_grid_from_args(
+            args
+        )
+
+        result = run_walk_forward_optimization(
+            selected,
+            grid,
+            train_size=args.train_size,
+            test_size=args.test_size,
+            step_size=args.step_size,
+            initial_capital=(
+                args.initial_capital
+            ),
+            cost_per_side=(
+                args.cost_per_side
+            ),
+            score_metric=args.score_metric,
+            minimum_completed_trades=(
+                args.minimum_completed_trades
+            ),
+        )
+
+        report = (
+            walk_forward_optimization_to_dict(
+                result
+            )
+        )
+
+        result_frame = (
+            walk_forward_optimization_to_frame(
+                result
+            )
+        )
+
+        json_report_path = Path(
+            "reports/"
+            f"{symbol}_walk_forward_optimization.json"
+        )
+        csv_report_path = Path(
+            "reports/"
+            f"{symbol}_walk_forward_optimization.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        json_report_path.write_text(
+            json.dumps(
+                report,
+                indent=2,
+                allow_nan=False,
+            ),
+            encoding="utf-8",
+        )
+
+        result_frame.to_csv(
+            csv_report_path,
+            index=False,
+        )
+
+        print(
+            json.dumps(
+                report["summary"],
+                indent=2,
+                allow_nan=False,
+            )
+        )
+        print(
+            "\nFinestre ottimizzate: "
+            f"{len(result.windows)}"
         )
         print(
             "Report JSON salvato in "
