@@ -16,6 +16,11 @@ from project_alpha.reporting import (
     sanitize_metric_values,
     summarize_walk_forward_metrics,
 )
+from project_alpha.scoring import (
+    RobustScoreConfig,
+    RobustScoreResult,
+    calculate_robust_score,
+)
 from project_alpha.strategy import (
     add_baseline_position,
 )
@@ -27,6 +32,8 @@ from project_alpha.validation import (
 GridValue = int | float
 MetricValue = float | int | None
 
+ROBUST_SCORE_METRIC = "robust_score"
+
 
 @dataclass(frozen=True)
 class GridSearchResult:
@@ -34,6 +41,7 @@ class GridSearchResult:
     metrics: dict[str, MetricValue]
     score_metric: str
     score: float | None
+    robust_score: RobustScoreResult | None = None
 
 
 @dataclass(frozen=True)
@@ -47,6 +55,7 @@ class WalkForwardOptimizationWindow:
     selected_score: float
     in_sample_metrics: dict[str, MetricValue]
     out_of_sample_metrics: dict[str, MetricValue]
+    robust_score: RobustScoreResult | None = None
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,7 @@ class WalkForwardOptimizationResult:
     minimum_completed_trades: int
     windows_overlap: bool
     compounding_enabled: bool
+    robust_score_config: RobustScoreConfig | None
     windows: tuple[
         WalkForwardOptimizationWindow,
         ...,
@@ -166,6 +176,73 @@ def _metric_as_float(
     return float(value)
 
 
+def _resolve_robust_score_config(
+    score_metric: str,
+    robust_score_config: RobustScoreConfig | None,
+) -> RobustScoreConfig | None:
+    if score_metric == ROBUST_SCORE_METRIC:
+        return (
+            robust_score_config
+            or RobustScoreConfig()
+        )
+
+    if robust_score_config is not None:
+        raise ValueError(
+            "robust_score_config può essere "
+            "usato solo con "
+            "score_metric='robust_score'."
+        )
+
+    return None
+
+
+def _calculate_candidate_score(
+    metrics: Mapping[
+        str,
+        MetricValue,
+    ],
+    *,
+    score_metric: str,
+    robust_score_config: RobustScoreConfig | None,
+) -> tuple[
+    float | None,
+    RobustScoreResult | None,
+]:
+    if score_metric == ROBUST_SCORE_METRIC:
+        if robust_score_config is None:
+            raise RuntimeError(
+                "Configurazione robust score "
+                "non inizializzata."
+            )
+
+        try:
+            robust_score = calculate_robust_score(
+                metrics,
+                robust_score_config,
+            )
+        except ValueError:
+            return None, None
+
+        return (
+            robust_score.score,
+            robust_score,
+        )
+
+    if score_metric not in metrics:
+        raise ValueError(
+            "Metrica di ordinamento "
+            f"'{score_metric}' non disponibile."
+        )
+
+    return (
+        _metric_as_float(
+            metrics,
+            score_metric,
+        ),
+        None,
+    )
+
+
 def _validate_single_symbol_frame(
     frame: pd.DataFrame,
 ) -> str:
@@ -222,12 +299,22 @@ def run_parameter_grid_search(
     score_metric: str = (
         "annualized_sharpe"
     ),
+    robust_score_config: (
+        RobustScoreConfig | None
+    ) = None,
 ) -> list[GridSearchResult]:
     _validate_single_symbol_frame(frame)
 
     _validate_backtest_arguments(
         initial_capital,
         cost_per_side,
+    )
+
+    effective_robust_score_config = (
+        _resolve_robust_score_config(
+            score_metric,
+            robust_score_config,
+        )
     )
 
     parameter_sets = (
@@ -263,15 +350,15 @@ def run_parameter_grid_search(
             backtest_result.metrics
         )
 
-        if score_metric not in metrics:
-            raise ValueError(
-                "Metrica di ordinamento "
-                f"'{score_metric}' non disponibile."
-            )
-
-        score = _metric_as_float(
+        (
+            score,
+            robust_score,
+        ) = _calculate_candidate_score(
             metrics,
-            score_metric,
+            score_metric=score_metric,
+            robust_score_config=(
+                effective_robust_score_config
+            ),
         )
 
         results.append(
@@ -280,6 +367,7 @@ def run_parameter_grid_search(
                 metrics=metrics,
                 score_metric=score_metric,
                 score=score,
+                robust_score=robust_score,
             )
         )
 
@@ -334,6 +422,37 @@ def grid_search_results_to_frame(
         results,
         start=1,
     ):
+        robust_values: dict[
+            str,
+            MetricValue,
+        ] = {}
+
+        if result.robust_score is not None:
+            robust_values = {
+                "robust_score": (
+                    result.robust_score.score
+                ),
+                "robust_sharpe": (
+                    result.robust_score.sharpe
+                ),
+                "robust_excess_return": (
+                    result.robust_score
+                    .excess_return
+                ),
+                "robust_max_drawdown": (
+                    result.robust_score
+                    .max_drawdown
+                ),
+                "robust_completed_trades": (
+                    result.robust_score
+                    .completed_trades
+                ),
+                "robust_trade_shortfall": (
+                    result.robust_score
+                    .trade_shortfall
+                ),
+            }
+
         rows.append(
             {
                 "rank": rank,
@@ -342,6 +461,7 @@ def grid_search_results_to_frame(
                     result.score_metric
                 ),
                 "score": result.score,
+                **robust_values,
                 **result.metrics,
             }
         )
@@ -457,6 +577,9 @@ def run_walk_forward_optimization(
         "annualized_sharpe"
     ),
     minimum_completed_trades: int = 1,
+    robust_score_config: (
+        RobustScoreConfig | None
+    ) = None,
 ) -> WalkForwardOptimizationResult:
     symbol = _validate_single_symbol_frame(
         frame
@@ -465,6 +588,13 @@ def run_walk_forward_optimization(
     _validate_backtest_arguments(
         initial_capital,
         cost_per_side,
+    )
+
+    effective_robust_score_config = (
+        _resolve_robust_score_config(
+            score_metric,
+            robust_score_config,
+        )
     )
 
     if (
@@ -521,6 +651,9 @@ def run_walk_forward_optimization(
                     cost_per_side
                 ),
                 score_metric=score_metric,
+                robust_score_config=(
+                    effective_robust_score_config
+                ),
             )
         )
 
@@ -592,6 +725,9 @@ def run_walk_forward_optimization(
                 out_of_sample_metrics=(
                     sanitized_out_of_sample_metrics
                 ),
+                robust_score=(
+                    selected_result.robust_score
+                ),
             )
         )
 
@@ -614,6 +750,9 @@ def run_walk_forward_optimization(
         windows_overlap=windows_overlap,
         compounding_enabled=(
             not windows_overlap
+        ),
+        robust_score_config=(
+            effective_robust_score_config
         ),
         windows=tuple(windows),
         summary=summary,
@@ -653,6 +792,12 @@ def walk_forward_optimization_to_dict(
                 "selected_score": (
                     window.selected_score
                 ),
+                "selected_robust_score": (
+                    asdict(window.robust_score)
+                    if window.robust_score
+                    is not None
+                    else None
+                ),
                 "in_sample": (
                     window.in_sample_metrics
                 ),
@@ -670,6 +815,12 @@ def walk_forward_optimization_to_dict(
         "step_size": result.step_size,
         "minimum_completed_trades": (
             result.minimum_completed_trades
+        ),
+        "robust_score_config": (
+            asdict(result.robust_score_config)
+            if result.robust_score_config
+            is not None
+            else None
         ),
         "window_count": len(
             result.windows
@@ -717,6 +868,26 @@ def walk_forward_optimization_to_frame(
                 ),
                 "selected_score": (
                     window.selected_score
+                ),
+                "selected_robust_score": (
+                    window.robust_score.score
+                    if window.robust_score
+                    is not None
+                    else None
+                ),
+                "selected_robust_excess_return": (
+                    window.robust_score
+                    .excess_return
+                    if window.robust_score
+                    is not None
+                    else None
+                ),
+                "selected_robust_trade_shortfall": (
+                    window.robust_score
+                    .trade_shortfall
+                    if window.robust_score
+                    is not None
+                    else None
                 ),
                 **{
                     f"in_sample_{name}": value
