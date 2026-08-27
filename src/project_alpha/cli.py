@@ -9,6 +9,12 @@ from pathlib import Path
 import pandas as pd
 
 from project_alpha.backtest import run_long_only_backtest
+from project_alpha.batch_optimization import (
+    batch_walk_forward_comparison_to_frame,
+    batch_walk_forward_optimization_to_dict,
+    batch_walk_forward_optimization_to_frame,
+    run_batch_walk_forward_optimization,
+)
 from project_alpha.config import StrategyParameters
 from project_alpha.optimization import (
     grid_search_results_to_frame,
@@ -566,6 +572,76 @@ def build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
     )
     optimize_walk_forward.add_argument(
+        "--cost-per-side",
+        type=float,
+        default=0.001,
+    )
+
+    batch_optimize_walk_forward = commands.add_parser(
+        "batch-optimize-walk-forward",
+        help=(
+            "Ottimizza i parametri in-sample e "
+            "li valuta out-of-sample su più simboli."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/raw/bars.csv"),
+        help=(
+            "Dataset OHLCV grezzo usato per "
+            "rigenerare indicatori e segnali."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--symbols",
+        nargs="+",
+        required=True,
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--train-size",
+        type=int,
+        required=True,
+        help=(
+            "Numero di righe nella prima "
+            "finestra in-sample."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--test-size",
+        type=int,
+        required=True,
+        help=(
+            "Numero di righe in ogni finestra "
+            "out-of-sample."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--step-size",
+        type=int,
+        help=(
+            "Avanzamento tra le finestre; "
+            "predefinito: test-size."
+        ),
+    )
+    _add_parameter_grid_arguments(
+        batch_optimize_walk_forward
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--minimum-completed-trades",
+        type=int,
+        default=1,
+        help=(
+            "Numero minimo di trade completati "
+            "richiesto nella finestra in-sample."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--initial-capital",
+        type=float,
+        default=10_000.0,
+    )
+    batch_optimize_walk_forward.add_argument(
         "--cost-per-side",
         type=float,
         default=0.001,
@@ -1536,6 +1612,115 @@ def main() -> None:
         print(
             "Report CSV salvato in "
             f"{csv_report_path}"
+        )
+        return
+
+    if args.command == "batch-optimize-walk-forward":
+        frame = pd.read_csv(
+            args.input,
+            parse_dates=["timestamp"],
+        )
+
+        grid = _parameter_grid_from_args(
+            args
+        )
+
+        result = (
+            run_batch_walk_forward_optimization(
+                frame,
+                args.symbols,
+                grid,
+                train_size=args.train_size,
+                test_size=args.test_size,
+                step_size=args.step_size,
+                initial_capital=(
+                    args.initial_capital
+                ),
+                cost_per_side=(
+                    args.cost_per_side
+                ),
+                score_metric=args.score_metric,
+                minimum_completed_trades=(
+                    args.minimum_completed_trades
+                ),
+            )
+        )
+
+        report = (
+            batch_walk_forward_optimization_to_dict(
+                result
+            )
+        )
+
+        detailed_frame = (
+            batch_walk_forward_optimization_to_frame(
+                result
+            )
+        )
+
+        comparison_frame = (
+            batch_walk_forward_comparison_to_frame(
+                result
+            )
+        )
+
+        json_report_path = Path(
+            "reports/"
+            "batch_walk_forward_optimization.json"
+        )
+        detailed_csv_report_path = Path(
+            "reports/"
+            "batch_walk_forward_optimization.csv"
+        )
+        comparison_csv_report_path = Path(
+            "reports/"
+            "batch_walk_forward_optimization_comparison.csv"
+        )
+
+        json_report_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        json_report_path.write_text(
+            json.dumps(
+                report,
+                indent=2,
+                allow_nan=False,
+            ),
+            encoding="utf-8",
+        )
+
+        detailed_frame.to_csv(
+            detailed_csv_report_path,
+            index=False,
+        )
+
+        comparison_frame.to_csv(
+            comparison_csv_report_path,
+            index=False,
+        )
+
+        print(
+            comparison_frame.to_string(
+                index=False
+            )
+        )
+        print(
+            "\nSimboli ottimizzati: "
+            f"{len(result.symbols)}"
+        )
+        print(
+            "Report JSON salvato in "
+            f"{json_report_path}"
+        )
+        print(
+            "Report CSV dettagliato salvato in "
+            f"{detailed_csv_report_path}"
+        )
+        print(
+            "Report CSV comparativo salvato in "
+            f"{comparison_csv_report_path}"
         )
         return
 
