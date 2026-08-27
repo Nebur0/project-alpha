@@ -1,7 +1,10 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
 
+import project_alpha.optimization as optimization_module
 from project_alpha.optimization import (
     generate_strategy_parameters,
     grid_search_results_to_frame,
@@ -9,6 +12,9 @@ from project_alpha.optimization import (
     run_walk_forward_optimization,
     walk_forward_optimization_to_dict,
     walk_forward_optimization_to_frame,
+)
+from project_alpha.scoring import (
+    RobustScoreConfig,
 )
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -557,3 +563,307 @@ def test_walk_forward_optimization_serializers(
     assert expected_columns.issubset(
         frame.columns
     )
+
+
+def _install_deterministic_robust_scoring_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_add_indicators(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        return frame.copy()
+
+    def fake_add_baseline_position(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        result = frame.copy()
+        result["candidate_fast_ema_period"] = (
+            parameters.fast_ema_period
+        )
+        return result
+
+    def fake_run_long_only_backtest(
+        frame: pd.DataFrame,
+        *,
+        initial_capital: float,
+        cost_per_side: float,
+    ) -> SimpleNamespace:
+        fast_ema_period = int(
+            frame[
+                "candidate_fast_ema_period"
+            ].iloc[0]
+        )
+
+        if fast_ema_period == 3:
+            metrics = {
+                "initial_capital": initial_capital,
+                "final_equity": (
+                    initial_capital * 1.20
+                ),
+                "total_return": 0.20,
+                "benchmark_total_return": 0.30,
+                "cagr": 0.20,
+                "annualized_sharpe": 1.00,
+                "max_drawdown": -0.10,
+                "trade_events": 40,
+                "completed_trades": 20,
+                "winning_trades": 12,
+                "losing_trades": 8,
+                "win_rate": 0.60,
+                "average_trade_return": 0.01,
+                "average_win": 0.02,
+                "average_loss": -0.01,
+                "profit_factor": 1.50,
+                "market_exposure": 0.40,
+                "cost_per_side": cost_per_side,
+            }
+        else:
+            metrics = {
+                "initial_capital": initial_capital,
+                "final_equity": (
+                    initial_capital * 1.50
+                ),
+                "total_return": 0.50,
+                "benchmark_total_return": 0.30,
+                "cagr": 0.50,
+                "annualized_sharpe": 0.80,
+                "max_drawdown": -0.05,
+                "trade_events": 40,
+                "completed_trades": 20,
+                "winning_trades": 11,
+                "losing_trades": 9,
+                "win_rate": 0.55,
+                "average_trade_return": 0.02,
+                "average_win": 0.03,
+                "average_loss": -0.01,
+                "profit_factor": 1.80,
+                "market_exposure": 0.45,
+                "cost_per_side": cost_per_side,
+            }
+
+        return SimpleNamespace(
+            metrics=metrics
+        )
+
+    monkeypatch.setattr(
+        optimization_module,
+        "add_indicators",
+        fake_add_indicators,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "add_baseline_position",
+        fake_add_baseline_position,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "run_long_only_backtest",
+        fake_run_long_only_backtest,
+    )
+
+
+def test_parameter_grid_search_robust_score_changes_ranking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    frame = _sample_market_frame()
+
+    sharpe_results = run_parameter_grid_search(
+        frame,
+        _small_parameter_grid(),
+        score_metric="annualized_sharpe",
+    )
+
+    robust_results = run_parameter_grid_search(
+        frame,
+        _small_parameter_grid(),
+        score_metric="robust_score",
+    )
+
+    assert (
+        sharpe_results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+
+    assert (
+        robust_results[0]
+        .parameters
+        .fast_ema_period
+        == 4
+    )
+
+    assert robust_results[0].score_metric == (
+        "robust_score"
+    )
+    assert robust_results[0].robust_score is not None
+    assert robust_results[0].score == pytest.approx(
+        0.95
+    )
+    assert (
+        robust_results[0]
+        .robust_score
+        .excess_return
+        == pytest.approx(
+            0.20
+        )
+    )
+
+
+def test_parameter_grid_search_uses_custom_robust_score_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    config = RobustScoreConfig(
+        sharpe_weight=10.0,
+        excess_return_weight=0.0,
+        drawdown_weight=0.0,
+        trade_shortfall_weight=0.0,
+        target_completed_trades=20,
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(),
+        _small_parameter_grid(),
+        score_metric="robust_score",
+        robust_score_config=config,
+    )
+
+    assert (
+        results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+    assert results[0].score == pytest.approx(
+        10.0
+    )
+
+    frame = grid_search_results_to_frame(
+        results
+    )
+
+    expected_columns = {
+        "robust_score",
+        "robust_sharpe",
+        "robust_excess_return",
+        "robust_max_drawdown",
+        "robust_completed_trades",
+        "robust_trade_shortfall",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def test_parameter_grid_search_rejects_robust_config_with_other_metric(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "robust_score_config può essere "
+            "usato solo"
+        ),
+    ):
+        run_parameter_grid_search(
+            _sample_market_frame(),
+            _small_parameter_grid(),
+            score_metric="total_return",
+            robust_score_config=(
+                RobustScoreConfig()
+            ),
+        )
+
+
+def test_walk_forward_optimization_propagates_robust_score(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    config = RobustScoreConfig(
+        target_completed_trades=20,
+    )
+
+    result = run_walk_forward_optimization(
+        _sample_market_frame(
+            periods=100,
+        ),
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score",
+        minimum_completed_trades=0,
+        robust_score_config=config,
+    )
+
+    assert result.score_metric == "robust_score"
+    assert result.robust_score_config == config
+    assert len(result.windows) > 0
+
+    first_window = result.windows[0]
+
+    assert (
+        first_window
+        .selected_parameters
+        .fast_ema_period
+        == 4
+    )
+    assert first_window.robust_score is not None
+    assert first_window.selected_score == (
+        pytest.approx(
+            first_window.robust_score.score
+        )
+    )
+
+    report = walk_forward_optimization_to_dict(
+        result
+    )
+
+    assert report["robust_score_config"] == {
+        "sharpe_weight": 1.0,
+        "excess_return_weight": 1.0,
+        "drawdown_weight": 1.0,
+        "trade_shortfall_weight": 0.5,
+        "target_completed_trades": 20,
+    }
+
+    report_windows = report["windows"]
+
+    assert isinstance(
+        report_windows,
+        list,
+    )
+    assert (
+        report_windows[0][
+            "selected_robust_score"
+        ]
+        is not None
+    )
+
+    frame = walk_forward_optimization_to_frame(
+        result
+    )
+
+    expected_columns = {
+        "selected_robust_score",
+        "selected_robust_excess_return",
+        "selected_robust_trade_shortfall",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
