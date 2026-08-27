@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import pandas as pd
 
@@ -12,6 +12,7 @@ from project_alpha.optimization import (
     walk_forward_optimization_to_dict,
     walk_forward_optimization_to_frame,
 )
+from project_alpha.scoring import RobustScoreConfig
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class BatchWalkForwardOptimizationResult:
     test_size: int
     step_size: int
     minimum_completed_trades: int
+    robust_score_config: RobustScoreConfig | None
     results: dict[
         str,
         WalkForwardOptimizationResult,
@@ -85,6 +87,9 @@ def run_batch_walk_forward_optimization(
         "annualized_sharpe"
     ),
     minimum_completed_trades: int = 1,
+    robust_score_config: (
+        RobustScoreConfig | None
+    ) = None,
 ) -> BatchWalkForwardOptimizationResult:
     _validate_batch_frame(frame)
 
@@ -136,6 +141,9 @@ def run_batch_walk_forward_optimization(
             minimum_completed_trades=(
                 minimum_completed_trades
             ),
+            robust_score_config=(
+                robust_score_config
+            ),
         )
 
         results[symbol] = result
@@ -146,6 +154,10 @@ def run_batch_walk_forward_optimization(
         else step_size
     )
 
+    first_result = results[
+        normalized_symbols[0]
+    ]
+
     return BatchWalkForwardOptimizationResult(
         symbols=normalized_symbols,
         score_metric=score_metric,
@@ -154,6 +166,9 @@ def run_batch_walk_forward_optimization(
         step_size=effective_step_size,
         minimum_completed_trades=(
             minimum_completed_trades
+        ),
+        robust_score_config=(
+            first_result.robust_score_config
         ),
         results=results,
     )
@@ -170,6 +185,12 @@ def batch_walk_forward_optimization_to_dict(
         "step_size": result.step_size,
         "minimum_completed_trades": (
             result.minimum_completed_trades
+        ),
+        "robust_score_config": (
+            asdict(result.robust_score_config)
+            if result.robust_score_config
+            is not None
+            else None
         ),
         "symbol_count": len(
             result.symbols
@@ -216,43 +237,74 @@ def batch_walk_forward_comparison_to_frame(
 ) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
 
+    robust_config = result.robust_score_config
+
     for symbol in result.symbols:
         symbol_result = (
             result.results[symbol]
         )
 
-        rows.append(
-            {
-                "symbol": symbol,
-                "score_metric": (
-                    result.score_metric
-                ),
-                "train_size": (
-                    result.train_size
-                ),
-                "test_size": (
-                    result.test_size
-                ),
-                "step_size": (
-                    result.step_size
-                ),
-                "minimum_completed_trades": (
-                    result
-                    .minimum_completed_trades
-                ),
-                "window_count": len(
-                    symbol_result.windows
-                ),
-                "windows_overlap": (
-                    symbol_result
-                    .windows_overlap
-                ),
-                "compounding_enabled": (
-                    symbol_result
-                    .compounding_enabled
-                ),
-                **symbol_result.summary,
-            }
+        row: dict[str, object] = {
+            "symbol": symbol,
+            "score_metric": (
+                result.score_metric
+            ),
+            "train_size": (
+                result.train_size
+            ),
+            "test_size": (
+                result.test_size
+            ),
+            "step_size": (
+                result.step_size
+            ),
+            "minimum_completed_trades": (
+                result
+                .minimum_completed_trades
+            ),
+            "window_count": len(
+                symbol_result.windows
+            ),
+            "windows_overlap": (
+                symbol_result
+                .windows_overlap
+            ),
+            "compounding_enabled": (
+                symbol_result
+                .compounding_enabled
+            ),
+        }
+
+        if robust_config is not None:
+            row.update(
+                {
+                    "robust_sharpe_weight": (
+                        robust_config
+                        .sharpe_weight
+                    ),
+                    "robust_excess_return_weight": (
+                        robust_config
+                        .excess_return_weight
+                    ),
+                    "robust_drawdown_weight": (
+                        robust_config
+                        .drawdown_weight
+                    ),
+                    "robust_trade_shortfall_weight": (
+                        robust_config
+                        .trade_shortfall_weight
+                    ),
+                    "robust_target_completed_trades": (
+                        robust_config
+                        .target_completed_trades
+                    ),
+                }
+            )
+
+        row.update(
+            symbol_result.summary
         )
+
+        rows.append(row)
 
     return pd.DataFrame(rows)
