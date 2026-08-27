@@ -34,6 +34,7 @@ from project_alpha.reporting import (
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
+from project_alpha.scoring import RobustScoreConfig
 
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -201,8 +202,53 @@ def _add_parameter_grid_arguments(
             "profit_factor",
             "win_rate",
             "max_drawdown",
+            "robust_score",
         ],
         default="annualized_sharpe",
+    )
+    parser.add_argument(
+        "--robust-sharpe-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso dello Sharpe nel robust score."
+        ),
+    )
+    parser.add_argument(
+        "--robust-excess-return-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso dell'excess return rispetto "
+            "al benchmark nel robust score."
+        ),
+    )
+    parser.add_argument(
+        "--robust-drawdown-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso del max drawdown nel "
+            "robust score."
+        ),
+    )
+    parser.add_argument(
+        "--robust-trade-shortfall-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso della penalità per carenza "
+            "di trade nel robust score."
+        ),
+    )
+    parser.add_argument(
+        "--robust-target-completed-trades",
+        type=int,
+        default=20,
+        help=(
+            "Numero target di trade completati "
+            "usato dal robust score."
+        ),
     )
 
 
@@ -230,6 +276,31 @@ def _parameter_grid_from_args(
             args.breakout_periods
         ),
     }
+
+
+def _robust_score_config_from_args(
+    args: argparse.Namespace,
+) -> RobustScoreConfig | None:
+    if args.score_metric != "robust_score":
+        return None
+
+    return RobustScoreConfig(
+        sharpe_weight=(
+            args.robust_sharpe_weight
+        ),
+        excess_return_weight=(
+            args.robust_excess_return_weight
+        ),
+        drawdown_weight=(
+            args.robust_drawdown_weight
+        ),
+        trade_shortfall_weight=(
+            args.robust_trade_shortfall_weight
+        ),
+        target_completed_trades=(
+            args.robust_target_completed_trades
+        ),
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1413,6 +1484,12 @@ def main() -> None:
             args
         )
 
+        robust_score_config = (
+            _robust_score_config_from_args(
+                args
+            )
+        )
+
         results = run_parameter_grid_search(
             selected,
             grid,
@@ -1423,6 +1500,9 @@ def main() -> None:
                 args.cost_per_side
             ),
             score_metric=args.score_metric,
+            robust_score_config=(
+                robust_score_config
+            ),
         )
 
         result_frame = (
@@ -1446,6 +1526,12 @@ def main() -> None:
                     result.score_metric
                 ),
                 "score": result.score,
+                "robust_score": (
+                    asdict(result.robust_score)
+                    if result.robust_score
+                    is not None
+                    else None
+                ),
                 "metrics": result.metrics,
             }
             for rank, result in enumerate(
@@ -1458,6 +1544,12 @@ def main() -> None:
             "symbol": symbol,
             "score_metric": (
                 args.score_metric
+            ),
+            "robust_score_config": (
+                asdict(robust_score_config)
+                if robust_score_config
+                is not None
+                else None
             ),
             "combination_count": (
                 len(results)
@@ -1536,6 +1628,12 @@ def main() -> None:
             args
         )
 
+        robust_score_config = (
+            _robust_score_config_from_args(
+                args
+            )
+        )
+
         result = run_walk_forward_optimization(
             selected,
             grid,
@@ -1551,6 +1649,9 @@ def main() -> None:
             score_metric=args.score_metric,
             minimum_completed_trades=(
                 args.minimum_completed_trades
+            ),
+            robust_score_config=(
+                robust_score_config
             ),
         )
 
@@ -1625,6 +1726,12 @@ def main() -> None:
             args
         )
 
+        robust_score_config = (
+            _robust_score_config_from_args(
+                args
+            )
+        )
+
         result = (
             run_batch_walk_forward_optimization(
                 frame,
@@ -1642,6 +1749,9 @@ def main() -> None:
                 score_metric=args.score_metric,
                 minimum_completed_trades=(
                     args.minimum_completed_trades
+                ),
+                robust_score_config=(
+                    robust_score_config
                 ),
             )
         )
