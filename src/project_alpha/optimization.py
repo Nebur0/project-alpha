@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from itertools import product
 from numbers import Real
 
@@ -19,7 +19,10 @@ from project_alpha.reporting import (
 from project_alpha.scoring import (
     RobustScoreConfig,
     RobustScoreResult,
+    RobustScoreV3Config,
+    RobustScoreV3Result,
     calculate_robust_score,
+    calculate_robust_score_v3,
 )
 from project_alpha.strategy import (
     add_baseline_position,
@@ -33,6 +36,7 @@ GridValue = int | float
 MetricValue = float | int | None
 
 ROBUST_SCORE_METRIC = "robust_score"
+ROBUST_SCORE_V3_METRIC = "robust_score_v3"
 
 
 @dataclass(frozen=True)
@@ -42,6 +46,7 @@ class GridSearchResult:
     score_metric: str
     score: float | None
     robust_score: RobustScoreResult | None = None
+    robust_score_v3: RobustScoreV3Result | None = None
 
 
 @dataclass(frozen=True)
@@ -56,6 +61,7 @@ class WalkForwardOptimizationWindow:
     in_sample_metrics: dict[str, MetricValue]
     out_of_sample_metrics: dict[str, MetricValue]
     robust_score: RobustScoreResult | None = None
+    robust_score_v3: RobustScoreV3Result | None = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +75,7 @@ class WalkForwardOptimizationResult:
     windows_overlap: bool
     compounding_enabled: bool
     robust_score_config: RobustScoreConfig | None
+    robust_score_v3_config: RobustScoreV3Config | None
     windows: tuple[
         WalkForwardOptimizationWindow,
         ...,
@@ -180,7 +187,10 @@ def _resolve_robust_score_config(
     score_metric: str,
     robust_score_config: RobustScoreConfig | None,
 ) -> RobustScoreConfig | None:
-    if score_metric == ROBUST_SCORE_METRIC:
+    if score_metric in {
+        ROBUST_SCORE_METRIC,
+        ROBUST_SCORE_V3_METRIC,
+    }:
         return (
             robust_score_config
             or RobustScoreConfig()
@@ -190,7 +200,30 @@ def _resolve_robust_score_config(
         raise ValueError(
             "robust_score_config può essere "
             "usato solo con "
-            "score_metric='robust_score'."
+            "score_metric='robust_score' o "
+            "score_metric='robust_score_v3'."
+        )
+
+    return None
+
+
+def _resolve_robust_score_v3_config(
+    score_metric: str,
+    robust_score_v3_config: (
+        RobustScoreV3Config | None
+    ),
+) -> RobustScoreV3Config | None:
+    if score_metric == ROBUST_SCORE_V3_METRIC:
+        return (
+            robust_score_v3_config
+            or RobustScoreV3Config()
+        )
+
+    if robust_score_v3_config is not None:
+        raise ValueError(
+            "robust_score_v3_config può essere "
+            "usato solo con "
+            "score_metric='robust_score_v3'."
         )
 
     return None
@@ -208,7 +241,10 @@ def _calculate_candidate_score(
     float | None,
     RobustScoreResult | None,
 ]:
-    if score_metric == ROBUST_SCORE_METRIC:
+    if score_metric in {
+        ROBUST_SCORE_METRIC,
+        ROBUST_SCORE_V3_METRIC,
+    }:
         if robust_score_config is None:
             raise RuntimeError(
                 "Configurazione robust score "
@@ -241,6 +277,142 @@ def _calculate_candidate_score(
         ),
         None,
     )
+
+
+def _grid_value_positions(
+    grid: Mapping[
+        str,
+        Sequence[GridValue],
+    ],
+) -> dict[
+    str,
+    dict[GridValue, int],
+]:
+    positions: dict[
+        str,
+        dict[GridValue, int],
+    ] = {}
+
+    for parameter_name, values in grid.items():
+        unique_values = tuple(
+            dict.fromkeys(values)
+        )
+
+        positions[parameter_name] = {
+            value: index
+            for index, value
+            in enumerate(unique_values)
+        }
+
+    return positions
+
+
+def _are_grid_neighbors(
+    first: StrategyParameters,
+    second: StrategyParameters,
+    grid_positions: Mapping[
+        str,
+        Mapping[GridValue, int],
+    ],
+) -> bool:
+    differing_dimensions = 0
+
+    for parameter_name, positions in (
+        grid_positions.items()
+    ):
+        first_value = getattr(
+            first,
+            parameter_name,
+        )
+        second_value = getattr(
+            second,
+            parameter_name,
+        )
+
+        if first_value == second_value:
+            continue
+
+        first_position = positions[
+            first_value
+        ]
+        second_position = positions[
+            second_value
+        ]
+
+        if abs(
+            first_position
+            - second_position
+        ) != 1:
+            return False
+
+        differing_dimensions += 1
+
+        if differing_dimensions > 1:
+            return False
+
+    return differing_dimensions == 1
+
+
+def _apply_robust_score_v3(
+    results: Sequence[GridSearchResult],
+    grid: Mapping[
+        str,
+        Sequence[GridValue],
+    ],
+    config: RobustScoreV3Config,
+) -> list[GridSearchResult]:
+    grid_positions = (
+        _grid_value_positions(grid)
+    )
+
+    updated_results: list[
+        GridSearchResult
+    ] = []
+
+    for result in results:
+        if result.robust_score is None:
+            updated_results.append(
+                replace(
+                    result,
+                    score=None,
+                    robust_score_v3=None,
+                )
+            )
+            continue
+
+        neighbor_scores = [
+            candidate.robust_score.score
+            for candidate in results
+            if (
+                candidate.robust_score
+                is not None
+                and _are_grid_neighbors(
+                    result.parameters,
+                    candidate.parameters,
+                    grid_positions,
+                )
+            )
+        ]
+
+        robust_score_v3 = (
+            calculate_robust_score_v3(
+                result.robust_score.score,
+                neighbor_scores,
+                config,
+            )
+        )
+
+        updated_results.append(
+            replace(
+                result,
+                score=robust_score_v3.score,
+                robust_score_v3=(
+                    robust_score_v3
+                ),
+            )
+        )
+
+    return updated_results
 
 
 def _validate_single_symbol_frame(
@@ -302,6 +474,9 @@ def run_parameter_grid_search(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    robust_score_v3_config: (
+        RobustScoreV3Config | None
+    ) = None,
 ) -> list[GridSearchResult]:
     _validate_single_symbol_frame(frame)
 
@@ -314,6 +489,13 @@ def run_parameter_grid_search(
         _resolve_robust_score_config(
             score_metric,
             robust_score_config,
+        )
+    )
+
+    effective_robust_score_v3_config = (
+        _resolve_robust_score_v3_config(
+            score_metric,
+            robust_score_v3_config,
         )
     )
 
@@ -369,6 +551,19 @@ def run_parameter_grid_search(
                 score=score,
                 robust_score=robust_score,
             )
+        )
+
+    if score_metric == ROBUST_SCORE_V3_METRIC:
+        if effective_robust_score_v3_config is None:
+            raise RuntimeError(
+                "Configurazione robust score v3 "
+                "non inizializzata."
+            )
+
+        results = _apply_robust_score_v3(
+            results,
+            grid,
+            effective_robust_score_v3_config,
         )
 
     def sort_key(
@@ -452,6 +647,27 @@ def grid_search_results_to_frame(
                     .trade_shortfall
                 ),
             }
+
+        if result.robust_score_v3 is not None:
+            robust_values.update(
+                {
+                    "robust_v3_score": (
+                        result.robust_score_v3.score
+                    ),
+                    "robust_v3_base_score": (
+                        result.robust_score_v3
+                        .base_score
+                    ),
+                    "robust_v3_neighborhood_score": (
+                        result.robust_score_v3
+                        .neighborhood_score
+                    ),
+                    "robust_v3_neighbor_count": (
+                        result.robust_score_v3
+                        .neighbor_count
+                    ),
+                }
+            )
 
         rows.append(
             {
@@ -580,6 +796,9 @@ def run_walk_forward_optimization(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    robust_score_v3_config: (
+        RobustScoreV3Config | None
+    ) = None,
 ) -> WalkForwardOptimizationResult:
     symbol = _validate_single_symbol_frame(
         frame
@@ -594,6 +813,13 @@ def run_walk_forward_optimization(
         _resolve_robust_score_config(
             score_metric,
             robust_score_config,
+        )
+    )
+
+    effective_robust_score_v3_config = (
+        _resolve_robust_score_v3_config(
+            score_metric,
+            robust_score_v3_config,
         )
     )
 
@@ -653,6 +879,9 @@ def run_walk_forward_optimization(
                 score_metric=score_metric,
                 robust_score_config=(
                     effective_robust_score_config
+                ),
+                robust_score_v3_config=(
+                    effective_robust_score_v3_config
                 ),
             )
         )
@@ -728,6 +957,9 @@ def run_walk_forward_optimization(
                 robust_score=(
                     selected_result.robust_score
                 ),
+                robust_score_v3=(
+                    selected_result.robust_score_v3
+                ),
             )
         )
 
@@ -753,6 +985,9 @@ def run_walk_forward_optimization(
         ),
         robust_score_config=(
             effective_robust_score_config
+        ),
+        robust_score_v3_config=(
+            effective_robust_score_v3_config
         ),
         windows=tuple(windows),
         summary=summary,
@@ -798,6 +1033,12 @@ def walk_forward_optimization_to_dict(
                     is not None
                     else None
                 ),
+                "selected_robust_score_v3": (
+                    asdict(window.robust_score_v3)
+                    if window.robust_score_v3
+                    is not None
+                    else None
+                ),
                 "in_sample": (
                     window.in_sample_metrics
                 ),
@@ -819,6 +1060,12 @@ def walk_forward_optimization_to_dict(
         "robust_score_config": (
             asdict(result.robust_score_config)
             if result.robust_score_config
+            is not None
+            else None
+        ),
+        "robust_score_v3_config": (
+            asdict(result.robust_score_v3_config)
+            if result.robust_score_v3_config
             is not None
             else None
         ),
@@ -886,6 +1133,33 @@ def walk_forward_optimization_to_frame(
                     window.robust_score
                     .trade_shortfall
                     if window.robust_score
+                    is not None
+                    else None
+                ),
+                "selected_robust_v3_score": (
+                    window.robust_score_v3.score
+                    if window.robust_score_v3
+                    is not None
+                    else None
+                ),
+                "selected_robust_v3_base_score": (
+                    window.robust_score_v3
+                    .base_score
+                    if window.robust_score_v3
+                    is not None
+                    else None
+                ),
+                "selected_robust_v3_neighborhood_score": (
+                    window.robust_score_v3
+                    .neighborhood_score
+                    if window.robust_score_v3
+                    is not None
+                    else None
+                ),
+                "selected_robust_v3_neighbor_count": (
+                    window.robust_score_v3
+                    .neighbor_count
+                    if window.robust_score_v3
                     is not None
                     else None
                 ),

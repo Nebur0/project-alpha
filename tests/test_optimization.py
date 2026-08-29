@@ -15,6 +15,7 @@ from project_alpha.optimization import (
 )
 from project_alpha.scoring import (
     RobustScoreConfig,
+    RobustScoreV3Config,
 )
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -861,6 +862,437 @@ def test_walk_forward_optimization_propagates_robust_score(
         "selected_robust_score",
         "selected_robust_excess_return",
         "selected_robust_trade_shortfall",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def _v3_parameter_grid() -> dict[
+    str,
+    list[int | float],
+]:
+    return {
+        "fast_ema_period": [
+            3,
+            4,
+            5,
+            6,
+        ],
+        "slow_ema_period": [
+            10,
+        ],
+        "trend_ema_period": [
+            20,
+        ],
+    }
+
+
+def _v3_base_score_config() -> RobustScoreConfig:
+    return RobustScoreConfig(
+        sharpe_weight=1.0,
+        excess_return_weight=0.0,
+        drawdown_weight=0.0,
+        trade_shortfall_weight=0.0,
+        target_completed_trades=20,
+    )
+
+
+def _install_deterministic_robust_v3_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sharpe_by_fast_period = {
+        3: 1.00,
+        4: 0.10,
+        5: 0.80,
+        6: 0.80,
+    }
+
+    def fake_add_indicators(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        return frame.copy()
+
+    def fake_add_baseline_position(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        result = frame.copy()
+
+        result["candidate_fast_ema_period"] = (
+            parameters.fast_ema_period
+        )
+
+        return result
+
+    def fake_run_long_only_backtest(
+        frame: pd.DataFrame,
+        *,
+        initial_capital: float,
+        cost_per_side: float,
+    ) -> SimpleNamespace:
+        fast_ema_period = int(
+            frame[
+                "candidate_fast_ema_period"
+            ].iloc[0]
+        )
+
+        sharpe = sharpe_by_fast_period[
+            fast_ema_period
+        ]
+
+        metrics = {
+            "initial_capital": initial_capital,
+            "final_equity": (
+                initial_capital
+                * (1.0 + sharpe / 10.0)
+            ),
+            "total_return": (
+                sharpe / 10.0
+            ),
+            "benchmark_total_return": 0.0,
+            "cagr": sharpe / 10.0,
+            "annualized_sharpe": sharpe,
+            "max_drawdown": -0.10,
+            "trade_events": 40,
+            "completed_trades": 20,
+            "winning_trades": 10,
+            "losing_trades": 10,
+            "win_rate": 0.50,
+            "average_trade_return": 0.01,
+            "average_win": 0.02,
+            "average_loss": -0.01,
+            "profit_factor": 1.50,
+            "market_exposure": 0.40,
+            "cost_per_side": cost_per_side,
+        }
+
+        return SimpleNamespace(
+            metrics=metrics
+        )
+
+    monkeypatch.setattr(
+        optimization_module,
+        "add_indicators",
+        fake_add_indicators,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "add_baseline_position",
+        fake_add_baseline_position,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "run_long_only_backtest",
+        fake_run_long_only_backtest,
+    )
+
+
+def test_parameter_grid_search_robust_v3_prefers_parameter_plateau(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v3_mocks(
+        monkeypatch
+    )
+
+    frame = _sample_market_frame()
+    grid = _v3_parameter_grid()
+    base_config = _v3_base_score_config()
+
+    robust_results = run_parameter_grid_search(
+        frame,
+        grid,
+        score_metric="robust_score",
+        robust_score_config=base_config,
+    )
+
+    v3_results = run_parameter_grid_search(
+        frame,
+        grid,
+        score_metric="robust_score_v3",
+        robust_score_config=base_config,
+    )
+
+    assert (
+        robust_results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+
+    assert (
+        v3_results[0]
+        .parameters
+        .fast_ema_period
+        == 6
+    )
+
+    selected = v3_results[0]
+
+    assert selected.robust_score is not None
+    assert selected.robust_score_v3 is not None
+
+    assert (
+        selected.robust_score.score
+        == pytest.approx(
+            0.80
+        )
+    )
+    assert (
+        selected.robust_score_v3
+        .neighborhood_score
+        == pytest.approx(
+            0.80
+        )
+    )
+    assert (
+        selected.robust_score_v3
+        .neighbor_count
+        == 1
+    )
+    assert selected.score == pytest.approx(
+        0.80
+    )
+
+    isolated_peak = next(
+        result
+        for result in v3_results
+        if (
+            result.parameters
+            .fast_ema_period
+            == 3
+        )
+    )
+
+    assert isolated_peak.robust_score is not None
+    assert (
+        isolated_peak.robust_score_v3
+        is not None
+    )
+
+    assert (
+        isolated_peak.robust_score.score
+        > selected.robust_score.score
+    )
+    assert (
+        isolated_peak.robust_score_v3.score
+        == pytest.approx(
+            0.55
+        )
+    )
+    assert (
+        selected.robust_score_v3.score
+        > isolated_peak.robust_score_v3.score
+    )
+
+
+def test_parameter_grid_search_robust_v3_uses_custom_weights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v3_mocks(
+        monkeypatch
+    )
+
+    v3_config = RobustScoreV3Config(
+        base_score_weight=1.0,
+        neighborhood_score_weight=0.0,
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(),
+        _v3_parameter_grid(),
+        score_metric="robust_score_v3",
+        robust_score_config=(
+            _v3_base_score_config()
+        ),
+        robust_score_v3_config=v3_config,
+    )
+
+    assert (
+        results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+    assert results[0].score == pytest.approx(
+        1.0
+    )
+
+    assert (
+        results[0].robust_score_v3
+        is not None
+    )
+    assert (
+        results[0]
+        .robust_score_v3
+        .base_score
+        == pytest.approx(
+            1.0
+        )
+    )
+
+
+def test_parameter_grid_search_robust_v3_frame_contains_audit_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v3_mocks(
+        monkeypatch
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(),
+        _v3_parameter_grid(),
+        score_metric="robust_score_v3",
+        robust_score_config=(
+            _v3_base_score_config()
+        ),
+    )
+
+    frame = grid_search_results_to_frame(
+        results
+    )
+
+    expected_columns = {
+        "robust_score",
+        "robust_sharpe",
+        "robust_excess_return",
+        "robust_max_drawdown",
+        "robust_completed_trades",
+        "robust_trade_shortfall",
+        "robust_v3_score",
+        "robust_v3_base_score",
+        "robust_v3_neighborhood_score",
+        "robust_v3_neighbor_count",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def test_parameter_grid_search_rejects_v3_config_with_other_metric(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="robust_score_v3_config",
+    ):
+        run_parameter_grid_search(
+            _sample_market_frame(),
+            _small_parameter_grid(),
+            score_metric="robust_score",
+            robust_score_v3_config=(
+                RobustScoreV3Config()
+            ),
+        )
+
+
+def test_walk_forward_optimization_propagates_robust_score_v3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v3_mocks(
+        monkeypatch
+    )
+
+    base_config = _v3_base_score_config()
+
+    v3_config = RobustScoreV3Config(
+        base_score_weight=0.5,
+        neighborhood_score_weight=0.5,
+    )
+
+    result = run_walk_forward_optimization(
+        _sample_market_frame(
+            periods=100,
+        ),
+        _v3_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v3",
+        minimum_completed_trades=0,
+        robust_score_config=base_config,
+        robust_score_v3_config=v3_config,
+    )
+
+    assert (
+        result.score_metric
+        == "robust_score_v3"
+    )
+    assert result.robust_score_config == (
+        base_config
+    )
+    assert (
+        result.robust_score_v3_config
+        == v3_config
+    )
+    assert len(result.windows) > 0
+
+    first_window = result.windows[0]
+
+    assert (
+        first_window
+        .selected_parameters
+        .fast_ema_period
+        == 6
+    )
+    assert (
+        first_window.robust_score
+        is not None
+    )
+    assert (
+        first_window.robust_score_v3
+        is not None
+    )
+    assert (
+        first_window.selected_score
+        == pytest.approx(
+            first_window
+            .robust_score_v3
+            .score
+        )
+    )
+
+    report = walk_forward_optimization_to_dict(
+        result
+    )
+
+    assert report["robust_score_config"] == {
+        "sharpe_weight": 1.0,
+        "excess_return_weight": 0.0,
+        "drawdown_weight": 0.0,
+        "trade_shortfall_weight": 0.0,
+        "target_completed_trades": 20,
+    }
+
+    assert report["robust_score_v3_config"] == {
+        "base_score_weight": 0.5,
+        "neighborhood_score_weight": 0.5,
+    }
+
+    report_windows = report["windows"]
+
+    assert isinstance(
+        report_windows,
+        list,
+    )
+    assert (
+        report_windows[0][
+            "selected_robust_score_v3"
+        ]
+        is not None
+    )
+
+    frame = walk_forward_optimization_to_frame(
+        result
+    )
+
+    expected_columns = {
+        "selected_robust_v3_score",
+        "selected_robust_v3_base_score",
+        "selected_robust_v3_neighborhood_score",
+        "selected_robust_v3_neighbor_count",
     }
 
     assert expected_columns.issubset(

@@ -11,7 +11,10 @@ from project_alpha.batch_optimization import (
     batch_walk_forward_optimization_to_frame,
     run_batch_walk_forward_optimization,
 )
-from project_alpha.scoring import RobustScoreConfig
+from project_alpha.scoring import (
+    RobustScoreConfig,
+    RobustScoreV3Config,
+)
 
 
 def _sample_symbol_frame(
@@ -231,6 +234,7 @@ def test_batch_walk_forward_optimization_runs_multiple_symbols(
     assert result.step_size == 20
     assert result.minimum_completed_trades == 0
     assert result.robust_score_config is None
+    assert result.robust_score_v3_config is None
     assert set(result.results) == {
         "SPY",
         "QQQ",
@@ -392,6 +396,7 @@ def test_batch_walk_forward_optimization_to_dict(
     assert report["test_size"] == 20
     assert report["step_size"] == 20
     assert report["robust_score_config"] is None
+    assert report["robust_score_v3_config"] is None
 
     results = report["results"]
 
@@ -659,3 +664,260 @@ def test_batch_walk_forward_comparison_includes_robust_config_columns(
     ) == {
         5,
     }
+
+
+def test_batch_walk_forward_optimization_supports_robust_v3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    base_config = RobustScoreConfig(
+        sharpe_weight=1.5,
+        excess_return_weight=2.0,
+        drawdown_weight=0.75,
+        trade_shortfall_weight=0.25,
+        target_completed_trades=5,
+    )
+
+    v3_config = RobustScoreV3Config(
+        base_score_weight=0.5,
+        neighborhood_score_weight=0.5,
+    )
+
+    result = run_batch_walk_forward_optimization(
+        _sample_batch_frame(),
+        [
+            "SPY",
+            "QQQ",
+        ],
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v3",
+        minimum_completed_trades=0,
+        robust_score_config=base_config,
+        robust_score_v3_config=v3_config,
+    )
+
+    assert (
+        result.score_metric
+        == "robust_score_v3"
+    )
+    assert (
+        result.robust_score_config
+        == base_config
+    )
+    assert (
+        result.robust_score_v3_config
+        == v3_config
+    )
+
+    for symbol in result.symbols:
+        symbol_result = result.results[symbol]
+
+        assert (
+            symbol_result.score_metric
+            == "robust_score_v3"
+        )
+        assert (
+            symbol_result.robust_score_config
+            == base_config
+        )
+        assert (
+            symbol_result
+            .robust_score_v3_config
+            == v3_config
+        )
+        assert len(symbol_result.windows) > 0
+
+        for window in symbol_result.windows:
+            assert (
+                window.robust_score
+                is not None
+            )
+            assert (
+                window.robust_score_v3
+                is not None
+            )
+            assert (
+                window.selected_score
+                == pytest.approx(
+                    window
+                    .robust_score_v3
+                    .score
+                )
+            )
+
+
+def test_batch_walk_forward_optimization_v3_config_is_serialized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    base_config = RobustScoreConfig(
+        sharpe_weight=1.5,
+        excess_return_weight=2.0,
+        drawdown_weight=0.75,
+        trade_shortfall_weight=0.25,
+        target_completed_trades=5,
+    )
+
+    v3_config = RobustScoreV3Config(
+        base_score_weight=0.25,
+        neighborhood_score_weight=0.75,
+    )
+
+    result = run_batch_walk_forward_optimization(
+        _sample_batch_frame(),
+        [
+            "SPY",
+        ],
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v3",
+        minimum_completed_trades=0,
+        robust_score_config=base_config,
+        robust_score_v3_config=v3_config,
+    )
+
+    report = (
+        batch_walk_forward_optimization_to_dict(
+            result
+        )
+    )
+
+    assert report["robust_score_config"] == {
+        "sharpe_weight": 1.5,
+        "excess_return_weight": 2.0,
+        "drawdown_weight": 0.75,
+        "trade_shortfall_weight": 0.25,
+        "target_completed_trades": 5,
+    }
+
+    assert report["robust_score_v3_config"] == {
+        "base_score_weight": 0.25,
+        "neighborhood_score_weight": 0.75,
+    }
+
+    symbol_report = report["results"]["SPY"]
+
+    assert (
+        symbol_report[
+            "robust_score_v3_config"
+        ]
+        == {
+            "base_score_weight": 0.25,
+            "neighborhood_score_weight": 0.75,
+        }
+    )
+
+
+def test_batch_walk_forward_frame_includes_robust_v3_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    result = run_batch_walk_forward_optimization(
+        _sample_batch_frame(),
+        [
+            "SPY",
+            "QQQ",
+        ],
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v3",
+        minimum_completed_trades=0,
+        robust_score_config=RobustScoreConfig(),
+        robust_score_v3_config=(
+            RobustScoreV3Config()
+        ),
+    )
+
+    frame = (
+        batch_walk_forward_optimization_to_frame(
+            result
+        )
+    )
+
+    expected_columns = {
+        "selected_robust_v3_score",
+        "selected_robust_v3_base_score",
+        "selected_robust_v3_neighborhood_score",
+        "selected_robust_v3_neighbor_count",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def test_batch_walk_forward_comparison_includes_robust_v3_config_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    v3_config = RobustScoreV3Config(
+        base_score_weight=0.25,
+        neighborhood_score_weight=0.75,
+    )
+
+    result = run_batch_walk_forward_optimization(
+        _sample_batch_frame(),
+        [
+            "SPY",
+            "QQQ",
+        ],
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v3",
+        minimum_completed_trades=0,
+        robust_score_config=RobustScoreConfig(),
+        robust_score_v3_config=v3_config,
+    )
+
+    frame = (
+        batch_walk_forward_comparison_to_frame(
+            result
+        )
+    )
+
+    expected_columns = {
+        "robust_v3_base_score_weight",
+        "robust_v3_neighborhood_score_weight",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+    assert set(
+        frame[
+            "robust_v3_base_score_weight"
+        ]
+    ) == {
+        0.25,
+    }
+
+    assert set(
+        frame[
+            "robust_v3_neighborhood_score_weight"
+        ]
+    ) == {
+        0.75,
+    }
+

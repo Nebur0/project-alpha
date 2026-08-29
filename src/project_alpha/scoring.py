@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite
 from numbers import Real
-from typing import Mapping
+from statistics import median
 
 
 MetricValue = float | int | None
@@ -72,6 +73,54 @@ class RobustScoreResult:
     trade_shortfall: float
 
 
+@dataclass(frozen=True)
+class RobustScoreV3Config:
+    base_score_weight: float = 0.5
+    neighborhood_score_weight: float = 0.5
+
+    def __post_init__(self) -> None:
+        weights = {
+            "base_score_weight": (
+                self.base_score_weight
+            ),
+            "neighborhood_score_weight": (
+                self.neighborhood_score_weight
+            ),
+        }
+
+        for name, value in weights.items():
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Real)
+                or not isfinite(float(value))
+                or float(value) < 0.0
+            ):
+                raise ValueError(
+                    f"{name} deve essere un numero "
+                    "finito non negativo."
+                )
+
+        if (
+            float(self.base_score_weight)
+            + float(
+                self.neighborhood_score_weight
+            )
+            <= 0.0
+        ):
+            raise ValueError(
+                "Almeno uno dei pesi del robust "
+                "score v3 deve essere positivo."
+            )
+
+
+@dataclass(frozen=True)
+class RobustScoreV3Result:
+    score: float
+    base_score: float
+    neighborhood_score: float
+    neighbor_count: int
+
+
 def _required_float_metric(
     metrics: Mapping[
         str,
@@ -134,6 +183,29 @@ def _required_trade_count(
         )
 
     return int(numeric_value)
+
+
+def _required_score_value(
+    value: Real,
+    *,
+    name: str,
+) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, Real)
+    ):
+        raise ValueError(
+            f"{name} deve essere un numero finito."
+        )
+
+    numeric_value = float(value)
+
+    if not isfinite(numeric_value):
+        raise ValueError(
+            f"{name} deve essere un numero finito."
+        )
+
+    return numeric_value
 
 
 def calculate_robust_score(
@@ -213,4 +285,59 @@ def calculate_robust_score(
         max_drawdown=max_drawdown,
         completed_trades=completed_trades,
         trade_shortfall=trade_shortfall,
+    )
+
+
+def calculate_robust_score_v3(
+    base_score: Real,
+    neighbor_scores: Sequence[Real],
+    config: RobustScoreV3Config | None = None,
+) -> RobustScoreV3Result:
+    effective_config = (
+        config or RobustScoreV3Config()
+    )
+
+    numeric_base_score = (
+        _required_score_value(
+            base_score,
+            name="base_score",
+        )
+    )
+
+    numeric_neighbor_scores = [
+        _required_score_value(
+            value,
+            name="neighbor_score",
+        )
+        for value in neighbor_scores
+    ]
+
+    if numeric_neighbor_scores:
+        neighborhood_score = float(
+            median(
+                numeric_neighbor_scores
+            )
+        )
+    else:
+        neighborhood_score = (
+            numeric_base_score
+        )
+
+    score = (
+        effective_config.base_score_weight
+        * numeric_base_score
+        + effective_config
+        .neighborhood_score_weight
+        * neighborhood_score
+    )
+
+    return RobustScoreV3Result(
+        score=score,
+        base_score=numeric_base_score,
+        neighborhood_score=(
+            neighborhood_score
+        ),
+        neighbor_count=len(
+            numeric_neighbor_scores
+        ),
     )

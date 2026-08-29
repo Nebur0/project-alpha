@@ -2,7 +2,9 @@ import pytest
 
 from project_alpha.scoring import (
     RobustScoreConfig,
+    RobustScoreV3Config,
     calculate_robust_score,
+    calculate_robust_score_v3,
 )
 
 
@@ -46,7 +48,6 @@ def test_calculate_robust_score_uses_default_weights() -> None:
     assert result.trade_shortfall == pytest.approx(
         0.0
     )
-
     assert result.score == pytest.approx(
         1.20
     )
@@ -63,7 +64,6 @@ def test_calculate_robust_score_penalizes_trade_shortfall() -> None:
     assert result.trade_shortfall == pytest.approx(
         0.5
     )
-
     assert result.score == pytest.approx(
         0.95
     )
@@ -100,14 +100,13 @@ def test_calculate_robust_score_uses_custom_weights() -> None:
 
 def test_calculate_robust_score_rewards_excess_return() -> None:
     first_metrics = _base_metrics()
-
     second_metrics = _base_metrics()
+
     second_metrics["total_return"] = 0.40
 
     first = calculate_robust_score(
         first_metrics
     )
-
     second = calculate_robust_score(
         second_metrics
     )
@@ -116,20 +115,18 @@ def test_calculate_robust_score_rewards_excess_return() -> None:
         second.excess_return
         > first.excess_return
     )
-
     assert second.score > first.score
 
 
 def test_calculate_robust_score_penalizes_drawdown() -> None:
     first_metrics = _base_metrics()
-
     second_metrics = _base_metrics()
+
     second_metrics["max_drawdown"] = -0.30
 
     first = calculate_robust_score(
         first_metrics
     )
-
     second = calculate_robust_score(
         second_metrics
     )
@@ -305,4 +302,242 @@ def test_calculate_robust_score_rejects_invalid_completed_trades(
     ):
         calculate_robust_score(
             metrics
+        )
+
+
+def test_calculate_robust_score_v3_uses_neighbor_median(
+) -> None:
+    result = calculate_robust_score_v3(
+        base_score=1.0,
+        neighbor_scores=[
+            0.2,
+            0.8,
+            1.4,
+        ],
+    )
+
+    assert result.base_score == pytest.approx(
+        1.0
+    )
+    assert (
+        result.neighborhood_score
+        == pytest.approx(
+            0.8
+        )
+    )
+    assert result.neighbor_count == 3
+    assert result.score == pytest.approx(
+        0.9
+    )
+
+
+def test_calculate_robust_score_v3_uses_even_neighbor_median(
+) -> None:
+    result = calculate_robust_score_v3(
+        base_score=1.0,
+        neighbor_scores=[
+            0.2,
+            0.8,
+            1.0,
+            1.4,
+        ],
+    )
+
+    assert (
+        result.neighborhood_score
+        == pytest.approx(
+            0.9
+        )
+    )
+    assert result.neighbor_count == 4
+    assert result.score == pytest.approx(
+        0.95
+    )
+
+
+def test_calculate_robust_score_v3_falls_back_to_base_without_neighbors(
+) -> None:
+    result = calculate_robust_score_v3(
+        base_score=0.75,
+        neighbor_scores=[],
+    )
+
+    assert result.base_score == pytest.approx(
+        0.75
+    )
+    assert (
+        result.neighborhood_score
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert result.neighbor_count == 0
+    assert result.score == pytest.approx(
+        0.75
+    )
+
+
+def test_calculate_robust_score_v3_uses_custom_weights(
+) -> None:
+    config = RobustScoreV3Config(
+        base_score_weight=0.25,
+        neighborhood_score_weight=0.75,
+    )
+
+    result = calculate_robust_score_v3(
+        base_score=1.2,
+        neighbor_scores=[
+            0.4,
+            0.8,
+            1.0,
+        ],
+        config=config,
+    )
+
+    expected_score = (
+        0.25 * 1.2
+        + 0.75 * 0.8
+    )
+
+    assert result.score == pytest.approx(
+        expected_score
+    )
+
+
+def test_calculate_robust_score_v3_rewards_stable_neighborhood(
+) -> None:
+    isolated_peak = (
+        calculate_robust_score_v3(
+            base_score=1.0,
+            neighbor_scores=[
+                0.1,
+                0.2,
+                0.3,
+            ],
+        )
+    )
+
+    stable_plateau = (
+        calculate_robust_score_v3(
+            base_score=0.9,
+            neighbor_scores=[
+                0.8,
+                0.9,
+                1.0,
+            ],
+        )
+    )
+
+    assert (
+        isolated_peak.base_score
+        > stable_plateau.base_score
+    )
+    assert (
+        stable_plateau.score
+        > isolated_peak.score
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        (
+            "base_score_weight",
+            -1.0,
+        ),
+        (
+            "neighborhood_score_weight",
+            -0.5,
+        ),
+        (
+            "base_score_weight",
+            float("inf"),
+        ),
+        (
+            "neighborhood_score_weight",
+            float("nan"),
+        ),
+        (
+            "base_score_weight",
+            True,
+        ),
+    ],
+)
+def test_robust_score_v3_config_rejects_invalid_weights(
+    field_name: str,
+    invalid_value: object,
+) -> None:
+    kwargs = {
+        "base_score_weight": 0.5,
+        "neighborhood_score_weight": 0.5,
+    }
+
+    kwargs[field_name] = invalid_value
+
+    with pytest.raises(
+        ValueError,
+        match="finito non negativo",
+    ):
+        RobustScoreV3Config(
+            **kwargs
+        )
+
+
+def test_robust_score_v3_config_rejects_all_zero_weights(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Almeno uno dei pesi",
+    ):
+        RobustScoreV3Config(
+            base_score_weight=0.0,
+            neighborhood_score_weight=0.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "base_score",
+    [
+        True,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+    ],
+)
+def test_calculate_robust_score_v3_rejects_invalid_base_score(
+    base_score: object,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="base_score",
+    ):
+        calculate_robust_score_v3(
+            base_score=base_score,
+            neighbor_scores=[
+                0.5,
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    "neighbor_score",
+    [
+        True,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+    ],
+)
+def test_calculate_robust_score_v3_rejects_invalid_neighbor_score(
+    neighbor_score: object,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="neighbor_score",
+    ):
+        calculate_robust_score_v3(
+            base_score=1.0,
+            neighbor_scores=[
+                neighbor_score,
+            ],
         )

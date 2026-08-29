@@ -34,7 +34,10 @@ from project_alpha.reporting import (
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
-from project_alpha.scoring import RobustScoreConfig
+from project_alpha.scoring import (
+    RobustScoreConfig,
+    RobustScoreV3Config,
+)
 
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -203,6 +206,7 @@ def _add_parameter_grid_arguments(
             "win_rate",
             "max_drawdown",
             "robust_score",
+            "robust_score_v3",
         ],
         default="annualized_sharpe",
     )
@@ -250,6 +254,24 @@ def _add_parameter_grid_arguments(
             "usato dal robust score."
         ),
     )
+    parser.add_argument(
+        "--robust-v3-base-score-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso del robust score base nel "
+            "robust score v3."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v3-neighborhood-score-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso della stabilità del vicinato "
+            "nel robust score v3."
+        ),
+    )
 
 
 def _parameter_grid_from_args(
@@ -281,7 +303,10 @@ def _parameter_grid_from_args(
 def _robust_score_config_from_args(
     args: argparse.Namespace,
 ) -> RobustScoreConfig | None:
-    if args.score_metric != "robust_score":
+    if args.score_metric not in {
+        "robust_score",
+        "robust_score_v3",
+    }:
         return None
 
     return RobustScoreConfig(
@@ -299,6 +324,22 @@ def _robust_score_config_from_args(
         ),
         target_completed_trades=(
             args.robust_target_completed_trades
+        ),
+    )
+
+
+def _robust_score_v3_config_from_args(
+    args: argparse.Namespace,
+) -> RobustScoreV3Config | None:
+    if args.score_metric != "robust_score_v3":
+        return None
+
+    return RobustScoreV3Config(
+        base_score_weight=(
+            args.robust_v3_base_score_weight
+        ),
+        neighborhood_score_weight=(
+            args.robust_v3_neighborhood_score_weight
         ),
     )
 
@@ -1490,6 +1531,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v3_config = (
+            _robust_score_v3_config_from_args(
+                args
+            )
+        )
+
         results = run_parameter_grid_search(
             selected,
             grid,
@@ -1502,6 +1549,9 @@ def main() -> None:
             score_metric=args.score_metric,
             robust_score_config=(
                 robust_score_config
+            ),
+            robust_score_v3_config=(
+                robust_score_v3_config
             ),
         )
 
@@ -1532,6 +1582,14 @@ def main() -> None:
                     is not None
                     else None
                 ),
+                "robust_score_v3": (
+                    asdict(
+                        result.robust_score_v3
+                    )
+                    if result.robust_score_v3
+                    is not None
+                    else None
+                ),
                 "metrics": result.metrics,
             }
             for rank, result in enumerate(
@@ -1548,6 +1606,14 @@ def main() -> None:
             "robust_score_config": (
                 asdict(robust_score_config)
                 if robust_score_config
+                is not None
+                else None
+            ),
+            "robust_score_v3_config": (
+                asdict(
+                    robust_score_v3_config
+                )
+                if robust_score_v3_config
                 is not None
                 else None
             ),
@@ -1634,6 +1700,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v3_config = (
+            _robust_score_v3_config_from_args(
+                args
+            )
+        )
+
         result = run_walk_forward_optimization(
             selected,
             grid,
@@ -1652,6 +1724,9 @@ def main() -> None:
             ),
             robust_score_config=(
                 robust_score_config
+            ),
+            robust_score_v3_config=(
+                robust_score_v3_config
             ),
         )
 
@@ -1732,6 +1807,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v3_config = (
+            _robust_score_v3_config_from_args(
+                args
+            )
+        )
+
         result = (
             run_batch_walk_forward_optimization(
                 frame,
@@ -1752,6 +1833,9 @@ def main() -> None:
                 ),
                 robust_score_config=(
                     robust_score_config
+                ),
+                robust_score_v3_config=(
+                    robust_score_v3_config
                 ),
             )
         )
