@@ -1976,3 +1976,7 @@ def main() -> None:
     raise RuntimeError(
         f"Comando non gestito: {args.command}"
     )
+
+if __name__ == "__main__":
+    main()
+
