@@ -34,7 +34,10 @@ from project_alpha.reporting import (
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
-from project_alpha.scoring import RobustScoreConfig
+from project_alpha.scoring import (
+    RobustScoreConfig,
+    RobustScoreV4Config,
+)
 
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -203,6 +206,7 @@ def _add_parameter_grid_arguments(
             "win_rate",
             "max_drawdown",
             "robust_score",
+            "robust_score_v4",
         ],
         default="annualized_sharpe",
     )
@@ -250,6 +254,33 @@ def _add_parameter_grid_arguments(
             "usato dal robust score."
         ),
     )
+    parser.add_argument(
+        "--robust-v4-base-score-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso del robust score base nel "
+            "robust score v4."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v4-temporal-downside-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso del temporal downside score "
+            "nel robust score v4."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v4-temporal-fold-count",
+        type=int,
+        default=4,
+        help=(
+            "Numero pari di fold temporali usati "
+            "dal robust score v4."
+        ),
+    )
 
 
 def _parameter_grid_from_args(
@@ -281,7 +312,10 @@ def _parameter_grid_from_args(
 def _robust_score_config_from_args(
     args: argparse.Namespace,
 ) -> RobustScoreConfig | None:
-    if args.score_metric != "robust_score":
+    if args.score_metric not in {
+        "robust_score",
+        "robust_score_v4",
+    }:
         return None
 
     return RobustScoreConfig(
@@ -299,6 +333,25 @@ def _robust_score_config_from_args(
         ),
         target_completed_trades=(
             args.robust_target_completed_trades
+        ),
+    )
+
+
+def _robust_score_v4_config_from_args(
+    args: argparse.Namespace,
+) -> RobustScoreV4Config | None:
+    if args.score_metric != "robust_score_v4":
+        return None
+
+    return RobustScoreV4Config(
+        base_score_weight=(
+            args.robust_v4_base_score_weight
+        ),
+        temporal_downside_weight=(
+            args.robust_v4_temporal_downside_weight
+        ),
+        temporal_fold_count=(
+            args.robust_v4_temporal_fold_count
         ),
     )
 
@@ -1490,6 +1543,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v4_config = (
+            _robust_score_v4_config_from_args(
+                args
+            )
+        )
+
         results = run_parameter_grid_search(
             selected,
             grid,
@@ -1502,6 +1561,9 @@ def main() -> None:
             score_metric=args.score_metric,
             robust_score_config=(
                 robust_score_config
+            ),
+            robust_score_v4_config=(
+                robust_score_v4_config
             ),
         )
 
@@ -1532,6 +1594,14 @@ def main() -> None:
                     is not None
                     else None
                 ),
+                "robust_score_v4": (
+                    asdict(
+                        result.robust_score_v4
+                    )
+                    if result.robust_score_v4
+                    is not None
+                    else None
+                ),
                 "metrics": result.metrics,
             }
             for rank, result in enumerate(
@@ -1548,6 +1618,12 @@ def main() -> None:
             "robust_score_config": (
                 asdict(robust_score_config)
                 if robust_score_config
+                is not None
+                else None
+            ),
+            "robust_score_v4_config": (
+                asdict(robust_score_v4_config)
+                if robust_score_v4_config
                 is not None
                 else None
             ),
@@ -1634,6 +1710,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v4_config = (
+            _robust_score_v4_config_from_args(
+                args
+            )
+        )
+
         result = run_walk_forward_optimization(
             selected,
             grid,
@@ -1652,6 +1734,9 @@ def main() -> None:
             ),
             robust_score_config=(
                 robust_score_config
+            ),
+            robust_score_v4_config=(
+                robust_score_v4_config
             ),
         )
 
@@ -1732,6 +1817,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v4_config = (
+            _robust_score_v4_config_from_args(
+                args
+            )
+        )
+
         result = (
             run_batch_walk_forward_optimization(
                 frame,
@@ -1752,6 +1843,9 @@ def main() -> None:
                 ),
                 robust_score_config=(
                     robust_score_config
+                ),
+                robust_score_v4_config=(
+                    robust_score_v4_config
                 ),
             )
         )

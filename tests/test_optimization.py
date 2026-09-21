@@ -15,6 +15,7 @@ from project_alpha.optimization import (
 )
 from project_alpha.scoring import (
     RobustScoreConfig,
+    RobustScoreV4Config,
 )
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -861,6 +862,497 @@ def test_walk_forward_optimization_propagates_robust_score(
         "selected_robust_score",
         "selected_robust_excess_return",
         "selected_robust_trade_shortfall",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def _install_deterministic_robust_v4_temporal_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_add_indicators(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        return frame.copy()
+
+    def fake_add_baseline_position(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        result = frame.copy()
+        result["candidate_fast_ema_period"] = (
+            parameters.fast_ema_period
+        )
+        return result
+
+    def fake_run_long_only_backtest(
+        frame: pd.DataFrame,
+        *,
+        initial_capital: float,
+        cost_per_side: float,
+    ) -> SimpleNamespace:
+        fast_ema_period = int(
+            frame[
+                "candidate_fast_ema_period"
+            ].iloc[0]
+        )
+
+        if len(frame) == 40:
+            sharpe = (
+                1.0
+                if fast_ema_period == 3
+                else 0.9
+            )
+        else:
+            first_timestamp = pd.Timestamp(
+                frame["timestamp"].min()
+            )
+            origin = pd.Timestamp(
+                "2024-01-01",
+                tz="UTC",
+            )
+            fold_index = int(
+                (
+                    first_timestamp
+                    - origin
+                ).days
+                // 10
+            )
+
+            if fast_ema_period == 3:
+                fold_sharpes = [
+                    1.4,
+                    1.3,
+                    0.1,
+                    0.2,
+                ]
+            else:
+                fold_sharpes = [
+                    0.8,
+                    0.85,
+                    0.9,
+                    0.95,
+                ]
+
+            sharpe = fold_sharpes[
+                fold_index
+            ]
+
+        metrics = {
+            "initial_capital": initial_capital,
+            "final_equity": initial_capital,
+            "total_return": 0.0,
+            "benchmark_total_return": 0.0,
+            "cagr": 0.0,
+            "annualized_sharpe": sharpe,
+            "max_drawdown": 0.0,
+            "trade_events": 40,
+            "completed_trades": 20,
+            "winning_trades": 10,
+            "losing_trades": 10,
+            "win_rate": 0.5,
+            "average_trade_return": 0.0,
+            "average_win": 0.0,
+            "average_loss": 0.0,
+            "profit_factor": 1.0,
+            "market_exposure": 0.4,
+            "cost_per_side": cost_per_side,
+        }
+
+        return SimpleNamespace(
+            metrics=metrics
+        )
+
+    monkeypatch.setattr(
+        optimization_module,
+        "add_indicators",
+        fake_add_indicators,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "add_baseline_position",
+        fake_add_baseline_position,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "run_long_only_backtest",
+        fake_run_long_only_backtest,
+    )
+
+
+def _v4_base_score_config() -> RobustScoreConfig:
+    return RobustScoreConfig(
+        sharpe_weight=1.0,
+        excess_return_weight=0.0,
+        drawdown_weight=0.0,
+        trade_shortfall_weight=0.0,
+        target_completed_trades=20,
+    )
+
+
+def test_temporal_fold_split_is_chronological_and_balanced(
+) -> None:
+    frame = _sample_market_frame(
+        periods=10,
+    )
+
+    folds = (
+        optimization_module
+        ._split_temporal_folds(
+            frame,
+            fold_count=4,
+        )
+    )
+
+    assert [
+        len(fold)
+        for fold in folds
+    ] == [
+        3,
+        3,
+        2,
+        2,
+    ]
+
+    combined_timestamps = pd.concat(
+        [
+            fold["timestamp"]
+            for fold in folds
+        ],
+        ignore_index=True,
+    )
+
+    assert combined_timestamps.tolist() == (
+        frame["timestamp"]
+        .sort_values(
+            kind="stable"
+        )
+        .tolist()
+    )
+
+
+def test_fold_robust_score_config_scales_trade_target(
+) -> None:
+    config = RobustScoreConfig(
+        sharpe_weight=1.5,
+        excess_return_weight=2.0,
+        drawdown_weight=0.75,
+        trade_shortfall_weight=0.25,
+        target_completed_trades=20,
+    )
+
+    scaled = (
+        optimization_module
+        ._scaled_fold_robust_score_config(
+            config,
+            fold_size=250,
+            training_size=1000,
+        )
+    )
+
+    assert (
+        scaled.target_completed_trades
+        == 5
+    )
+    assert scaled.sharpe_weight == pytest.approx(
+        1.5
+    )
+    assert (
+        scaled.excess_return_weight
+        == pytest.approx(
+            2.0
+        )
+    )
+    assert (
+        scaled.drawdown_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        scaled.trade_shortfall_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+
+
+def test_parameter_grid_search_robust_v4_rewards_temporal_stability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    frame = _sample_market_frame(
+        periods=40,
+    )
+
+    base_results = run_parameter_grid_search(
+        frame,
+        _small_parameter_grid(),
+        score_metric="robust_score",
+        robust_score_config=(
+            _v4_base_score_config()
+        ),
+    )
+
+    v4_results = run_parameter_grid_search(
+        frame,
+        _small_parameter_grid(),
+        score_metric="robust_score_v4",
+        robust_score_config=(
+            _v4_base_score_config()
+        ),
+    )
+
+    assert (
+        base_results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+
+    assert (
+        v4_results[0]
+        .parameters
+        .fast_ema_period
+        == 4
+    )
+
+    selected = v4_results[0]
+
+    assert (
+        selected.robust_score
+        is not None
+    )
+    assert (
+        selected.robust_score_v4
+        is not None
+    )
+
+    assert (
+        selected.robust_score_v4
+        .base_score
+        == pytest.approx(
+            0.9
+        )
+    )
+    assert (
+        selected.robust_score_v4
+        .temporal_downside_score
+        == pytest.approx(
+            0.825
+        )
+    )
+    assert (
+        selected.robust_score_v4
+        .temporal_fold_scores
+        == pytest.approx(
+            (
+                0.8,
+                0.85,
+                0.9,
+                0.95,
+            )
+        )
+    )
+    assert selected.score == pytest.approx(
+        0.8625
+    )
+
+
+def test_parameter_grid_search_robust_v4_custom_weights_can_use_base_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        _small_parameter_grid(),
+        score_metric="robust_score_v4",
+        robust_score_config=(
+            _v4_base_score_config()
+        ),
+        robust_score_v4_config=(
+            RobustScoreV4Config(
+                base_score_weight=1.0,
+                temporal_downside_weight=0.0,
+            )
+        ),
+    )
+
+    assert (
+        results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+    assert results[0].score == pytest.approx(
+        1.0
+    )
+
+
+def test_grid_search_results_to_frame_includes_robust_v4_audit_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        _small_parameter_grid(),
+        score_metric="robust_score_v4",
+        robust_score_config=(
+            _v4_base_score_config()
+        ),
+    )
+
+    frame = grid_search_results_to_frame(
+        results
+    )
+
+    expected_columns = {
+        "robust_v4_score",
+        "robust_v4_base_score",
+        "robust_v4_temporal_downside_score",
+        "robust_v4_downside_fold_count",
+        "robust_v4_temporal_fold_1_score",
+        "robust_v4_temporal_fold_2_score",
+        "robust_v4_temporal_fold_3_score",
+        "robust_v4_temporal_fold_4_score",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def test_parameter_grid_search_rejects_robust_v4_config_with_other_metric(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "robust_score_v4_config può essere "
+            "usato solo"
+        ),
+    ):
+        run_parameter_grid_search(
+            _sample_market_frame(),
+            _small_parameter_grid(),
+            score_metric="total_return",
+            robust_score_v4_config=(
+                RobustScoreV4Config()
+            ),
+        )
+
+
+def test_walk_forward_optimization_propagates_robust_v4(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    base_config = RobustScoreConfig(
+        target_completed_trades=20,
+    )
+    v4_config = RobustScoreV4Config()
+
+    result = run_walk_forward_optimization(
+        _sample_market_frame(
+            periods=100,
+        ),
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v4",
+        minimum_completed_trades=0,
+        robust_score_config=base_config,
+        robust_score_v4_config=v4_config,
+    )
+
+    assert (
+        result.score_metric
+        == "robust_score_v4"
+    )
+    assert (
+        result.robust_score_config
+        == base_config
+    )
+    assert (
+        result.robust_score_v4_config
+        == v4_config
+    )
+    assert len(result.windows) > 0
+
+    first_window = result.windows[0]
+
+    assert (
+        first_window.robust_score
+        is not None
+    )
+    assert (
+        first_window.robust_score_v4
+        is not None
+    )
+    assert first_window.selected_score == (
+        pytest.approx(
+            first_window
+            .robust_score_v4
+            .score
+        )
+    )
+
+    report = walk_forward_optimization_to_dict(
+        result
+    )
+
+    assert report[
+        "robust_score_v4_config"
+    ] == {
+        "base_score_weight": 0.5,
+        "temporal_downside_weight": 0.5,
+        "temporal_fold_count": 4,
+    }
+
+    report_windows = report["windows"]
+
+    assert isinstance(
+        report_windows,
+        list,
+    )
+    assert (
+        report_windows[0][
+            "selected_robust_score_v4"
+        ]
+        is not None
+    )
+
+    frame = walk_forward_optimization_to_frame(
+        result
+    )
+
+    expected_columns = {
+        "selected_robust_v4_score",
+        "selected_robust_v4_base_score",
+        "selected_robust_v4_temporal_downside_score",
+        "selected_robust_v4_downside_fold_count",
+        "selected_robust_v4_temporal_fold_1_score",
+        "selected_robust_v4_temporal_fold_2_score",
+        "selected_robust_v4_temporal_fold_3_score",
+        "selected_robust_v4_temporal_fold_4_score",
     }
 
     assert expected_columns.issubset(

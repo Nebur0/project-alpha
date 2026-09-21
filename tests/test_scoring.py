@@ -2,7 +2,9 @@ import pytest
 
 from project_alpha.scoring import (
     RobustScoreConfig,
+    RobustScoreV4Config,
     calculate_robust_score,
+    calculate_robust_score_v4,
 )
 
 
@@ -46,7 +48,6 @@ def test_calculate_robust_score_uses_default_weights() -> None:
     assert result.trade_shortfall == pytest.approx(
         0.0
     )
-
     assert result.score == pytest.approx(
         1.20
     )
@@ -63,7 +64,6 @@ def test_calculate_robust_score_penalizes_trade_shortfall() -> None:
     assert result.trade_shortfall == pytest.approx(
         0.5
     )
-
     assert result.score == pytest.approx(
         0.95
     )
@@ -100,14 +100,13 @@ def test_calculate_robust_score_uses_custom_weights() -> None:
 
 def test_calculate_robust_score_rewards_excess_return() -> None:
     first_metrics = _base_metrics()
-
     second_metrics = _base_metrics()
+
     second_metrics["total_return"] = 0.40
 
     first = calculate_robust_score(
         first_metrics
     )
-
     second = calculate_robust_score(
         second_metrics
     )
@@ -116,20 +115,18 @@ def test_calculate_robust_score_rewards_excess_return() -> None:
         second.excess_return
         > first.excess_return
     )
-
     assert second.score > first.score
 
 
 def test_calculate_robust_score_penalizes_drawdown() -> None:
     first_metrics = _base_metrics()
-
     second_metrics = _base_metrics()
+
     second_metrics["max_drawdown"] = -0.30
 
     first = calculate_robust_score(
         first_metrics
     )
-
     second = calculate_robust_score(
         second_metrics
     )
@@ -305,4 +302,310 @@ def test_calculate_robust_score_rejects_invalid_completed_trades(
     ):
         calculate_robust_score(
             metrics
+        )
+
+
+def test_calculate_robust_score_v4_uses_worst_half_mean(
+) -> None:
+    result = calculate_robust_score_v4(
+        base_score=1.0,
+        temporal_fold_scores=[
+            1.2,
+            0.8,
+            0.4,
+            1.0,
+        ],
+    )
+
+    assert result.base_score == pytest.approx(
+        1.0
+    )
+    assert (
+        result.temporal_downside_score
+        == pytest.approx(
+            0.6
+        )
+    )
+    assert result.temporal_fold_scores == (
+        1.2,
+        0.8,
+        0.4,
+        1.0,
+    )
+    assert result.downside_fold_count == 2
+    assert result.score == pytest.approx(
+        0.8
+    )
+
+
+def test_calculate_robust_score_v4_uses_custom_weights(
+) -> None:
+    config = RobustScoreV4Config(
+        base_score_weight=0.25,
+        temporal_downside_weight=0.75,
+    )
+
+    result = calculate_robust_score_v4(
+        base_score=1.2,
+        temporal_fold_scores=[
+            0.4,
+            0.8,
+            1.0,
+            1.4,
+        ],
+        config=config,
+    )
+
+    expected_temporal_downside = (
+        0.4 + 0.8
+    ) / 2.0
+
+    expected_score = (
+        0.25 * 1.2
+        + 0.75
+        * expected_temporal_downside
+    )
+
+    assert (
+        result.temporal_downside_score
+        == pytest.approx(
+            expected_temporal_downside
+        )
+    )
+    assert result.score == pytest.approx(
+        expected_score
+    )
+
+
+def test_calculate_robust_score_v4_rewards_temporal_stability(
+) -> None:
+    unstable_peak = (
+        calculate_robust_score_v4(
+            base_score=1.0,
+            temporal_fold_scores=[
+                1.4,
+                1.3,
+                0.1,
+                0.2,
+            ],
+        )
+    )
+
+    stable_candidate = (
+        calculate_robust_score_v4(
+            base_score=0.9,
+            temporal_fold_scores=[
+                0.8,
+                0.85,
+                0.9,
+                0.95,
+            ],
+        )
+    )
+
+    assert (
+        unstable_peak.base_score
+        > stable_candidate.base_score
+    )
+    assert (
+        stable_candidate
+        .temporal_downside_score
+        > unstable_peak
+        .temporal_downside_score
+    )
+    assert (
+        stable_candidate.score
+        > unstable_peak.score
+    )
+
+
+def test_calculate_robust_score_v4_supports_even_fold_count(
+) -> None:
+    config = RobustScoreV4Config(
+        temporal_fold_count=6,
+    )
+
+    result = calculate_robust_score_v4(
+        base_score=1.0,
+        temporal_fold_scores=[
+            1.2,
+            0.1,
+            0.4,
+            1.1,
+            0.7,
+            0.9,
+        ],
+        config=config,
+    )
+
+    expected_temporal_downside = (
+        0.1 + 0.4 + 0.7
+    ) / 3.0
+
+    assert result.downside_fold_count == 3
+    assert (
+        result.temporal_downside_score
+        == pytest.approx(
+            expected_temporal_downside
+        )
+    )
+    assert result.score == pytest.approx(
+        (
+            1.0
+            + expected_temporal_downside
+        )
+        / 2.0
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        (
+            "base_score_weight",
+            -1.0,
+        ),
+        (
+            "temporal_downside_weight",
+            -0.5,
+        ),
+        (
+            "base_score_weight",
+            float("inf"),
+        ),
+        (
+            "temporal_downside_weight",
+            float("nan"),
+        ),
+        (
+            "base_score_weight",
+            True,
+        ),
+    ],
+)
+def test_robust_score_v4_config_rejects_invalid_weights(
+    field_name: str,
+    invalid_value: object,
+) -> None:
+    kwargs = {
+        "base_score_weight": 0.5,
+        "temporal_downside_weight": 0.5,
+        "temporal_fold_count": 4,
+    }
+
+    kwargs[field_name] = invalid_value
+
+    with pytest.raises(
+        ValueError,
+        match="finito non negativo",
+    ):
+        RobustScoreV4Config(
+            **kwargs
+        )
+
+
+def test_robust_score_v4_config_rejects_all_zero_weights(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Almeno uno dei pesi",
+    ):
+        RobustScoreV4Config(
+            base_score_weight=0.0,
+            temporal_downside_weight=0.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "temporal_fold_count",
+    [
+        0,
+        1,
+        3,
+        -2,
+        True,
+        4.5,
+    ],
+)
+def test_robust_score_v4_config_rejects_invalid_fold_count(
+    temporal_fold_count: object,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="temporal_fold_count",
+    ):
+        RobustScoreV4Config(
+            temporal_fold_count=(
+                temporal_fold_count
+            )
+        )
+
+
+def test_calculate_robust_score_v4_rejects_wrong_fold_count(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="temporal_fold_count",
+    ):
+        calculate_robust_score_v4(
+            base_score=1.0,
+            temporal_fold_scores=[
+                0.5,
+                0.6,
+                0.7,
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    "base_score",
+    [
+        True,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+    ],
+)
+def test_calculate_robust_score_v4_rejects_invalid_base_score(
+    base_score: object,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="base_score",
+    ):
+        calculate_robust_score_v4(
+            base_score=base_score,
+            temporal_fold_scores=[
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    "temporal_fold_score",
+    [
+        True,
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+    ],
+)
+def test_calculate_robust_score_v4_rejects_invalid_temporal_fold_score(
+    temporal_fold_score: object,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="temporal_fold_score",
+    ):
+        calculate_robust_score_v4(
+            base_score=1.0,
+            temporal_fold_scores=[
+                0.5,
+                0.6,
+                0.7,
+                temporal_fold_score,
+            ],
         )

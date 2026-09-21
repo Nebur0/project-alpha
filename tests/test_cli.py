@@ -5,6 +5,7 @@ import pytest
 
 from project_alpha.cli import (
     _robust_score_config_from_args,
+    _robust_score_v4_config_from_args,
     build_parser,
 )
 
@@ -1071,6 +1072,256 @@ def test_robust_score_config_from_args_builds_only_for_robust_metric(
 
     assert (
         _robust_score_config_from_args(
+            standard_args
+        )
+        is None
+    )
+
+
+def test_grid_search_parser_reads_robust_v4_arguments(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "robust_score_v4",
+            "--robust-v4-base-score-weight",
+            "0.25",
+            "--robust-v4-temporal-downside-weight",
+            "0.75",
+            "--robust-v4-temporal-fold-count",
+            "6",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v4"
+    )
+    assert (
+        args.robust_v4_base_score_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+    assert (
+        args.robust_v4_temporal_downside_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        args.robust_v4_temporal_fold_count
+        == 6
+    )
+
+
+def test_optimize_walk_forward_parser_supports_robust_v4_defaults(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "optimize-walk-forward",
+            "--symbol",
+            "SPY",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--score-metric",
+            "robust_score_v4",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v4"
+    )
+    assert (
+        args.robust_v4_base_score_weight
+        == pytest.approx(
+            0.5
+        )
+    )
+    assert (
+        args.robust_v4_temporal_downside_weight
+        == pytest.approx(
+            0.5
+        )
+    )
+    assert (
+        args.robust_v4_temporal_fold_count
+        == 4
+    )
+
+
+def test_batch_optimize_walk_forward_parser_supports_robust_v4(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "batch-optimize-walk-forward",
+            "--symbols",
+            "SPY",
+            "QQQ",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--score-metric",
+            "robust_score_v4",
+            "--robust-v4-base-score-weight",
+            "0.40",
+            "--robust-v4-temporal-downside-weight",
+            "0.60",
+            "--robust-v4-temporal-fold-count",
+            "4",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v4"
+    )
+    assert (
+        args.robust_v4_base_score_weight
+        == pytest.approx(
+            0.40
+        )
+    )
+    assert (
+        args.robust_v4_temporal_downside_weight
+        == pytest.approx(
+            0.60
+        )
+    )
+    assert (
+        args.robust_v4_temporal_fold_count
+        == 4
+    )
+
+
+def test_robust_score_config_from_args_builds_base_for_v4(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "robust_score_v4",
+            "--robust-sharpe-weight",
+            "1.25",
+            "--robust-excess-return-weight",
+            "1.75",
+            "--robust-drawdown-weight",
+            "0.50",
+            "--robust-trade-shortfall-weight",
+            "0.10",
+            "--robust-target-completed-trades",
+            "35",
+        ]
+    )
+
+    config = _robust_score_config_from_args(
+        args
+    )
+
+    assert config is not None
+    assert (
+        config.sharpe_weight
+        == pytest.approx(
+            1.25
+        )
+    )
+    assert (
+        config.excess_return_weight
+        == pytest.approx(
+            1.75
+        )
+    )
+    assert (
+        config.drawdown_weight
+        == pytest.approx(
+            0.50
+        )
+    )
+    assert (
+        config.trade_shortfall_weight
+        == pytest.approx(
+            0.10
+        )
+    )
+    assert (
+        config.target_completed_trades
+        == 35
+    )
+
+
+def test_robust_score_v4_config_from_args_builds_only_for_v4(
+) -> None:
+    parser = build_parser()
+
+    v4_args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "robust_score_v4",
+            "--robust-v4-base-score-weight",
+            "0.25",
+            "--robust-v4-temporal-downside-weight",
+            "0.75",
+            "--robust-v4-temporal-fold-count",
+            "6",
+        ]
+    )
+
+    config = (
+        _robust_score_v4_config_from_args(
+            v4_args
+        )
+    )
+
+    assert config is not None
+    assert (
+        config.base_score_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+    assert (
+        config.temporal_downside_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        config.temporal_fold_count
+        == 6
+    )
+
+    standard_args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "total_return",
+        ]
+    )
+
+    assert (
+        _robust_score_v4_config_from_args(
             standard_args
         )
         is None

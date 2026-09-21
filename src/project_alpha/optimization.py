@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from itertools import product
 from numbers import Real
 
@@ -19,7 +19,10 @@ from project_alpha.reporting import (
 from project_alpha.scoring import (
     RobustScoreConfig,
     RobustScoreResult,
+    RobustScoreV4Config,
+    RobustScoreV4Result,
     calculate_robust_score,
+    calculate_robust_score_v4,
 )
 from project_alpha.strategy import (
     add_baseline_position,
@@ -33,6 +36,7 @@ GridValue = int | float
 MetricValue = float | int | None
 
 ROBUST_SCORE_METRIC = "robust_score"
+ROBUST_SCORE_V4_METRIC = "robust_score_v4"
 
 
 @dataclass(frozen=True)
@@ -42,6 +46,7 @@ class GridSearchResult:
     score_metric: str
     score: float | None
     robust_score: RobustScoreResult | None = None
+    robust_score_v4: RobustScoreV4Result | None = None
 
 
 @dataclass(frozen=True)
@@ -56,6 +61,7 @@ class WalkForwardOptimizationWindow:
     in_sample_metrics: dict[str, MetricValue]
     out_of_sample_metrics: dict[str, MetricValue]
     robust_score: RobustScoreResult | None = None
+    robust_score_v4: RobustScoreV4Result | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,7 @@ class WalkForwardOptimizationResult:
         ...,
     ]
     summary: dict[str, MetricValue]
+    robust_score_v4_config: RobustScoreV4Config | None = None
 
 
 def generate_strategy_parameters(
@@ -180,7 +187,10 @@ def _resolve_robust_score_config(
     score_metric: str,
     robust_score_config: RobustScoreConfig | None,
 ) -> RobustScoreConfig | None:
-    if score_metric == ROBUST_SCORE_METRIC:
+    if score_metric in {
+        ROBUST_SCORE_METRIC,
+        ROBUST_SCORE_V4_METRIC,
+    }:
         return (
             robust_score_config
             or RobustScoreConfig()
@@ -189,8 +199,28 @@ def _resolve_robust_score_config(
     if robust_score_config is not None:
         raise ValueError(
             "robust_score_config può essere "
+            "usato solo con score_metric="
+            "'robust_score' o 'robust_score_v4'."
+        )
+
+    return None
+
+
+def _resolve_robust_score_v4_config(
+    score_metric: str,
+    robust_score_v4_config: RobustScoreV4Config | None,
+) -> RobustScoreV4Config | None:
+    if score_metric == ROBUST_SCORE_V4_METRIC:
+        return (
+            robust_score_v4_config
+            or RobustScoreV4Config()
+        )
+
+    if robust_score_v4_config is not None:
+        raise ValueError(
+            "robust_score_v4_config può essere "
             "usato solo con "
-            "score_metric='robust_score'."
+            "score_metric='robust_score_v4'."
         )
 
     return None
@@ -241,6 +271,153 @@ def _calculate_candidate_score(
         ),
         None,
     )
+
+
+def _split_temporal_folds(
+    frame: pd.DataFrame,
+    *,
+    fold_count: int,
+) -> tuple[pd.DataFrame, ...]:
+    if len(frame) < fold_count:
+        raise ValueError(
+            "Il training set deve contenere "
+            "almeno una riga per temporal fold."
+        )
+
+    ordered = (
+        frame
+        .sort_values(
+            "timestamp",
+            kind="stable",
+        )
+        .reset_index(drop=True)
+    )
+
+    base_size = len(ordered) // fold_count
+    remainder = len(ordered) % fold_count
+
+    folds: list[pd.DataFrame] = []
+    start = 0
+
+    for fold_index in range(fold_count):
+        fold_size = (
+            base_size
+            + (
+                1
+                if fold_index < remainder
+                else 0
+            )
+        )
+        stop = start + fold_size
+
+        folds.append(
+            ordered.iloc[
+                start:stop
+            ].copy()
+        )
+
+        start = stop
+
+    return tuple(folds)
+
+
+def _scaled_fold_robust_score_config(
+    config: RobustScoreConfig,
+    *,
+    fold_size: int,
+    training_size: int,
+) -> RobustScoreConfig:
+    scaled_target = max(
+        1,
+        int(
+            round(
+                config.target_completed_trades
+                * fold_size
+                / training_size
+            )
+        ),
+    )
+
+    return replace(
+        config,
+        target_completed_trades=(
+            scaled_target
+        ),
+    )
+
+
+def _calculate_temporal_fold_scores(
+    enriched_training_frame: pd.DataFrame,
+    parameters: StrategyParameters,
+    *,
+    initial_capital: float,
+    cost_per_side: float,
+    robust_score_config: RobustScoreConfig,
+    robust_score_v4_config: RobustScoreV4Config,
+) -> tuple[float, ...] | None:
+    folds = _split_temporal_folds(
+        enriched_training_frame,
+        fold_count=(
+            robust_score_v4_config
+            .temporal_fold_count
+        ),
+    )
+
+    training_size = len(
+        enriched_training_frame
+    )
+
+    fold_scores: list[float] = []
+
+    for fold in folds:
+        positioned_fold = (
+            add_baseline_position(
+                fold,
+                parameters,
+            )
+        )
+
+        fold_backtest = (
+            run_long_only_backtest(
+                positioned_fold,
+                initial_capital=(
+                    initial_capital
+                ),
+                cost_per_side=(
+                    cost_per_side
+                ),
+            )
+        )
+
+        fold_metrics = (
+            sanitize_metric_values(
+                fold_backtest.metrics
+            )
+        )
+
+        fold_config = (
+            _scaled_fold_robust_score_config(
+                robust_score_config,
+                fold_size=len(fold),
+                training_size=training_size,
+            )
+        )
+
+        try:
+            fold_score = (
+                calculate_robust_score(
+                    fold_metrics,
+                    fold_config,
+                )
+            )
+        except ValueError:
+            return None
+
+        fold_scores.append(
+            fold_score.score
+        )
+
+    return tuple(fold_scores)
 
 
 def _validate_single_symbol_frame(
@@ -302,6 +479,9 @@ def run_parameter_grid_search(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    robust_score_v4_config: (
+        RobustScoreV4Config | None
+    ) = None,
 ) -> list[GridSearchResult]:
     _validate_single_symbol_frame(frame)
 
@@ -314,6 +494,13 @@ def run_parameter_grid_search(
         _resolve_robust_score_config(
             score_metric,
             robust_score_config,
+        )
+    )
+
+    effective_robust_score_v4_config = (
+        _resolve_robust_score_v4_config(
+            score_metric,
+            robust_score_v4_config,
         )
     )
 
@@ -350,16 +537,74 @@ def run_parameter_grid_search(
             backtest_result.metrics
         )
 
-        (
-            score,
-            robust_score,
-        ) = _calculate_candidate_score(
-            metrics,
-            score_metric=score_metric,
-            robust_score_config=(
+        robust_score_v4 = None
+
+        if score_metric == ROBUST_SCORE_V4_METRIC:
+            if (
                 effective_robust_score_config
-            ),
-        )
+                is None
+                or effective_robust_score_v4_config
+                is None
+            ):
+                raise RuntimeError(
+                    "Configurazione robust score v4 "
+                    "non inizializzata."
+                )
+
+            try:
+                robust_score = (
+                    calculate_robust_score(
+                        metrics,
+                        effective_robust_score_config,
+                    )
+                )
+            except ValueError:
+                score = None
+                robust_score = None
+            else:
+                temporal_fold_scores = (
+                    _calculate_temporal_fold_scores(
+                        enriched,
+                        parameters,
+                        initial_capital=(
+                            initial_capital
+                        ),
+                        cost_per_side=(
+                            cost_per_side
+                        ),
+                        robust_score_config=(
+                            effective_robust_score_config
+                        ),
+                        robust_score_v4_config=(
+                            effective_robust_score_v4_config
+                        ),
+                    )
+                )
+
+                if temporal_fold_scores is None:
+                    score = None
+                else:
+                    robust_score_v4 = (
+                        calculate_robust_score_v4(
+                            robust_score.score,
+                            temporal_fold_scores,
+                            effective_robust_score_v4_config,
+                        )
+                    )
+                    score = (
+                        robust_score_v4.score
+                    )
+        else:
+            (
+                score,
+                robust_score,
+            ) = _calculate_candidate_score(
+                metrics,
+                score_metric=score_metric,
+                robust_score_config=(
+                    effective_robust_score_config
+                ),
+            )
 
         results.append(
             GridSearchResult(
@@ -368,6 +613,9 @@ def run_parameter_grid_search(
                 score_metric=score_metric,
                 score=score,
                 robust_score=robust_score,
+                robust_score_v4=(
+                    robust_score_v4
+                ),
             )
         )
 
@@ -453,6 +701,44 @@ def grid_search_results_to_frame(
                 ),
             }
 
+        robust_v4_values: dict[
+            str,
+            object,
+        ] = {}
+
+        if result.robust_score_v4 is not None:
+            robust_v4_values = {
+                "robust_v4_score": (
+                    result.robust_score_v4.score
+                ),
+                "robust_v4_base_score": (
+                    result.robust_score_v4
+                    .base_score
+                ),
+                "robust_v4_temporal_downside_score": (
+                    result.robust_score_v4
+                    .temporal_downside_score
+                ),
+                "robust_v4_downside_fold_count": (
+                    result.robust_score_v4
+                    .downside_fold_count
+                ),
+                **{
+                    (
+                        "robust_v4_temporal_fold_"
+                        f"{fold_number}_score"
+                    ): fold_score
+                    for (
+                        fold_number,
+                        fold_score,
+                    ) in enumerate(
+                        result.robust_score_v4
+                        .temporal_fold_scores,
+                        start=1,
+                    )
+                },
+            }
+
         rows.append(
             {
                 "rank": rank,
@@ -462,6 +748,7 @@ def grid_search_results_to_frame(
                 ),
                 "score": result.score,
                 **robust_values,
+                **robust_v4_values,
                 **result.metrics,
             }
         )
@@ -580,6 +867,9 @@ def run_walk_forward_optimization(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    robust_score_v4_config: (
+        RobustScoreV4Config | None
+    ) = None,
 ) -> WalkForwardOptimizationResult:
     symbol = _validate_single_symbol_frame(
         frame
@@ -594,6 +884,13 @@ def run_walk_forward_optimization(
         _resolve_robust_score_config(
             score_metric,
             robust_score_config,
+        )
+    )
+
+    effective_robust_score_v4_config = (
+        _resolve_robust_score_v4_config(
+            score_metric,
+            robust_score_v4_config,
         )
     )
 
@@ -653,6 +950,9 @@ def run_walk_forward_optimization(
                 score_metric=score_metric,
                 robust_score_config=(
                     effective_robust_score_config
+                ),
+                robust_score_v4_config=(
+                    effective_robust_score_v4_config
                 ),
             )
         )
@@ -728,6 +1028,10 @@ def run_walk_forward_optimization(
                 robust_score=(
                     selected_result.robust_score
                 ),
+                robust_score_v4=(
+                    selected_result
+                    .robust_score_v4
+                ),
             )
         )
 
@@ -756,6 +1060,9 @@ def run_walk_forward_optimization(
         ),
         windows=tuple(windows),
         summary=summary,
+        robust_score_v4_config=(
+            effective_robust_score_v4_config
+        ),
     )
 
 
@@ -798,6 +1105,14 @@ def walk_forward_optimization_to_dict(
                     is not None
                     else None
                 ),
+                "selected_robust_score_v4": (
+                    asdict(
+                        window.robust_score_v4
+                    )
+                    if window.robust_score_v4
+                    is not None
+                    else None
+                ),
                 "in_sample": (
                     window.in_sample_metrics
                 ),
@@ -819,6 +1134,14 @@ def walk_forward_optimization_to_dict(
         "robust_score_config": (
             asdict(result.robust_score_config)
             if result.robust_score_config
+            is not None
+            else None
+        ),
+        "robust_score_v4_config": (
+            asdict(
+                result.robust_score_v4_config
+            )
+            if result.robust_score_v4_config
             is not None
             else None
         ),
@@ -888,6 +1211,52 @@ def walk_forward_optimization_to_frame(
                     if window.robust_score
                     is not None
                     else None
+                ),
+                "selected_robust_v4_score": (
+                    window.robust_score_v4.score
+                    if window.robust_score_v4
+                    is not None
+                    else None
+                ),
+                "selected_robust_v4_base_score": (
+                    window.robust_score_v4
+                    .base_score
+                    if window.robust_score_v4
+                    is not None
+                    else None
+                ),
+                "selected_robust_v4_temporal_downside_score": (
+                    window.robust_score_v4
+                    .temporal_downside_score
+                    if window.robust_score_v4
+                    is not None
+                    else None
+                ),
+                "selected_robust_v4_downside_fold_count": (
+                    window.robust_score_v4
+                    .downside_fold_count
+                    if window.robust_score_v4
+                    is not None
+                    else None
+                ),
+                **(
+                    {
+                        (
+                            "selected_robust_v4_temporal_fold_"
+                            f"{fold_number}_score"
+                        ): fold_score
+                        for (
+                            fold_number,
+                            fold_score,
+                        ) in enumerate(
+                            window.robust_score_v4
+                            .temporal_fold_scores,
+                            start=1,
+                        )
+                    }
+                    if window.robust_score_v4
+                    is not None
+                    else {}
                 ),
                 **{
                     f"in_sample_{name}": value
