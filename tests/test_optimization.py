@@ -16,6 +16,7 @@ from project_alpha.optimization import (
 from project_alpha.scoring import (
     RobustScoreConfig,
     RobustScoreV4Config,
+    RobustScoreV5Config,
 )
 from project_alpha.validation import (
     generate_walk_forward_splits,
@@ -1353,6 +1354,468 @@ def test_walk_forward_optimization_propagates_robust_v4(
         "selected_robust_v4_temporal_fold_2_score",
         "selected_robust_v4_temporal_fold_3_score",
         "selected_robust_v4_temporal_fold_4_score",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+def _v5_sharpe_only_config() -> RobustScoreV5Config:
+    return RobustScoreV5Config(
+        sharpe_weight=1.0,
+        cagr_weight=0.0,
+        drawdown_weight=0.0,
+        trade_shortfall_weight=0.0,
+        target_completed_trades=20,
+        base_score_weight=0.5,
+        temporal_downside_weight=0.5,
+        temporal_fold_count=4,
+    )
+
+
+def test_fold_robust_score_v5_config_scales_trade_target(
+) -> None:
+    config = RobustScoreV5Config(
+        sharpe_weight=1.5,
+        cagr_weight=2.0,
+        drawdown_weight=0.75,
+        trade_shortfall_weight=0.25,
+        target_completed_trades=20,
+        base_score_weight=0.4,
+        temporal_downside_weight=0.6,
+        temporal_fold_count=4,
+    )
+
+    scaled = (
+        optimization_module
+        ._scaled_fold_robust_score_v5_config(
+            config,
+            fold_size=250,
+            training_size=1000,
+        )
+    )
+
+    assert (
+        scaled.target_completed_trades
+        == 5
+    )
+    assert scaled.sharpe_weight == pytest.approx(
+        1.5
+    )
+    assert scaled.cagr_weight == pytest.approx(
+        2.0
+    )
+    assert (
+        scaled.drawdown_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        scaled.trade_shortfall_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+    assert (
+        scaled.base_score_weight
+        == pytest.approx(
+            0.4
+        )
+    )
+    assert (
+        scaled.temporal_downside_weight
+        == pytest.approx(
+            0.6
+        )
+    )
+    assert scaled.temporal_fold_count == 4
+
+
+def test_parameter_grid_search_robust_v5_rewards_temporal_stability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        _small_parameter_grid(),
+        score_metric="robust_score_v5",
+        robust_score_v5_config=(
+            _v5_sharpe_only_config()
+        ),
+    )
+
+    assert (
+        results[0]
+        .parameters
+        .fast_ema_period
+        == 4
+    )
+
+    selected = results[0]
+
+    assert selected.robust_score is None
+    assert (
+        selected.robust_score_v4
+        is None
+    )
+    assert (
+        selected.robust_score_v5_quality
+        is not None
+    )
+    assert (
+        selected.robust_score_v5
+        is not None
+    )
+
+    assert (
+        selected.robust_score_v5_quality
+        .score
+        == pytest.approx(
+            0.9
+        )
+    )
+    assert (
+        selected.robust_score_v5
+        .base_score
+        == pytest.approx(
+            0.9
+        )
+    )
+    assert (
+        selected.robust_score_v5
+        .temporal_downside_score
+        == pytest.approx(
+            0.825
+        )
+    )
+    assert (
+        selected.robust_score_v5
+        .temporal_fold_scores
+        == pytest.approx(
+            (
+                0.8,
+                0.85,
+                0.9,
+                0.95,
+            )
+        )
+    )
+    assert selected.score == pytest.approx(
+        0.8625
+    )
+
+
+def test_parameter_grid_search_robust_v5_base_only_selects_best_base_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    config = RobustScoreV5Config(
+        sharpe_weight=1.0,
+        cagr_weight=0.0,
+        drawdown_weight=0.0,
+        trade_shortfall_weight=0.0,
+        target_completed_trades=20,
+        base_score_weight=1.0,
+        temporal_downside_weight=0.0,
+        temporal_fold_count=4,
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        _small_parameter_grid(),
+        score_metric="robust_score_v5",
+        robust_score_v5_config=config,
+    )
+
+    assert (
+        results[0]
+        .parameters
+        .fast_ema_period
+        == 3
+    )
+    assert results[0].score == pytest.approx(
+        1.0
+    )
+
+
+def test_grid_search_results_to_frame_includes_robust_v5_audit_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_v4_temporal_mocks(
+        monkeypatch
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        _small_parameter_grid(),
+        score_metric="robust_score_v5",
+        robust_score_v5_config=(
+            _v5_sharpe_only_config()
+        ),
+    )
+
+    frame = grid_search_results_to_frame(
+        results
+    )
+
+    expected_columns = {
+        "robust_v5_score",
+        "robust_v5_base_score",
+        "robust_v5_base_sharpe",
+        "robust_v5_base_cagr",
+        "robust_v5_base_max_drawdown",
+        "robust_v5_base_completed_trades",
+        "robust_v5_base_trade_shortfall",
+        "robust_v5_temporal_downside_score",
+        "robust_v5_downside_fold_count",
+        "robust_v5_temporal_fold_1_score",
+        "robust_v5_temporal_fold_2_score",
+        "robust_v5_temporal_fold_3_score",
+        "robust_v5_temporal_fold_4_score",
+    }
+
+    assert expected_columns.issubset(
+        frame.columns
+    )
+
+
+def test_parameter_grid_search_rejects_robust_v5_config_with_other_metric(
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "robust_score_v5_config può essere "
+            "usato solo"
+        ),
+    ):
+        run_parameter_grid_search(
+            _sample_market_frame(),
+            _small_parameter_grid(),
+            score_metric="total_return",
+            robust_score_v5_config=(
+                RobustScoreV5Config()
+            ),
+        )
+
+
+def test_parameter_grid_search_robust_v5_keeps_candidate_with_missing_sharpe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_add_indicators(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        return frame.copy()
+
+    def fake_add_baseline_position(
+        frame: pd.DataFrame,
+        parameters: object,
+    ) -> pd.DataFrame:
+        result = frame.copy()
+        result["candidate_fast_ema_period"] = (
+            parameters.fast_ema_period
+        )
+        return result
+
+    def fake_run_long_only_backtest(
+        frame: pd.DataFrame,
+        *,
+        initial_capital: float,
+        cost_per_side: float,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            metrics={
+                "initial_capital": initial_capital,
+                "final_equity": initial_capital,
+                "total_return": 0.0,
+                "benchmark_total_return": 0.0,
+                "cagr": 0.0,
+                "annualized_sharpe": float("nan"),
+                "max_drawdown": 0.0,
+                "trade_events": 0,
+                "completed_trades": 0,
+                "winning_trades": 0,
+                "losing_trades": 0,
+                "win_rate": None,
+                "average_trade_return": None,
+                "average_win": None,
+                "average_loss": None,
+                "profit_factor": None,
+                "market_exposure": 0.0,
+                "cost_per_side": cost_per_side,
+            }
+        )
+
+    monkeypatch.setattr(
+        optimization_module,
+        "add_indicators",
+        fake_add_indicators,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "add_baseline_position",
+        fake_add_baseline_position,
+    )
+    monkeypatch.setattr(
+        optimization_module,
+        "run_long_only_backtest",
+        fake_run_long_only_backtest,
+    )
+
+    results = run_parameter_grid_search(
+        _sample_market_frame(
+            periods=40,
+        ),
+        {
+            **_small_parameter_grid(),
+            "fast_ema_period": [3],
+        },
+        score_metric="robust_score_v5",
+    )
+
+    assert len(results) == 1
+    assert results[0].score is not None
+    assert (
+        results[0].robust_score_v5_quality
+        is not None
+    )
+    assert (
+        results[0]
+        .robust_score_v5_quality
+        .sharpe
+        == pytest.approx(
+            0.0
+        )
+    )
+
+
+def test_walk_forward_optimization_propagates_robust_v5(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_deterministic_robust_scoring_mocks(
+        monkeypatch
+    )
+
+    v5_config = RobustScoreV5Config()
+
+    result = run_walk_forward_optimization(
+        _sample_market_frame(
+            periods=100,
+        ),
+        _small_parameter_grid(),
+        train_size=40,
+        test_size=20,
+        step_size=20,
+        score_metric="robust_score_v5",
+        minimum_completed_trades=0,
+        robust_score_v5_config=v5_config,
+    )
+
+    assert (
+        result.score_metric
+        == "robust_score_v5"
+    )
+    assert result.robust_score_config is None
+    assert (
+        result.robust_score_v4_config
+        is None
+    )
+    assert (
+        result.robust_score_v5_config
+        == v5_config
+    )
+    assert len(result.windows) > 0
+
+    first_window = result.windows[0]
+
+    assert first_window.robust_score is None
+    assert (
+        first_window.robust_score_v4
+        is None
+    )
+    assert (
+        first_window.robust_score_v5_quality
+        is not None
+    )
+    assert (
+        first_window.robust_score_v5
+        is not None
+    )
+    assert first_window.selected_score == (
+        pytest.approx(
+            first_window
+            .robust_score_v5
+            .score
+        )
+    )
+
+    report = walk_forward_optimization_to_dict(
+        result
+    )
+
+    assert report[
+        "robust_score_v5_config"
+    ] == {
+        "sharpe_weight": 1.0,
+        "cagr_weight": 1.0,
+        "drawdown_weight": 1.0,
+        "trade_shortfall_weight": 0.5,
+        "target_completed_trades": 20,
+        "base_score_weight": 0.5,
+        "temporal_downside_weight": 0.5,
+        "temporal_fold_count": 4,
+    }
+
+    report_windows = report["windows"]
+
+    assert isinstance(
+        report_windows,
+        list,
+    )
+    assert (
+        report_windows[0][
+            "selected_robust_score_v5_quality"
+        ]
+        is not None
+    )
+    assert (
+        report_windows[0][
+            "selected_robust_score_v5"
+        ]
+        is not None
+    )
+
+    frame = walk_forward_optimization_to_frame(
+        result
+    )
+
+    expected_columns = {
+        "selected_robust_v5_score",
+        "selected_robust_v5_base_score",
+        "selected_robust_v5_base_sharpe",
+        "selected_robust_v5_base_cagr",
+        "selected_robust_v5_base_max_drawdown",
+        "selected_robust_v5_base_completed_trades",
+        "selected_robust_v5_base_trade_shortfall",
+        "selected_robust_v5_temporal_downside_score",
+        "selected_robust_v5_downside_fold_count",
+        "selected_robust_v5_temporal_fold_1_score",
+        "selected_robust_v5_temporal_fold_2_score",
+        "selected_robust_v5_temporal_fold_3_score",
+        "selected_robust_v5_temporal_fold_4_score",
     }
 
     assert expected_columns.issubset(

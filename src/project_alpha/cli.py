@@ -37,6 +37,7 @@ from project_alpha.reporting import (
 from project_alpha.scoring import (
     RobustScoreConfig,
     RobustScoreV4Config,
+    RobustScoreV5Config,
 )
 
 from project_alpha.validation import (
@@ -207,6 +208,7 @@ def _add_parameter_grid_arguments(
             "max_drawdown",
             "robust_score",
             "robust_score_v4",
+            "robust_score_v5",
         ],
         default="annualized_sharpe",
     )
@@ -281,6 +283,78 @@ def _add_parameter_grid_arguments(
             "dal robust score v4."
         ),
     )
+    parser.add_argument(
+        "--robust-v5-sharpe-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso dello Sharpe annualizzato nel "
+            "robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-cagr-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso del CAGR nel robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-drawdown-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Peso del max drawdown nel "
+            "robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-trade-shortfall-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso della penalità per carenza "
+            "di trade nel robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-target-completed-trades",
+        type=int,
+        default=20,
+        help=(
+            "Numero target di trade completati "
+            "sul training completo per il "
+            "robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-base-score-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso della quality sul training "
+            "completo nel robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-temporal-downside-weight",
+        type=float,
+        default=0.5,
+        help=(
+            "Peso del temporal downside score "
+            "nel robust score v5."
+        ),
+    )
+    parser.add_argument(
+        "--robust-v5-temporal-fold-count",
+        type=int,
+        default=4,
+        help=(
+            "Numero pari di fold temporali usati "
+            "dal robust score v5."
+        ),
+    )
 
 
 def _parameter_grid_from_args(
@@ -352,6 +426,43 @@ def _robust_score_v4_config_from_args(
         ),
         temporal_fold_count=(
             args.robust_v4_temporal_fold_count
+        ),
+    )
+
+
+
+
+
+def _robust_score_v5_config_from_args(
+    args: argparse.Namespace,
+) -> RobustScoreV5Config | None:
+    if args.score_metric != "robust_score_v5":
+        return None
+
+    return RobustScoreV5Config(
+        sharpe_weight=(
+            args.robust_v5_sharpe_weight
+        ),
+        cagr_weight=(
+            args.robust_v5_cagr_weight
+        ),
+        drawdown_weight=(
+            args.robust_v5_drawdown_weight
+        ),
+        trade_shortfall_weight=(
+            args.robust_v5_trade_shortfall_weight
+        ),
+        target_completed_trades=(
+            args.robust_v5_target_completed_trades
+        ),
+        base_score_weight=(
+            args.robust_v5_base_score_weight
+        ),
+        temporal_downside_weight=(
+            args.robust_v5_temporal_downside_weight
+        ),
+        temporal_fold_count=(
+            args.robust_v5_temporal_fold_count
         ),
     )
 
@@ -1549,6 +1660,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v5_config = (
+            _robust_score_v5_config_from_args(
+                args
+            )
+        )
+
         results = run_parameter_grid_search(
             selected,
             grid,
@@ -1564,6 +1681,9 @@ def main() -> None:
             ),
             robust_score_v4_config=(
                 robust_score_v4_config
+            ),
+            robust_score_v5_config=(
+                robust_score_v5_config
             ),
         )
 
@@ -1602,6 +1722,22 @@ def main() -> None:
                     is not None
                     else None
                 ),
+                "robust_score_v5_quality": (
+                    asdict(
+                        result.robust_score_v5_quality
+                    )
+                    if result.robust_score_v5_quality
+                    is not None
+                    else None
+                ),
+                "robust_score_v5": (
+                    asdict(
+                        result.robust_score_v5
+                    )
+                    if result.robust_score_v5
+                    is not None
+                    else None
+                ),
                 "metrics": result.metrics,
             }
             for rank, result in enumerate(
@@ -1624,6 +1760,12 @@ def main() -> None:
             "robust_score_v4_config": (
                 asdict(robust_score_v4_config)
                 if robust_score_v4_config
+                is not None
+                else None
+            ),
+            "robust_score_v5_config": (
+                asdict(robust_score_v5_config)
+                if robust_score_v5_config
                 is not None
                 else None
             ),
@@ -1716,6 +1858,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v5_config = (
+            _robust_score_v5_config_from_args(
+                args
+            )
+        )
+
         result = run_walk_forward_optimization(
             selected,
             grid,
@@ -1737,6 +1885,9 @@ def main() -> None:
             ),
             robust_score_v4_config=(
                 robust_score_v4_config
+            ),
+            robust_score_v5_config=(
+                robust_score_v5_config
             ),
         )
 
@@ -1823,6 +1974,12 @@ def main() -> None:
             )
         )
 
+        robust_score_v5_config = (
+            _robust_score_v5_config_from_args(
+                args
+            )
+        )
+
         result = (
             run_batch_walk_forward_optimization(
                 frame,
@@ -1846,6 +2003,9 @@ def main() -> None:
                 ),
                 robust_score_v4_config=(
                     robust_score_v4_config
+                ),
+                robust_score_v5_config=(
+                    robust_score_v5_config
                 ),
             )
         )

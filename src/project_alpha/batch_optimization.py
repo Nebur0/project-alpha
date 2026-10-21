@@ -15,6 +15,7 @@ from project_alpha.optimization import (
 from project_alpha.scoring import (
     RobustScoreConfig,
     RobustScoreV4Config,
+    RobustScoreV5Config,
 )
 
 
@@ -28,6 +29,7 @@ class BatchWalkForwardOptimizationResult:
     minimum_completed_trades: int
     robust_score_config: RobustScoreConfig | None
     robust_score_v4_config: RobustScoreV4Config | None
+    robust_score_v5_config: RobustScoreV5Config | None
     results: dict[
         str,
         WalkForwardOptimizationResult,
@@ -97,6 +99,9 @@ def run_batch_walk_forward_optimization(
     robust_score_v4_config: (
         RobustScoreV4Config | None
     ) = None,
+    robust_score_v5_config: (
+        RobustScoreV5Config | None
+    ) = None,
 ) -> BatchWalkForwardOptimizationResult:
     _validate_batch_frame(frame)
 
@@ -154,6 +159,9 @@ def run_batch_walk_forward_optimization(
             robust_score_v4_config=(
                 robust_score_v4_config
             ),
+            robust_score_v5_config=(
+                robust_score_v5_config
+            ),
         )
 
         results[symbol] = result
@@ -183,6 +191,9 @@ def run_batch_walk_forward_optimization(
         robust_score_v4_config=(
             first_result.robust_score_v4_config
         ),
+        robust_score_v5_config=(
+            first_result.robust_score_v5_config
+        ),
         results=results,
     )
 
@@ -208,6 +219,12 @@ def batch_walk_forward_optimization_to_dict(
         "robust_score_v4_config": (
             asdict(result.robust_score_v4_config)
             if result.robust_score_v4_config
+            is not None
+            else None
+        ),
+        "robust_score_v5_config": (
+            asdict(result.robust_score_v5_config)
+            if result.robust_score_v5_config
             is not None
             else None
         ),
@@ -259,6 +276,9 @@ def batch_walk_forward_comparison_to_frame(
     robust_config = result.robust_score_config
     robust_v4_config = (
         result.robust_score_v4_config
+    )
+    robust_v5_config = (
+        result.robust_score_v5_config
     )
 
     for symbol in result.symbols:
@@ -336,6 +356,44 @@ def batch_walk_forward_comparison_to_frame(
                     ),
                     "robust_v4_temporal_fold_count": (
                         robust_v4_config
+                        .temporal_fold_count
+                    ),
+                }
+            )
+
+        if robust_v5_config is not None:
+            row.update(
+                {
+                    "robust_v5_sharpe_weight": (
+                        robust_v5_config
+                        .sharpe_weight
+                    ),
+                    "robust_v5_cagr_weight": (
+                        robust_v5_config
+                        .cagr_weight
+                    ),
+                    "robust_v5_drawdown_weight": (
+                        robust_v5_config
+                        .drawdown_weight
+                    ),
+                    "robust_v5_trade_shortfall_weight": (
+                        robust_v5_config
+                        .trade_shortfall_weight
+                    ),
+                    "robust_v5_target_completed_trades": (
+                        robust_v5_config
+                        .target_completed_trades
+                    ),
+                    "robust_v5_base_score_weight": (
+                        robust_v5_config
+                        .base_score_weight
+                    ),
+                    "robust_v5_temporal_downside_weight": (
+                        robust_v5_config
+                        .temporal_downside_weight
+                    ),
+                    "robust_v5_temporal_fold_count": (
+                        robust_v5_config
                         .temporal_fold_count
                     ),
                 }

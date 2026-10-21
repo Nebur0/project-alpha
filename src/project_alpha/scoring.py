@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from math import isfinite
+from math import isfinite, isnan
 from numbers import Real
 
 
@@ -139,6 +139,130 @@ class RobustScoreV4Result:
     downside_fold_count: int
 
 
+@dataclass(frozen=True)
+class RobustScoreV5Config:
+    sharpe_weight: float = 1.0
+    cagr_weight: float = 1.0
+    drawdown_weight: float = 1.0
+    trade_shortfall_weight: float = 0.5
+    target_completed_trades: int = 20
+    base_score_weight: float = 0.5
+    temporal_downside_weight: float = 0.5
+    temporal_fold_count: int = 4
+
+    def __post_init__(self) -> None:
+        quality_weights = {
+            "sharpe_weight": self.sharpe_weight,
+            "cagr_weight": self.cagr_weight,
+            "drawdown_weight": (
+                self.drawdown_weight
+            ),
+            "trade_shortfall_weight": (
+                self.trade_shortfall_weight
+            ),
+        }
+
+        temporal_weights = {
+            "base_score_weight": (
+                self.base_score_weight
+            ),
+            "temporal_downside_weight": (
+                self.temporal_downside_weight
+            ),
+        }
+
+        for name, value in {
+            **quality_weights,
+            **temporal_weights,
+        }.items():
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Real)
+                or not isfinite(float(value))
+                or float(value) < 0.0
+            ):
+                raise ValueError(
+                    f"{name} deve essere un numero "
+                    "finito non negativo."
+                )
+
+        if (
+            sum(
+                float(value)
+                for value in quality_weights.values()
+            )
+            <= 0.0
+        ):
+            raise ValueError(
+                "Almeno uno dei pesi quality del robust "
+                "score v5 deve essere positivo."
+            )
+
+        if (
+            sum(
+                float(value)
+                for value in temporal_weights.values()
+            )
+            <= 0.0
+        ):
+            raise ValueError(
+                "Almeno uno dei pesi temporali del robust "
+                "score v5 deve essere positivo."
+            )
+
+        if (
+            isinstance(
+                self.target_completed_trades,
+                bool,
+            )
+            or not isinstance(
+                self.target_completed_trades,
+                int,
+            )
+            or self.target_completed_trades <= 0
+        ):
+            raise ValueError(
+                "target_completed_trades deve "
+                "essere un intero positivo."
+            )
+
+        if (
+            isinstance(
+                self.temporal_fold_count,
+                bool,
+            )
+            or not isinstance(
+                self.temporal_fold_count,
+                int,
+            )
+            or self.temporal_fold_count < 2
+            or self.temporal_fold_count % 2 != 0
+        ):
+            raise ValueError(
+                "temporal_fold_count deve essere "
+                "un intero pari maggiore o uguale a 2."
+            )
+
+
+@dataclass(frozen=True)
+class RobustScoreV5QualityResult:
+    score: float
+    sharpe: float
+    cagr: float
+    max_drawdown: float
+    completed_trades: int
+    trade_shortfall: float
+
+
+@dataclass(frozen=True)
+class RobustScoreV5Result:
+    score: float
+    base_score: float
+    temporal_downside_score: float
+    temporal_fold_scores: tuple[float, ...]
+    downside_fold_count: int
+
+
 def _required_float_metric(
     metrics: Mapping[
         str,
@@ -159,6 +283,41 @@ def _required_float_metric(
         )
 
     numeric_value = float(value)
+
+    if not isfinite(numeric_value):
+        raise ValueError(
+            f"Metrica '{name}' non finita."
+        )
+
+    return numeric_value
+
+
+def _float_metric_with_nan_default(
+    metrics: Mapping[
+        str,
+        MetricValue,
+    ],
+    name: str,
+    *,
+    default: float,
+) -> float:
+    value = metrics.get(name)
+
+    if value is None:
+        return default
+
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, Real)
+    ):
+        raise ValueError(
+            f"Metrica '{name}' non numerica."
+        )
+
+    numeric_value = float(value)
+
+    if isnan(numeric_value):
+        return default
 
     if not isfinite(numeric_value):
         raise ValueError(
@@ -365,6 +524,144 @@ def calculate_robust_score_v4(
     )
 
     return RobustScoreV4Result(
+        score=score,
+        base_score=numeric_base_score,
+        temporal_downside_score=(
+            temporal_downside_score
+        ),
+        temporal_fold_scores=(
+            numeric_fold_scores
+        ),
+        downside_fold_count=(
+            downside_fold_count
+        ),
+    )
+
+
+def calculate_robust_score_v5_quality(
+    metrics: Mapping[
+        str,
+        MetricValue,
+    ],
+    config: RobustScoreV5Config | None = None,
+) -> RobustScoreV5QualityResult:
+    effective_config = (
+        config or RobustScoreV5Config()
+    )
+
+    sharpe = _float_metric_with_nan_default(
+        metrics,
+        "annualized_sharpe",
+        default=0.0,
+    )
+
+    cagr = _required_float_metric(
+        metrics,
+        "cagr",
+    )
+
+    max_drawdown = _required_float_metric(
+        metrics,
+        "max_drawdown",
+    )
+
+    completed_trades = (
+        _required_trade_count(
+            metrics
+        )
+    )
+
+    trade_shortfall = max(
+        0.0,
+        (
+            effective_config
+            .target_completed_trades
+            - completed_trades
+        )
+        / effective_config
+        .target_completed_trades,
+    )
+
+    score = (
+        effective_config.sharpe_weight
+        * sharpe
+        + effective_config.cagr_weight
+        * cagr
+        + effective_config.drawdown_weight
+        * max_drawdown
+        - effective_config.trade_shortfall_weight
+        * trade_shortfall
+    )
+
+    return RobustScoreV5QualityResult(
+        score=score,
+        sharpe=sharpe,
+        cagr=cagr,
+        max_drawdown=max_drawdown,
+        completed_trades=completed_trades,
+        trade_shortfall=trade_shortfall,
+    )
+
+
+def calculate_robust_score_v5(
+    base_score: Real,
+    temporal_fold_scores: Sequence[Real],
+    config: RobustScoreV5Config | None = None,
+) -> RobustScoreV5Result:
+    effective_config = (
+        config or RobustScoreV5Config()
+    )
+
+    numeric_base_score = (
+        _required_score_value(
+            base_score,
+            name="base_score",
+        )
+    )
+
+    numeric_fold_scores = tuple(
+        _required_score_value(
+            value,
+            name="temporal_fold_score",
+        )
+        for value in temporal_fold_scores
+    )
+
+    if (
+        len(numeric_fold_scores)
+        != effective_config.temporal_fold_count
+    ):
+        raise ValueError(
+            "Il numero di temporal fold score deve "
+            "essere uguale a temporal_fold_count."
+        )
+
+    downside_fold_count = (
+        len(numeric_fold_scores) // 2
+    )
+
+    sorted_fold_scores = sorted(
+        numeric_fold_scores
+    )
+
+    temporal_downside_score = (
+        sum(
+            sorted_fold_scores[
+                :downside_fold_count
+            ]
+        )
+        / downside_fold_count
+    )
+
+    score = (
+        effective_config.base_score_weight
+        * numeric_base_score
+        + effective_config
+        .temporal_downside_weight
+        * temporal_downside_score
+    )
+
+    return RobustScoreV5Result(
         score=score,
         base_score=numeric_base_score,
         temporal_downside_score=(

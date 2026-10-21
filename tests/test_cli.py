@@ -6,6 +6,7 @@ import pytest
 from project_alpha.cli import (
     _robust_score_config_from_args,
     _robust_score_v4_config_from_args,
+    _robust_score_v5_config_from_args,
     build_parser,
 )
 
@@ -1322,6 +1323,290 @@ def test_robust_score_v4_config_from_args_builds_only_for_v4(
 
     assert (
         _robust_score_v4_config_from_args(
+            standard_args
+        )
+        is None
+    )
+
+def test_grid_search_parser_reads_robust_v5_arguments(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "robust_score_v5",
+            "--robust-v5-sharpe-weight",
+            "1.25",
+            "--robust-v5-cagr-weight",
+            "1.75",
+            "--robust-v5-drawdown-weight",
+            "0.50",
+            "--robust-v5-trade-shortfall-weight",
+            "0.10",
+            "--robust-v5-target-completed-trades",
+            "35",
+            "--robust-v5-base-score-weight",
+            "0.25",
+            "--robust-v5-temporal-downside-weight",
+            "0.75",
+            "--robust-v5-temporal-fold-count",
+            "6",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v5"
+    )
+    assert (
+        args.robust_v5_sharpe_weight
+        == pytest.approx(
+            1.25
+        )
+    )
+    assert (
+        args.robust_v5_cagr_weight
+        == pytest.approx(
+            1.75
+        )
+    )
+    assert (
+        args.robust_v5_drawdown_weight
+        == pytest.approx(
+            0.50
+        )
+    )
+    assert (
+        args.robust_v5_trade_shortfall_weight
+        == pytest.approx(
+            0.10
+        )
+    )
+    assert (
+        args.robust_v5_target_completed_trades
+        == 35
+    )
+    assert (
+        args.robust_v5_base_score_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+    assert (
+        args.robust_v5_temporal_downside_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        args.robust_v5_temporal_fold_count
+        == 6
+    )
+
+
+def test_optimize_walk_forward_parser_supports_robust_v5_defaults(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "optimize-walk-forward",
+            "--symbol",
+            "SPY",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--score-metric",
+            "robust_score_v5",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v5"
+    )
+    assert (
+        args.robust_v5_sharpe_weight
+        == pytest.approx(
+            1.0
+        )
+    )
+    assert (
+        args.robust_v5_cagr_weight
+        == pytest.approx(
+            1.0
+        )
+    )
+    assert (
+        args.robust_v5_drawdown_weight
+        == pytest.approx(
+            1.0
+        )
+    )
+    assert (
+        args.robust_v5_trade_shortfall_weight
+        == pytest.approx(
+            0.5
+        )
+    )
+    assert (
+        args.robust_v5_target_completed_trades
+        == 20
+    )
+    assert (
+        args.robust_v5_base_score_weight
+        == pytest.approx(
+            0.5
+        )
+    )
+    assert (
+        args.robust_v5_temporal_downside_weight
+        == pytest.approx(
+            0.5
+        )
+    )
+    assert (
+        args.robust_v5_temporal_fold_count
+        == 4
+    )
+
+
+def test_batch_optimize_walk_forward_parser_supports_robust_v5(
+) -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "batch-optimize-walk-forward",
+            "--symbols",
+            "SPY",
+            "QQQ",
+            "--train-size",
+            "1000",
+            "--test-size",
+            "252",
+            "--score-metric",
+            "robust_score_v5",
+            "--robust-v5-target-completed-trades",
+            "40",
+            "--robust-v5-temporal-fold-count",
+            "4",
+        ]
+    )
+
+    assert (
+        args.score_metric
+        == "robust_score_v5"
+    )
+    assert (
+        args.robust_v5_target_completed_trades
+        == 40
+    )
+    assert (
+        args.robust_v5_temporal_fold_count
+        == 4
+    )
+
+
+def test_robust_score_v5_config_from_args_builds_only_for_v5(
+) -> None:
+    parser = build_parser()
+
+    v5_args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "robust_score_v5",
+            "--robust-v5-sharpe-weight",
+            "1.25",
+            "--robust-v5-cagr-weight",
+            "1.75",
+            "--robust-v5-drawdown-weight",
+            "0.50",
+            "--robust-v5-trade-shortfall-weight",
+            "0.10",
+            "--robust-v5-target-completed-trades",
+            "35",
+            "--robust-v5-base-score-weight",
+            "0.25",
+            "--robust-v5-temporal-downside-weight",
+            "0.75",
+            "--robust-v5-temporal-fold-count",
+            "6",
+        ]
+    )
+
+    config = (
+        _robust_score_v5_config_from_args(
+            v5_args
+        )
+    )
+
+    assert config is not None
+    assert (
+        config.sharpe_weight
+        == pytest.approx(
+            1.25
+        )
+    )
+    assert (
+        config.cagr_weight
+        == pytest.approx(
+            1.75
+        )
+    )
+    assert (
+        config.drawdown_weight
+        == pytest.approx(
+            0.50
+        )
+    )
+    assert (
+        config.trade_shortfall_weight
+        == pytest.approx(
+            0.10
+        )
+    )
+    assert (
+        config.target_completed_trades
+        == 35
+    )
+    assert (
+        config.base_score_weight
+        == pytest.approx(
+            0.25
+        )
+    )
+    assert (
+        config.temporal_downside_weight
+        == pytest.approx(
+            0.75
+        )
+    )
+    assert (
+        config.temporal_fold_count
+        == 6
+    )
+
+    standard_args = parser.parse_args(
+        [
+            "grid-search",
+            "--symbol",
+            "SPY",
+            "--score-metric",
+            "total_return",
+        ]
+    )
+
+    assert (
+        _robust_score_v5_config_from_args(
             standard_args
         )
         is None
