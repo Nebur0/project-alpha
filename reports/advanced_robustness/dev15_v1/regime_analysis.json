@@ -1,0 +1,72 @@
+{
+  "config": {
+    "annualization_factor": 252,
+    "high_volatility_threshold": 0.25
+  },
+  "market_path": "data\\raw\\bars_dev15.csv",
+  "optimization_report_path": "reports\\dev15_v1_walk_forward.csv",
+  "window_count": 60,
+  "regime_count": 4,
+  "regimes": [
+    {
+      "regime": "DOWN_HIGH_VOL",
+      "window_count": 14,
+      "positive_window_count": 2,
+      "positive_window_rate": 0.14285714285714285,
+      "benchmark_beat_count": 12,
+      "benchmark_beat_rate": 0.8571428571428571,
+      "mean_strategy_total_return": -0.036557788348463606,
+      "median_strategy_total_return": -0.03641734644785935,
+      "mean_benchmark_total_return": -0.2566119478097649,
+      "mean_excess_return": 0.22005415946130127,
+      "mean_annualized_sharpe": -0.503408577677895,
+      "worst_max_drawdown": -0.1884934465897774,
+      "total_completed_trades": 28
+    },
+    {
+      "regime": "DOWN_LOW_VOL",
+      "window_count": 5,
+      "positive_window_count": 1,
+      "positive_window_rate": 0.2,
+      "benchmark_beat_count": 5,
+      "benchmark_beat_rate": 1.0,
+      "mean_strategy_total_return": -0.029115502788325844,
+      "median_strategy_total_return": -0.0352959098782522,
+      "mean_benchmark_total_return": -0.09646584310473946,
+      "mean_excess_return": 0.06735034031641363,
+      "mean_annualized_sharpe": -0.6928165192160936,
+      "worst_max_drawdown": -0.0785501225089753,
+      "total_completed_trades": 10
+    },
+    {
+      "regime": "UP_HIGH_VOL",
+      "window_count": 20,
+      "positive_window_count": 15,
+      "positive_window_rate": 0.75,
+      "benchmark_beat_count": 1,
+      "benchmark_beat_rate": 0.05,
+      "mean_strategy_total_return": 0.1474367395956205,
+      "median_strategy_total_return": 0.07712544828247275,
+      "mean_benchmark_total_return": 0.5960144333537234,
+      "mean_excess_return": -0.44857769375810286,
+      "mean_annualized_sharpe": 0.4986810529414476,
+      "worst_max_drawdown": -0.2251942069074329,
+      "total_completed_trades": 76
+    },
+    {
+      "regime": "UP_LOW_VOL",
+      "window_count": 21,
+      "positive_window_count": 15,
+      "positive_window_rate": 0.7142857142857143,
+      "benchmark_beat_count": 1,
+      "benchmark_beat_rate": 0.047619047619047616,
+      "mean_strategy_total_return": 0.05227971749305982,
+      "median_strategy_total_return": 0.0498461881732743,
+      "mean_benchmark_total_return": 0.27710719892035024,
+      "mean_excess_return": -0.22482748142729045,
+      "mean_annualized_sharpe": 0.52830836494122,
+      "worst_max_drawdown": -0.1460947312123302,
+      "total_completed_trades": 62
+    }
+  ]
+}

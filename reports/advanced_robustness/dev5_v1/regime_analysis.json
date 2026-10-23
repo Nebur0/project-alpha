@@ -1,0 +1,72 @@
+{
+  "config": {
+    "annualization_factor": 252,
+    "high_volatility_threshold": 0.25
+  },
+  "market_path": "data\\raw\\bars.csv",
+  "optimization_report_path": "reports\\dev5_v1_walk_forward.csv",
+  "window_count": 20,
+  "regime_count": 4,
+  "regimes": [
+    {
+      "regime": "DOWN_HIGH_VOL",
+      "window_count": 4,
+      "positive_window_count": 0,
+      "positive_window_rate": 0.0,
+      "benchmark_beat_count": 4,
+      "benchmark_beat_rate": 1.0,
+      "mean_strategy_total_return": -0.061287626775004045,
+      "median_strategy_total_return": -0.0351361943459182,
+      "mean_benchmark_total_return": -0.30808976095806395,
+      "mean_excess_return": 0.2468021341830599,
+      "mean_annualized_sharpe": -0.9760208162844876,
+      "worst_max_drawdown": -0.1884934465897774,
+      "total_completed_trades": 6
+    },
+    {
+      "regime": "DOWN_LOW_VOL",
+      "window_count": 1,
+      "positive_window_count": 1,
+      "positive_window_rate": 1.0,
+      "benchmark_beat_count": 1,
+      "benchmark_beat_rate": 1.0,
+      "mean_strategy_total_return": 0.0117511928048228,
+      "median_strategy_total_return": 0.0117511928048228,
+      "mean_benchmark_total_return": -0.1648687109805354,
+      "mean_excess_return": 0.1766199037853582,
+      "mean_annualized_sharpe": 0.2111672899214174,
+      "worst_max_drawdown": -0.043022762109702,
+      "total_completed_trades": 2
+    },
+    {
+      "regime": "UP_HIGH_VOL",
+      "window_count": 5,
+      "positive_window_count": 5,
+      "positive_window_rate": 1.0,
+      "benchmark_beat_count": 1,
+      "benchmark_beat_rate": 0.2,
+      "mean_strategy_total_return": 0.33216255162944713,
+      "median_strategy_total_return": 0.1011852157610722,
+      "mean_benchmark_total_return": 0.9593528230471632,
+      "mean_excess_return": -0.6271902714177161,
+      "mean_annualized_sharpe": 1.012965711568721,
+      "worst_max_drawdown": -0.139086609567149,
+      "total_completed_trades": 19
+    },
+    {
+      "regime": "UP_LOW_VOL",
+      "window_count": 10,
+      "positive_window_count": 8,
+      "positive_window_rate": 0.8,
+      "benchmark_beat_count": 0,
+      "benchmark_beat_rate": 0.0,
+      "mean_strategy_total_return": 0.06398553658805956,
+      "median_strategy_total_return": 0.047537653008773495,
+      "mean_benchmark_total_return": 0.27075423260827736,
+      "mean_excess_return": -0.2067686960202178,
+      "mean_annualized_sharpe": 0.6164000033350223,
+      "worst_max_drawdown": -0.135972187055404,
+      "total_completed_trades": 29
+    }
+  ]
+}
