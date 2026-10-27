@@ -24,6 +24,58 @@ def _max_drawdown(equity: pd.Series) -> float:
     return float(drawdown.min())
 
 
+def _annualized_sharpe(
+    returns: pd.Series,
+) -> float:
+    daily_mean = returns.mean()
+    daily_std = returns.std(ddof=1)
+
+    return (
+        float(
+            daily_mean
+            / daily_std
+            * sqrt(252.0)
+        )
+        if daily_std
+        and not np.isnan(daily_std)
+        else float("nan")
+    )
+
+
+def _annualized_volatility(
+    returns: pd.Series,
+) -> float:
+    daily_std = returns.std(ddof=1)
+
+    return (
+        float(
+            daily_std * sqrt(252.0)
+        )
+        if not np.isnan(daily_std)
+        else float("nan")
+    )
+
+
+def _cagr(
+    final_equity: float,
+    initial_capital: float,
+    years: float,
+) -> float:
+    return (
+        float(
+            (
+                final_equity
+                / initial_capital
+            )
+            ** (1.0 / years)
+            - 1.0
+        )
+        if years > 0
+        and final_equity > 0
+        else float("nan")
+    )
+
+
 def _normalize_curves(
     curves: Mapping[str, pd.DataFrame],
 ) -> dict[str, pd.DataFrame]:
@@ -353,51 +405,64 @@ def run_fixed_weight_portfolio_backtest(
         portfolio["equity"].iloc[-1]
     )
 
+    benchmark_final_equity = float(
+        portfolio[
+            "benchmark_equity"
+        ].iloc[-1]
+    )
+
     total_return = (
         final_equity / initial_capital - 1.0
     )
 
     benchmark_total_return = (
-        float(
-            portfolio[
-                "benchmark_equity"
-            ].iloc[-1]
-        )
+        benchmark_final_equity
         / initial_capital
         - 1.0
     )
 
-    cagr = (
-        (final_equity / initial_capital)
-        ** (1.0 / years)
-        - 1.0
-        if years > 0 and final_equity > 0
-        else float("nan")
+    cagr = _cagr(
+        final_equity,
+        initial_capital,
+        years,
     )
 
-    daily_mean = portfolio[
-        "portfolio_return"
-    ].mean()
-
-    daily_std = portfolio[
-        "portfolio_return"
-    ].std(ddof=1)
+    benchmark_cagr = _cagr(
+        benchmark_final_equity,
+        initial_capital,
+        years,
+    )
 
     annualized_sharpe = (
-        float(
-            daily_mean
-            / daily_std
-            * sqrt(252.0)
+        _annualized_sharpe(
+            portfolio["portfolio_return"]
         )
-        if daily_std
-        and not np.isnan(daily_std)
-        else float("nan")
+    )
+
+    benchmark_annualized_sharpe = (
+        _annualized_sharpe(
+            portfolio["benchmark_return"]
+        )
     )
 
     annualized_volatility = (
-        float(daily_std * sqrt(252.0))
-        if not np.isnan(daily_std)
-        else float("nan")
+        _annualized_volatility(
+            portfolio["portfolio_return"]
+        )
+    )
+
+    benchmark_annualized_volatility = (
+        _annualized_volatility(
+            portfolio["benchmark_return"]
+        )
+    )
+
+    max_drawdown = _max_drawdown(
+        portfolio["equity"]
+    )
+
+    benchmark_max_drawdown = _max_drawdown(
+        portfolio["benchmark_equity"]
     )
 
     metrics: dict[str, MetricValue] = {
@@ -408,18 +473,31 @@ def run_fixed_weight_portfolio_backtest(
         "total_return": float(
             total_return
         ),
-        "benchmark_total_return": float(
-            benchmark_total_return
-        ),
-        "cagr": float(cagr),
+        "cagr": cagr,
         "annualized_sharpe": (
             annualized_sharpe
         ),
         "annualized_volatility": (
             annualized_volatility
         ),
-        "max_drawdown": _max_drawdown(
-            portfolio["equity"]
+        "max_drawdown": max_drawdown,
+        "benchmark_final_equity": (
+            benchmark_final_equity
+        ),
+        "benchmark_total_return": float(
+            benchmark_total_return
+        ),
+        "benchmark_cagr": (
+            benchmark_cagr
+        ),
+        "benchmark_annualized_sharpe": (
+            benchmark_annualized_sharpe
+        ),
+        "benchmark_annualized_volatility": (
+            benchmark_annualized_volatility
+        ),
+        "benchmark_max_drawdown": (
+            benchmark_max_drawdown
         ),
         "mean_gross_exposure": float(
             portfolio["gross_exposure"].mean()
