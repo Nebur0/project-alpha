@@ -42,6 +42,7 @@ from project_alpha.batch_optimization import (
 from project_alpha.cost_stress_analysis import (
     analyze_frozen_selection_cost_stress,
 )
+from project_alpha.data_quality import check_bars
 from project_alpha.evaluation import (
     TRADING_DAYS,
     deflated_sharpe_ratio,
@@ -477,6 +478,7 @@ def run_research(
 
     frame = _load_frame(config)
     data_hash = file_sha256(config.data)
+    data_quality = check_bars(frame, config.symbols)
     wf = config.walk_forward
     execution = None if config.execution.is_default else config.execution
 
@@ -626,6 +628,10 @@ def run_research(
             "rows": len(frame),
             "start": frame["timestamp"].min().isoformat(),
             "end": frame["timestamp"].max().isoformat(),
+            "quality_ok": data_quality.ok,
+            "quality_issues": [
+                f"{issue.severity}:{issue.code}:{issue.symbol}" for issue in data_quality.issues
+            ],
         },
         "git": git,
         "versions": {

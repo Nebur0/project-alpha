@@ -147,6 +147,8 @@ def test_run_research_writes_outputs_manifest_and_registry(workspace: Path) -> N
     assert manifest["run_id"] == result.run_id
     assert manifest["data"]["sha256"] == file_sha256(workspace / "data" / "bars.csv")
     assert manifest["config"]["grid_size"] == 2
+    assert manifest["data"]["quality_ok"] is True
+    assert manifest["data"]["quality_issues"] == []
     assert manifest["trials_on_same_data"] == 1
     # La cartella temporanea non è un repository git.
     assert manifest["git"]["commit"] is None

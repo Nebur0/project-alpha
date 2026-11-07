@@ -81,6 +81,19 @@ valutazione (`evaluation.json`), stress di costi ed esecuzione, blend e un
 Ogni esecuzione aggiunge una riga a `reports/research/experiment_registry.csv`:
 il numero di prove sugli stessi dati entra nel Deflated Sharpe Ratio.
 
+### Qualità dei dati
+
+```bash
+project-alpha check-data --input data/raw/bars_dev15.csv
+```
+
+Errori (duplicati, prezzi mancanti o non positivi, high < low, simboli che
+finiscono prima degli altri) e avvisi (date mancanti, rendimenti estremi,
+volumi nulli). `fetch` esegue lo stesso controllo dopo ogni download e
+riprova da solo in caso di errori temporanei di Alpaca (429/5xx);
+`--feed iex|sip` fissa la fonte dei dati. Il risultato del controllo
+finisce anche nel `manifest.json` di ogni ricerca.
+
 ### Registro forward dei segnali (nessun ordine)
 
 ```bash

@@ -356,6 +356,27 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("data/raw/bars.csv"),
     )
+    fetch.add_argument(
+        "--feed",
+        choices=["iex", "sip"],
+        default=None,
+        help="Fonte dati Alpaca (default: quella del piano dati).",
+    )
+
+    check_data = commands.add_parser(
+        "check-data",
+        help="Controlla la qualità di un file di barre (duplicati, buchi, disallineamenti).",
+    )
+    check_data.add_argument(
+        "--input",
+        type=Path,
+        required=True,
+    )
+    check_data.add_argument(
+        "--symbols",
+        nargs="+",
+        help="Simboli attesi (default: tutti quelli presenti).",
+    )
 
     analyze = commands.add_parser(
         "analyze",
@@ -780,14 +801,35 @@ def main() -> None:
     execution = _execution_from_args(args)
 
     if args.command == "fetch":
+        from project_alpha.data_quality import check_bars
+
         frame = fetch_and_save(
             args.symbols,
             args.start,
             args.end,
             args.output,
+            feed=args.feed,
         )
 
         print(f"Salvate {len(frame):,} righe in {args.output}")
+
+        report = check_bars(frame, args.symbols)
+        for issue in report.issues:
+            print(f"[{issue.severity.upper()}] {issue.code} {issue.symbol or ''}: {issue.detail}")
+        if not report.ok:
+            raise SystemExit(
+                "Dati scaricati con errori di qualità: controllare prima di usarli "
+                f"(project-alpha check-data --input {args.output})."
+            )
+        return
+
+    if args.command == "check-data":
+        from project_alpha.data_quality import check_bars
+
+        report = check_bars(pd.read_csv(args.input), args.symbols)
+        print(dumps_json(report.summary(), indent=2))
+        if not report.ok:
+            raise SystemExit(1)
         return
 
     if args.command == "analyze":
