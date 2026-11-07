@@ -1,8 +1,8 @@
 {
-  "run_id": "f3cabec9aa81",
+  "run_id": "04dd6dcdc86f",
   "name": "dev15_v1",
-  "started_utc": "2026-11-07T14:21:17.363353+00:00",
-  "finished_utc": "2026-11-07T14:21:46.226126+00:00",
+  "started_utc": "2026-11-07T14:39:30.220162+00:00",
+  "finished_utc": "2026-11-07T14:40:00.560390+00:00",
   "config_file": "configs/dev15_v1.toml",
   "config": {
     "data": "/home/claude/project-alpha/data/raw/bars_dev15.csv",
@@ -87,10 +87,18 @@
     "sha256": "d38d01b46a71bb5a321ffdf748cc5e17307475309a90ece24d260aea7eaae690",
     "rows": 32465,
     "start": "2018-01-02T05:00:00+00:00",
-    "end": "2026-08-28T04:00:00+00:00"
+    "end": "2026-08-28T04:00:00+00:00",
+    "quality_ok": false,
+    "quality_issues": [
+      "error:ENDS_EARLY:AAPL",
+      "error:ENDS_EARLY:MSFT",
+      "error:ENDS_EARLY:NVDA",
+      "error:ENDS_EARLY:QQQ",
+      "error:ENDS_EARLY:SPY"
+    ]
   },
   "git": {
-    "commit": "8f439014f1645d5967a921f48c095b578bc73a34",
+    "commit": "4f367519fdceaf6b92734834f973b608e1135b42",
     "dirty": false
   },
   "versions": {
