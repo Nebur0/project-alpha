@@ -9,15 +9,28 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from project_alpha.dashboard.data import overview
 from project_alpha.dashboard.server import create_server, page_html
 from project_alpha.execution.broker import SimulatedBroker
 from project_alpha.paper import load_paper_config, run_paper
-from tests.test_paper import _bars
 
 REPO = Path(__file__).resolve().parents[1]
+
+
+def _bars(symbols, days=120, seed=0, end="2026-11-09"):
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range(end=end, periods=days, tz="UTC") + pd.Timedelta(hours=5)
+    rows = []
+    for index, symbol in enumerate(symbols):
+        price = 100.0 + 10 * index
+        for timestamp in dates:
+            price *= 1 + rng.normal(0, 0.008)
+            rows.append({"symbol": symbol, "timestamp": timestamp, "close": price})
+    return pd.DataFrame(rows)
 
 
 @pytest.fixture()
