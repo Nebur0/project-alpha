@@ -11,3 +11,7 @@ reports/*.json
 dist/
 build/
 *.egg-info/
+
+# Registro giornaliero: log tecnici locali (il signal_log.csv invece si versiona)
+reports/signals/daily_runs.log
+reports/signals/last_data_check.json
