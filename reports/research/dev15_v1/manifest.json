@@ -1,8 +1,8 @@
 {
-  "run_id": "c2f2bcda3182",
+  "run_id": "e7eda32fcf21",
   "name": "dev15_v1",
-  "started_utc": "2026-11-07T14:05:09.143698+00:00",
-  "finished_utc": "2026-11-07T14:05:41.429388+00:00",
+  "started_utc": "2026-11-07T14:06:19.036458+00:00",
+  "finished_utc": "2026-11-07T14:06:48.013130+00:00",
   "config_file": "configs/dev15_v1.toml",
   "config": {
     "data": "/home/claude/project-alpha/data/raw/bars_dev15.csv",
@@ -85,8 +85,8 @@
     "end": "2026-08-28T04:00:00+00:00"
   },
   "git": {
-    "commit": "7ded38f9811a614d6f21cb4f34a3150cc8eaaacf",
-    "dirty": false
+    "commit": "7245be76ef4274e090196e7c9e2031335d0b6ce9",
+    "dirty": true
   },
   "versions": {
     "project_alpha": "0.1.0",
