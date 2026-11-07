@@ -5,7 +5,7 @@
 name = "dev15_v1"
 data = "data/raw/bars_dev15.csv"
 output_dir = "reports/research/dev15_v1"
-registry = "reports/experiment_registry.csv"
+registry = "reports/research/experiment_registry.csv"
 symbols = [
   "SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "JPM",
   "XOM", "JNJ", "COST", "CAT", "NEE", "HD", "AMD",

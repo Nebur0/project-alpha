@@ -48,7 +48,7 @@ CONFIG = """
 name = "test_run"
 data = "data/bars.csv"
 output_dir = "reports/research/test_run"
-registry = "reports/experiment_registry.csv"
+registry = "reports/research/experiment_registry.csv"
 symbols = ["AAA", "BBB"]
 
 [walk_forward]
@@ -92,7 +92,7 @@ def test_load_research_config_resolves_paths(workspace: Path) -> None:
     assert config.walk_forward.train_size == 60
     assert config.execution.is_default
     assert config.analysis.costs_bps_per_side == (0.0, 10.0)
-    assert config.registry == workspace / "reports" / "experiment_registry.csv"
+    assert config.registry == workspace / "reports" / "research" / "experiment_registry.csv"
 
 
 def test_load_research_config_rejects_unknown_keys(workspace: Path) -> None:
@@ -147,7 +147,7 @@ def test_run_research_writes_outputs_manifest_and_registry(workspace: Path) -> N
     # La cartella temporanea non è un repository git.
     assert manifest["git"]["commit"] is None
 
-    registry = read_registry(workspace / "reports" / "experiment_registry.csv")
+    registry = read_registry(workspace / "reports" / "research" / "experiment_registry.csv")
     assert list(registry.columns) == list(REGISTRY_COLUMNS)
     assert registry["run_id"].tolist() == [result.run_id]
     assert result.summary["trials"] == 1
@@ -159,7 +159,7 @@ def test_registry_counts_trials_on_same_data(workspace: Path) -> None:
     run_research(config, repo_dir=workspace)
     second = run_research(config, repo_dir=workspace)
 
-    registry = read_registry(workspace / "reports" / "experiment_registry.csv")
+    registry = read_registry(workspace / "reports" / "research" / "experiment_registry.csv")
     assert len(registry) == 2
     assert second.summary["trials"] == 2
 

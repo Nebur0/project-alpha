@@ -1,0 +1,98 @@
+{
+  "run_id": "c2f2bcda3182",
+  "name": "dev15_v1",
+  "started_utc": "2026-11-07T14:05:09.143698+00:00",
+  "finished_utc": "2026-11-07T14:05:41.429388+00:00",
+  "config_file": "configs/dev15_v1.toml",
+  "config": {
+    "data": "/home/claude/project-alpha/data/raw/bars_dev15.csv",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMZN",
+      "GOOGL",
+      "JPM",
+      "XOM",
+      "JNJ",
+      "COST",
+      "CAT",
+      "NEE",
+      "HD",
+      "AMD"
+    ],
+    "walk_forward": {
+      "train_size": 1000,
+      "test_size": 252,
+      "step_size": 252,
+      "score_metric": "robust_score",
+      "minimum_completed_trades": 1,
+      "no_candidate_policy": "raise",
+      "initial_capital": 10000.0,
+      "cost_per_side": 0.001
+    },
+    "grid": {
+      "fast_ema_period": [
+        10,
+        20,
+        25
+      ],
+      "slow_ema_period": [
+        30,
+        40,
+        50
+      ],
+      "trend_ema_period": [
+        100,
+        150
+      ]
+    },
+    "grid_size": 18,
+    "robust_score": null,
+    "execution": {
+      "mode": "close",
+      "delay_days": 0,
+      "cash_rate_annual": 0.0
+    },
+    "analysis": {
+      "costs_bps_per_side": [
+        0.0,
+        5.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "execution_stress": true,
+      "blend_defensive_weights": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "permutations": 5000,
+      "seed": 42,
+      "hac_lags": 10
+    }
+  },
+  "data": {
+    "path": "/home/claude/project-alpha/data/raw/bars_dev15.csv",
+    "sha256": "d38d01b46a71bb5a321ffdf748cc5e17307475309a90ece24d260aea7eaae690",
+    "rows": 32465,
+    "start": "2018-01-02T05:00:00+00:00",
+    "end": "2026-08-28T04:00:00+00:00"
+  },
+  "git": {
+    "commit": "7ded38f9811a614d6f21cb4f34a3150cc8eaaacf",
+    "dirty": false
+  },
+  "versions": {
+    "project_alpha": "0.1.0",
+    "python": "3.13.18",
+    "pandas": "3.0.5",
+    "numpy": "2.5.3"
+  },
+  "trials_on_same_data": 1
+}

@@ -206,7 +206,7 @@ def load_research_config(
             analysis_raw[key] = tuple(float(value) for value in analysis_raw[key])
     analysis = _build(AnalysisSettings, analysis_raw, "analysis")
 
-    registry = raw.get("registry", "reports/experiment_registry.csv")
+    registry = raw.get("registry", "reports/research/experiment_registry.csv")
 
     return ResearchConfig(
         name=str(_require(raw, "name", "root")),
