@@ -339,6 +339,11 @@ def run_research(
 ) -> ResearchRunResult:
     run_id = uuid.uuid4().hex[:12]
     started = datetime.now(UTC)
+
+    # Stato git letto prima di scrivere i report: gli output della
+    # ricerca stessa non devono far risultare l'albero "sporco".
+    repo = Path(repo_dir) if repo_dir is not None else Path.cwd()
+    git = git_state(repo)
     output = config.output_dir
     output.mkdir(parents=True, exist_ok=True)
 
@@ -466,9 +471,6 @@ def run_research(
     write_json_atomic(output / "evaluation.json", evaluation_payload)
     write_csv_atomic(evaluation.by_window, output / "evaluation_by_window.csv")
     write_csv_atomic(evaluation.on_off, output / "evaluation_on_off.csv")
-
-    repo = Path(repo_dir) if repo_dir is not None else Path.cwd()
-    git = git_state(repo)
 
     manifest = {
         "run_id": run_id,
