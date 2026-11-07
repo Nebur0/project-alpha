@@ -14,6 +14,7 @@ from project_alpha.batch_optimization import (
 from project_alpha.optimization import (
     WalkForwardOptimizationResult,
     _prepare_out_of_sample_frame,
+    prepare_flat_out_of_sample_frame,
 )
 from project_alpha.portfolio import (
     PortfolioResult,
@@ -164,13 +165,20 @@ def reconstruct_walk_forward_oos_curve(
             window_index
         ]
 
-        positioned = (
-            _prepare_out_of_sample_frame(
-                split.in_sample,
-                split.out_of_sample,
-                window.selected_parameters,
+        if window.selected_parameters is None:
+            positioned = (
+                prepare_flat_out_of_sample_frame(
+                    split.out_of_sample
+                )
             )
-        )
+        else:
+            positioned = (
+                _prepare_out_of_sample_frame(
+                    split.in_sample,
+                    split.out_of_sample,
+                    window.selected_parameters,
+                )
+            )
 
         backtest = run_long_only_backtest(
             positioned,

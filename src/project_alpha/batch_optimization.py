@@ -90,6 +90,7 @@ def run_batch_walk_forward_optimization(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    no_candidate_policy: str = "raise",
 ) -> BatchWalkForwardOptimizationResult:
     _validate_batch_frame(frame)
 
@@ -144,6 +145,7 @@ def run_batch_walk_forward_optimization(
             robust_score_config=(
                 robust_score_config
             ),
+            no_candidate_policy=no_candidate_policy,
         )
 
         results[symbol] = result
@@ -272,6 +274,9 @@ def batch_walk_forward_comparison_to_frame(
             "compounding_enabled": (
                 symbol_result
                 .compounding_enabled
+            ),
+            "flat_window_count": (
+                symbol_result.flat_window_count
             ),
         }
 
