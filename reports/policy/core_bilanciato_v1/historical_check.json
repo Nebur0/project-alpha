@@ -1,0 +1,60 @@
+{
+  "config": "configs/paper_core_v1.toml",
+  "data_sha256": "b98e6490b77a6f47027be8ab1cec537bcd165619c5d838922f0fc366f5958b8b",
+  "start": "2016-01-05",
+  "end": "2026-11-06",
+  "trials": 1,
+  "variants": {
+    "core_100": {
+      "total_return": 1.6215185974742954,
+      "cagr": 0.09318168848906216,
+      "annualized_volatility": 0.11922982803164252,
+      "annualized_sharpe": 0.8068461150785001,
+      "max_drawdown": -0.24967368123717448,
+      "mean_sleeve_allocation": 1.0,
+      "min_sleeve_allocation": 1.0,
+      "worst_drawdown_date": "2022-10-14",
+      "worst_drawdown_by_year": {
+        "2016": -0.05,
+        "2017": -0.0249,
+        "2018": -0.1243,
+        "2019": -0.1011,
+        "2020": -0.2247,
+        "2021": -0.0487,
+        "2022": -0.2497,
+        "2023": -0.1867,
+        "2024": -0.0682,
+        "2025": -0.1075,
+        "2026": -0.0779
+      }
+    },
+    "core_vol_target": {
+      "total_return": 0.8628398059233946,
+      "cagr": 0.05919487928534051,
+      "annualized_volatility": 0.08093573873679524,
+      "annualized_sharpe": 0.750903621909202,
+      "max_drawdown": -0.1631556630986648,
+      "mean_sleeve_allocation": 0.7891261744444003,
+      "min_sleeve_allocation": 0.23991293012530113,
+      "worst_drawdown_date": "2022-10-14",
+      "worst_drawdown_by_year": {
+        "2016": -0.0472,
+        "2017": -0.0257,
+        "2018": -0.1119,
+        "2019": -0.0965,
+        "2020": -0.1413,
+        "2021": -0.0445,
+        "2022": -0.1632,
+        "2023": -0.132,
+        "2024": -0.0563,
+        "2025": -0.0811,
+        "2026": -0.0685
+      }
+    },
+    "core_vol_target_with_stop": {
+      "stop_date": "2020-03-12",
+      "max_drawdown": -0.12422489421360106,
+      "note": "Dopo lo stop il sistema resta in cash finch\u00e9 il proprietario non lo sblocca."
+    }
+  }
+}

@@ -790,6 +790,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Registro forward dei segnali (CSV, append-only).",
     )
 
+    paper = commands.add_parser(
+        "paper-rebalance",
+        help=(
+            "Paper trading del core (conto Alpaca paper, soldi finti). "
+            "Senza --submit calcola e registra ma non invia ordini."
+        ),
+    )
+    paper.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
+    paper.add_argument(
+        "--submit",
+        action="store_true",
+        help="Invia davvero gli ordini al conto paper (default: solo prova).",
+    )
+
+    resume = commands.add_parser(
+        "paper-resume",
+        help="Sblocca il paper trading dopo uno stop di drawdown (decisione manuale).",
+    )
+    resume.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
+
     for command_name in EXECUTION_COMMANDS:
         _add_execution_arguments(commands.choices[command_name])
 
@@ -1586,6 +1606,27 @@ def main() -> None:
                 indent=2,
             )
         )
+        return
+
+    if args.command == "paper-rebalance":
+        from project_alpha.config import Settings
+        from project_alpha.execution.alpaca_paper import AlpacaPaperBroker
+        from project_alpha.paper import load_paper_config, run_paper
+
+        config = load_paper_config(args.config)
+        broker = AlpacaPaperBroker(Settings.from_env())
+        outcome = run_paper(config, broker, submit=args.submit)
+        print(dumps_json(outcome.summary(), indent=2))
+
+        if outcome.status in {"PARTIAL", "REJECTED_BY_RISK"}:
+            raise SystemExit(1)
+        return
+
+    if args.command == "paper-resume":
+        from project_alpha.paper import load_paper_config, resume_paper
+
+        state = resume_paper(load_paper_config(args.config))
+        print(dumps_json({"halted": state.halted, "peak_equity": state.peak_equity}, indent=2))
         return
 
     if args.command == "run":

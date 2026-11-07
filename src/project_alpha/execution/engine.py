@@ -7,7 +7,9 @@ Sequenza, sempre nello stesso ordine:
    ammessi; se no, **nessun ordine** e il motivo viene restituito;
 3. pianifica gli ordini (vendite prima, quantità per difetto);
 4. se non è un dry-run, li invia con id deterministici (ripetere lo stesso
-   ribilanciamento non duplica nulla) e si ferma al primo rifiuto;
+   ribilanciamento non duplica nulla) e si ferma al primo rifiuto; un ordine
+   accettato ma non ancora eseguito (broker reale fuori orario) non è un
+   rifiuto: il risultato è allora ``SUBMITTED``;
 5. rilegge il conto e confronta i pesi ottenuti con quelli target.
 """
 
@@ -31,7 +33,8 @@ from project_alpha.risk_engine import (
 
 @dataclass(frozen=True)
 class RebalanceResult:
-    status: str  # "REJECTED_BY_RISK" | "DRY_RUN" | "EXECUTED" | "PARTIAL" | "NOTHING_TO_DO"
+    # "REJECTED_BY_RISK" | "DRY_RUN" | "EXECUTED" | "SUBMITTED" | "PARTIAL" | "NOTHING_TO_DO"
+    status: str
     risk: RiskDecisionV2
     orders: tuple[Order, ...]
     reports: tuple[OrderReport, ...]
@@ -113,9 +116,12 @@ def rebalance(
             report = broker.submit(order, fill_price=price_map[order.symbol])
             reports.append(report)
 
-            if report.status is not OrderStatus.FILLED:
+            if report.status is OrderStatus.REJECTED:
                 status = "PARTIAL"
                 break
+
+            if report.status is OrderStatus.SUBMITTED:
+                status = "SUBMITTED"
 
     after = broker.account(price_map)
     weights_after = _weights(after.positions, price_map, after.equity)
