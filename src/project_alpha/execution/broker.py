@@ -25,6 +25,8 @@ QUANTITY_TOLERANCE = 1e-9
 
 class OrderStatus(StrEnum):
     FILLED = "FILLED"
+    # Accettato dal broker ma non ancora eseguito (es. in coda per l'apertura).
+    SUBMITTED = "SUBMITTED"
     REJECTED = "REJECTED"
 
 

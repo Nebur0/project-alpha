@@ -44,8 +44,10 @@ Dati di mercato (Alpaca, daily OHLCV)
                                       portfolio_blend_analysis.py
   → Rischio deterministico            risk.py
   → Pipeline riproducibile            research.py (+ manifest e registro delle prove)
-  → Esecuzione (offline)              execution/: piano ordini, interfaccia Broker,
-                                      broker simulato, ribilanciamento dietro il Risk Engine
+  → Esecuzione                        execution/: piano ordini, interfaccia Broker,
+                                      broker simulato, adattatore Alpaca SOLO paper,
+                                      ribilanciamento dietro il Risk Engine
+  → Paper trading del core            paper.py (IPS → pesi target, stop di drawdown, registro)
 ```
 
 Analisi di robustezza storiche (usate per i report in
@@ -118,6 +120,27 @@ Crea attività di base → ogni giorno, lun–ven, ore 23:00):
 
 Il registro va versionato (`git add reports/signals/signal_log.csv`): è la
 prova in avanti della strategia.
+
+### Paper trading del core bilanciato (soldi finti)
+
+Portafoglio e limiti sono quelli dell'IPS (`docs/IPS.md`), in
+`configs/paper_core_v1.toml`. Serve un conto **paper** Alpaca (consigliato:
+reimpostarlo a 10.000 $) e le sue chiavi in `.env` (iniziano con `PK`;
+le chiavi del conto reale vengono rifiutate).
+
+```bash
+scripts/daily_paper.sh --dry-run   # prova: calcola e registra, nessun ordine
+scripts/daily_paper.sh             # invia gli ordini al conto paper
+project-alpha paper-resume --config configs/paper_core_v1.toml   # sblocco dopo lo stop
+```
+
+Ogni sera dopo la chiusura USA: scarica i dati in `data/raw/bars_core.csv`,
+li controlla, calcola i pesi target e, se il portafoglio è fuori banda,
+invia ordini a mercato che vengono eseguiti all'apertura successiva. Tutto
+passa dal Risk Engine V2; a −12% dal massimo vende tutto e si ferma finché
+non viene sbloccato a mano. Ogni esecuzione aggiunge una riga a
+`reports/paper/paper_log.csv` (da versionare). Pianificazione su Windows
+come per i segnali, con `scripts/daily_paper.sh`.
 
 ### Fase 1: V1 congelata su ETF multi-asset
 

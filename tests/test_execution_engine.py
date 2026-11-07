@@ -235,3 +235,24 @@ def test_partial_execution_stops_at_first_rejection() -> None:
     assert result.status == "PARTIAL"
     assert result.reports[-1].status is OrderStatus.REJECTED
     assert len(result.reports) < len(result.orders)
+
+
+def test_queued_orders_are_reported_as_submitted() -> None:
+    from project_alpha.execution.broker import OrderReport
+
+    class QueuedBroker(SimulatedBroker):
+        def submit(self, order, *, fill_price):
+            return OrderReport(
+                order.client_order_id,
+                order.symbol,
+                order.side,
+                order.quantity,
+                OrderStatus.SUBMITTED,
+                None,
+                0.0,
+            )
+
+    result = _rebalance(QueuedBroker(cash=10_000.0), {"SPY": 0.3, "QQQ": 0.3}, dry_run=False)
+
+    assert result.status == "SUBMITTED"
+    assert len(result.reports) == len(result.orders) == 2

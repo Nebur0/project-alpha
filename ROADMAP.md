@@ -47,10 +47,12 @@ valutazione standard.
 - Fase 1: eseguita il 2026-11-07 (run `26cee9214d95`, report in
   `reports/research/etf_multiasset_v1/`). Esito: V1 non supera il test
   (vedi sotto); decisione del proprietario in attesa.
-- Fase 2: Risk Engine V2, portafoglio di policy con vol targeting e
-  template IPS fatti (PR #21); i valori dell'IPS li decide il proprietario.
-- Fase 3: registro forward dei segnali fatto (PR #22); il paper trading con
-  ordini richiede l'ok esplicito del proprietario.
+- Fase 2: IPS compilato dal proprietario il 2026-11-07 (10.000 €, max −15%,
+  profilo intermedio): core bilanciato 60/30/10 con vol target 8% e stop a
+  −12% (`configs/paper_core_v1.toml`).
+- Fase 3: registro forward dei segnali (PR #22) e paper trading del core su
+  Alpaca paper, autorizzato dal proprietario il 2026-11-07
+  (`scripts/daily_paper.sh`, registro `reports/paper/paper_log.csv`).
 
 ## Fase 1 — La verità su V1
 

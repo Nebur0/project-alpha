@@ -1,0 +1,77 @@
+# Project Alpha — paper trading del core bilanciato (soldi finti, Alpaca paper).
+# Valori decisi nell'IPS (docs/IPS.md, 2026-11-07) PRIMA della verifica
+# storica; non si ritoccano guardando i risultati.
+#
+# Uso:
+#   python -m project_alpha paper-rebalance --config configs/paper_core_v1.toml            (prova, nessun ordine)
+#   python -m project_alpha paper-rebalance --config configs/paper_core_v1.toml --submit   (invia al conto paper)
+#   python -m project_alpha paper-resume    --config configs/paper_core_v1.toml            (sblocco dopo lo stop)
+
+name = "core_bilanciato_v1"
+data = "data/raw/bars_core.csv"
+log = "reports/paper/paper_log.csv"
+state = "reports/paper/state.json"
+
+# Capitale massimo gestito (valuta del conto). Conto paper consigliato: 10.000.
+budget = 10000.0
+
+# Limite dell'IPS: perdita massima 15% dal massimo. Il sistema agisce prima:
+# -10% → il Risk Engine ammette solo riduzioni ([risk].max_drawdown);
+# -12% → tutto in cash e stop fino allo sblocco manuale (margine di 3 punti
+#        per i gap di apertura).
+stop_drawdown = 0.12
+
+# Bande di ribilanciamento: si opera solo se un peso si scosta di almeno
+# 3 punti o l'esposizione totale di almeno 5 punti.
+drift_threshold = 0.03
+exposure_threshold = 0.05
+
+# Core bilanciato: 60% azioni, 30% obbligazioni, 10% attivi reali.
+[weights]
+SPY = 0.20
+QQQ = 0.10
+IWM = 0.05
+EFA = 0.15
+EEM = 0.10
+IEF = 0.15
+LQD = 0.10
+TLT = 0.05
+GLD = 0.05
+VNQ = 0.05
+
+[groups]
+SPY = "azioni"
+QQQ = "azioni"
+IWM = "azioni"
+EFA = "azioni"
+EEM = "azioni"
+IEF = "obbligazioni"
+LQD = "obbligazioni"
+TLT = "obbligazioni"
+GLD = "reali"
+VNQ = "reali"
+
+# Volatilità obiettivo 8% annuo (profilo intermedio), finestra 63 giorni,
+# mai leva.
+[vol_target]
+target_volatility = 0.08
+lookback_days = 63
+max_exposure = 1.0
+min_exposure = 0.0
+warmup_exposure = 0.5
+
+[risk]
+max_position_weight = 0.20
+max_gross_exposure = 1.0
+max_group_weight = 0.65
+max_daily_loss = 0.04
+max_drawdown = 0.10
+max_turnover = 1.0
+max_data_age_days = 4.0
+min_cash_weight = 0.0
+
+[orders]
+min_order_notional = 25.0
+allow_fractional = true
+fractional_decimals = 4
+cash_buffer = 0.01
