@@ -8,6 +8,7 @@ from numbers import Real
 import pandas as pd
 
 from project_alpha.backtest import (
+    ExecutionConfig,
     run_long_only_backtest,
 )
 from project_alpha.config import StrategyParameters
@@ -82,6 +83,7 @@ class WalkForwardOptimizationResult:
     ]
     summary: dict[str, MetricValue]
     no_candidate_policy: str = "raise"
+    execution: ExecutionConfig | None = None
 
     @property
     def flat_window_count(self) -> int:
@@ -335,6 +337,16 @@ def _calculate_candidate_score(
     )
 
 
+def _execution_kwargs(
+    execution: ExecutionConfig | None,
+) -> dict[str, ExecutionConfig]:
+    """Passa ``execution`` solo se impostato (compatibilità con chiamate e mock esistenti)."""
+    if execution is None:
+        return {}
+
+    return {"execution": execution}
+
+
 def _validate_single_symbol_frame(
     frame: pd.DataFrame,
 ) -> str:
@@ -394,6 +406,7 @@ def run_parameter_grid_search(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    execution: ExecutionConfig | None = None,
 ) -> list[GridSearchResult]:
     _validate_single_symbol_frame(frame)
 
@@ -435,6 +448,7 @@ def run_parameter_grid_search(
                 cost_per_side=(
                     cost_per_side
                 ),
+                **_execution_kwargs(execution),
             )
         )
 
@@ -691,6 +705,7 @@ def run_walk_forward_optimization(
         RobustScoreConfig | None
     ) = None,
     no_candidate_policy: str = "raise",
+    execution: ExecutionConfig | None = None,
 ) -> WalkForwardOptimizationResult:
     symbol = _validate_single_symbol_frame(
         frame
@@ -771,6 +786,7 @@ def run_walk_forward_optimization(
                 robust_score_config=(
                     effective_robust_score_config
                 ),
+                **_execution_kwargs(execution),
             )
         )
 
@@ -817,6 +833,7 @@ def run_walk_forward_optimization(
                 cost_per_side=(
                     cost_per_side
                 ),
+                **_execution_kwargs(execution),
             )
         )
 
@@ -900,6 +917,7 @@ def run_walk_forward_optimization(
         windows=tuple(windows),
         summary=summary,
         no_candidate_policy=no_candidate_policy,
+        execution=execution,
     )
 
 
@@ -988,6 +1006,11 @@ def walk_forward_optimization_to_dict(
         ),
         "no_candidate_policy": (
             result.no_candidate_policy
+        ),
+        "execution": (
+            asdict(result.execution)
+            if result.execution is not None
+            else None
         ),
         "flat_window_count": (
             result.flat_window_count
