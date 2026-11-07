@@ -44,6 +44,8 @@ Dati di mercato (Alpaca, daily OHLCV)
                                       portfolio_blend_analysis.py
   → Rischio deterministico            risk.py
   → Pipeline riproducibile            research.py (+ manifest e registro delle prove)
+  → Esecuzione (offline)              execution/: piano ordini, interfaccia Broker,
+                                      broker simulato, ribilanciamento dietro il Risk Engine
 ```
 
 Analisi di robustezza storiche (usate per i report in
