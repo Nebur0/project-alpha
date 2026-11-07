@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 MetricValue = float | int | None
 
 
@@ -17,23 +16,13 @@ def _required_float(
 ) -> float:
     value = metrics.get(metric_name)
 
-    if (
-        value is None
-        or isinstance(value, bool)
-        or not isinstance(value, Real)
-    ):
-        raise ValueError(
-            f"La metrica '{metric_name}' è assente "
-            "o non è numerica."
-        )
+    if value is None or isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"La metrica '{metric_name}' è assente o non è numerica.")
 
     numeric_value = float(value)
 
     if not math.isfinite(numeric_value):
-        raise ValueError(
-            f"La metrica '{metric_name}' "
-            "deve essere finita."
-        )
+        raise ValueError(f"La metrica '{metric_name}' deve essere finita.")
 
     return numeric_value
 
@@ -47,14 +36,8 @@ def _optional_finite_float(
     if value is None:
         return None
 
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, Real)
-    ):
-        raise ValueError(
-            f"La metrica '{metric_name}' "
-            "non è numerica."
-        )
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"La metrica '{metric_name}' non è numerica.")
 
     numeric_value = float(value)
 
@@ -73,14 +56,8 @@ def _required_non_negative_int(
         metric_name,
     )
 
-    if (
-        numeric_value < 0
-        or not numeric_value.is_integer()
-    ):
-        raise ValueError(
-            f"La metrica '{metric_name}' deve "
-            "essere un intero non negativo."
-        )
+    if numeric_value < 0 or not numeric_value.is_integer():
+        raise ValueError(f"La metrica '{metric_name}' deve essere un intero non negativo.")
 
     return int(numeric_value)
 
@@ -95,14 +72,8 @@ def sanitize_metric_values(
             sanitized[metric_name] = None
             continue
 
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, Real)
-        ):
-            raise ValueError(
-                f"La metrica '{metric_name}' "
-                "non è numerica."
-            )
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise ValueError(f"La metrica '{metric_name}' non è numerica.")
 
         numeric_value = float(value)
 
@@ -117,17 +88,12 @@ def sanitize_metric_values(
 
 
 def summarize_walk_forward_metrics(
-    out_of_sample_results: Sequence[
-        Mapping[str, MetricValue]
-    ],
+    out_of_sample_results: Sequence[Mapping[str, MetricValue]],
     *,
     allow_compounding: bool = True,
 ) -> dict[str, MetricValue]:
     if not out_of_sample_results:
-        raise ValueError(
-            "Nessun risultato out-of-sample "
-            "disponibile per il riepilogo."
-        )
+        raise ValueError("Nessun risultato out-of-sample disponibile per il riepilogo.")
 
     total_returns = [
         _required_float(
@@ -173,26 +139,16 @@ def summarize_walk_forward_metrics(
         for metrics in out_of_sample_results
     ]
 
-    window_count = len(
-        out_of_sample_results
-    )
+    window_count = len(out_of_sample_results)
 
-    positive_window_count = sum(
-        total_return > 0.0
-        for total_return in total_returns
-    )
+    positive_window_count = sum(total_return > 0.0 for total_return in total_returns)
 
-    valid_sharpe_window_count = len(
-        sharpes
-    )
+    valid_sharpe_window_count = len(sharpes)
 
     mean_sharpe: float | None = None
 
     if sharpes:
-        mean_sharpe = (
-            sum(sharpes)
-            / valid_sharpe_window_count
-        )
+        mean_sharpe = sum(sharpes) / valid_sharpe_window_count
 
     compounded_total_return: float | None = None
     compounded_benchmark_return: float | None = None
@@ -200,57 +156,26 @@ def summarize_walk_forward_metrics(
 
     if allow_compounding:
         compounded_total_return = (
-            math.prod(
-                1.0 + total_return
-                for total_return in total_returns
-            )
-            - 1.0
+            math.prod(1.0 + total_return for total_return in total_returns) - 1.0
         )
 
         compounded_benchmark_return = (
-            math.prod(
-                1.0 + benchmark_return
-                for benchmark_return
-                in benchmark_returns
-            )
-            - 1.0
+            math.prod(1.0 + benchmark_return for benchmark_return in benchmark_returns) - 1.0
         )
 
-        compounded_excess_return = (
-            compounded_total_return
-            - compounded_benchmark_return
-        )
+        compounded_excess_return = compounded_total_return - compounded_benchmark_return
 
     return {
         "window_count": window_count,
-        "positive_window_count": (
-            positive_window_count
-        ),
-        "positive_window_rate": (
-            positive_window_count
-            / window_count
-        ),
-        "compounded_total_return": (
-            compounded_total_return
-        ),
-        "compounded_benchmark_total_return": (
-            compounded_benchmark_return
-        ),
-        "compounded_excess_return": (
-            compounded_excess_return
-        ),
-        "valid_sharpe_window_count": (
-            valid_sharpe_window_count
-        ),
-        "mean_window_annualized_sharpe": (
-            mean_sharpe
-        ),
-        "worst_max_drawdown": min(
-            drawdowns
-        ),
-        "total_completed_trades": sum(
-            completed_trades
-        ),
+        "positive_window_count": (positive_window_count),
+        "positive_window_rate": (positive_window_count / window_count),
+        "compounded_total_return": (compounded_total_return),
+        "compounded_benchmark_total_return": (compounded_benchmark_return),
+        "compounded_excess_return": (compounded_excess_return),
+        "valid_sharpe_window_count": (valid_sharpe_window_count),
+        "mean_window_annualized_sharpe": (mean_sharpe),
+        "worst_max_drawdown": min(drawdowns),
+        "total_completed_trades": sum(completed_trades),
     }
 
 
@@ -259,15 +184,10 @@ def save_batch_summary_csv(
         str,
         Mapping[str, MetricValue],
     ],
-    output_path: Path = Path(
-        "reports/batch_metrics.csv"
-    ),
+    output_path: Path = Path("reports/batch_metrics.csv"),
 ) -> Path:
     if not results:
-        raise ValueError(
-            "Nessun risultato disponibile "
-            "per creare il report CSV."
-        )
+        raise ValueError("Nessun risultato disponibile per creare il report CSV.")
 
     output_path.parent.mkdir(
         parents=True,

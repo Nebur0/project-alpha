@@ -35,14 +35,12 @@ from project_alpha.pipeline import (
     backtest_and_save,
     fetch_and_save,
 )
-
 from project_alpha.reporting import (
     sanitize_metric_values,
     save_batch_summary_csv,
     summarize_walk_forward_metrics,
 )
 from project_alpha.scoring import RobustScoreConfig
-
 from project_alpha.validation import (
     generate_walk_forward_splits,
     split_by_date,
@@ -53,9 +51,7 @@ def _iso_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            f"Data non valida: {value}. Usare YYYY-MM-DD."
-        ) from exc
+        raise argparse.ArgumentTypeError(f"Data non valida: {value}. Usare YYYY-MM-DD.") from exc
 
 
 def _add_backtest_arguments(
@@ -217,45 +213,31 @@ def _add_parameter_grid_arguments(
         "--robust-sharpe-weight",
         type=float,
         default=1.0,
-        help=(
-            "Peso dello Sharpe nel robust score."
-        ),
+        help=("Peso dello Sharpe nel robust score."),
     )
     parser.add_argument(
         "--robust-excess-return-weight",
         type=float,
         default=1.0,
-        help=(
-            "Peso dell'excess return rispetto "
-            "al benchmark nel robust score."
-        ),
+        help=("Peso dell'excess return rispetto al benchmark nel robust score."),
     )
     parser.add_argument(
         "--robust-drawdown-weight",
         type=float,
         default=1.0,
-        help=(
-            "Peso del max drawdown nel "
-            "robust score."
-        ),
+        help=("Peso del max drawdown nel robust score."),
     )
     parser.add_argument(
         "--robust-trade-shortfall-weight",
         type=float,
         default=0.5,
-        help=(
-            "Peso della penalità per carenza "
-            "di trade nel robust score."
-        ),
+        help=("Peso della penalità per carenza di trade nel robust score."),
     )
     parser.add_argument(
         "--robust-target-completed-trades",
         type=int,
         default=20,
-        help=(
-            "Numero target di trade completati "
-            "usato dal robust score."
-        ),
+        help=("Numero target di trade completati usato dal robust score."),
     )
 
 
@@ -263,25 +245,15 @@ def _parameter_grid_from_args(
     args: argparse.Namespace,
 ) -> dict[str, list[int | float]]:
     return {
-        "fast_ema_period": (
-            args.fast_ema_periods
-        ),
-        "slow_ema_period": (
-            args.slow_ema_periods
-        ),
-        "trend_ema_period": (
-            args.trend_ema_periods
-        ),
+        "fast_ema_period": (args.fast_ema_periods),
+        "slow_ema_period": (args.slow_ema_periods),
+        "trend_ema_period": (args.trend_ema_periods),
         "rsi_period": args.rsi_periods,
         "rsi_lower": args.rsi_lowers,
         "rsi_upper": args.rsi_uppers,
         "atr_period": args.atr_periods,
-        "volume_period": (
-            args.volume_periods
-        ),
-        "breakout_period": (
-            args.breakout_periods
-        ),
+        "volume_period": (args.volume_periods),
+        "breakout_period": (args.breakout_periods),
     }
 
 
@@ -292,21 +264,11 @@ def _robust_score_config_from_args(
         return None
 
     return RobustScoreConfig(
-        sharpe_weight=(
-            args.robust_sharpe_weight
-        ),
-        excess_return_weight=(
-            args.robust_excess_return_weight
-        ),
-        drawdown_weight=(
-            args.robust_drawdown_weight
-        ),
-        trade_shortfall_weight=(
-            args.robust_trade_shortfall_weight
-        ),
-        target_completed_trades=(
-            args.robust_target_completed_trades
-        ),
+        sharpe_weight=(args.robust_sharpe_weight),
+        excess_return_weight=(args.robust_excess_return_weight),
+        drawdown_weight=(args.robust_drawdown_weight),
+        trade_shortfall_weight=(args.robust_trade_shortfall_weight),
+        target_completed_trades=(args.robust_target_completed_trades),
     )
 
 
@@ -535,10 +497,7 @@ def build_parser() -> argparse.ArgumentParser:
     batch_walk_forward.add_argument(
         "--step-size",
         type=int,
-        help=(
-            "Avanzamento tra le finestre; "
-            "predefinito: test-size."
-        ),
+        help=("Avanzamento tra le finestre; predefinito: test-size."),
     )
     batch_walk_forward.add_argument(
         "--initial-capital",
@@ -579,10 +538,7 @@ def build_parser() -> argparse.ArgumentParser:
     walk_forward.add_argument(
         "--step-size",
         type=int,
-        help=(
-            "Avanzamento tra le finestre; "
-            "predefinito: test-size."
-        ),
+        help=("Avanzamento tra le finestre; predefinito: test-size."),
     )
     walk_forward.add_argument(
         "--initial-capital",
@@ -597,19 +553,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     grid_search = commands.add_parser(
         "grid-search",
-        help=(
-            "Ricerca e ordina combinazioni di "
-            "parametri strategici."
-        ),
+        help=("Ricerca e ordina combinazioni di parametri strategici."),
     )
     grid_search.add_argument(
         "--input",
         type=Path,
         default=Path("data/raw/bars.csv"),
-        help=(
-            "Dataset OHLCV grezzo usato per "
-            "rigenerare indicatori e segnali."
-        ),
+        help=("Dataset OHLCV grezzo usato per rigenerare indicatori e segnali."),
     )
     grid_search.add_argument(
         "--symbol",
@@ -620,10 +570,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--top",
         type=int,
         default=10,
-        help=(
-            "Numero di combinazioni migliori "
-            "da mostrare nel terminale."
-        ),
+        help=("Numero di combinazioni migliori da mostrare nel terminale."),
     )
     grid_search.add_argument(
         "--initial-capital",
@@ -638,19 +585,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     optimize_walk_forward = commands.add_parser(
         "optimize-walk-forward",
-        help=(
-            "Ottimizza i parametri in-sample e "
-            "li valuta out-of-sample."
-        ),
+        help=("Ottimizza i parametri in-sample e li valuta out-of-sample."),
     )
     optimize_walk_forward.add_argument(
         "--input",
         type=Path,
         default=Path("data/raw/bars.csv"),
-        help=(
-            "Dataset OHLCV grezzo usato per "
-            "rigenerare indicatori e segnali."
-        ),
+        help=("Dataset OHLCV grezzo usato per rigenerare indicatori e segnali."),
     )
     optimize_walk_forward.add_argument(
         "--symbol",
@@ -660,39 +601,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--train-size",
         type=int,
         required=True,
-        help=(
-            "Numero di righe nella prima "
-            "finestra in-sample."
-        ),
+        help=("Numero di righe nella prima finestra in-sample."),
     )
     optimize_walk_forward.add_argument(
         "--test-size",
         type=int,
         required=True,
-        help=(
-            "Numero di righe in ogni finestra "
-            "out-of-sample."
-        ),
+        help=("Numero di righe in ogni finestra out-of-sample."),
     )
     optimize_walk_forward.add_argument(
         "--step-size",
         type=int,
-        help=(
-            "Avanzamento tra le finestre; "
-            "predefinito: test-size."
-        ),
+        help=("Avanzamento tra le finestre; predefinito: test-size."),
     )
-    _add_parameter_grid_arguments(
-        optimize_walk_forward
-    )
+    _add_parameter_grid_arguments(optimize_walk_forward)
     optimize_walk_forward.add_argument(
         "--minimum-completed-trades",
         type=int,
         default=1,
-        help=(
-            "Numero minimo di trade completati "
-            "richiesto nella finestra in-sample."
-        ),
+        help=("Numero minimo di trade completati richiesto nella finestra in-sample."),
     )
     optimize_walk_forward.add_argument(
         "--no-candidate-policy",
@@ -717,19 +644,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     batch_optimize_walk_forward = commands.add_parser(
         "batch-optimize-walk-forward",
-        help=(
-            "Ottimizza i parametri in-sample e "
-            "li valuta out-of-sample su più simboli."
-        ),
+        help=("Ottimizza i parametri in-sample e li valuta out-of-sample su più simboli."),
     )
     batch_optimize_walk_forward.add_argument(
         "--input",
         type=Path,
         default=Path("data/raw/bars.csv"),
-        help=(
-            "Dataset OHLCV grezzo usato per "
-            "rigenerare indicatori e segnali."
-        ),
+        help=("Dataset OHLCV grezzo usato per rigenerare indicatori e segnali."),
     )
     batch_optimize_walk_forward.add_argument(
         "--symbols",
@@ -740,39 +661,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--train-size",
         type=int,
         required=True,
-        help=(
-            "Numero di righe nella prima "
-            "finestra in-sample."
-        ),
+        help=("Numero di righe nella prima finestra in-sample."),
     )
     batch_optimize_walk_forward.add_argument(
         "--test-size",
         type=int,
         required=True,
-        help=(
-            "Numero di righe in ogni finestra "
-            "out-of-sample."
-        ),
+        help=("Numero di righe in ogni finestra out-of-sample."),
     )
     batch_optimize_walk_forward.add_argument(
         "--step-size",
         type=int,
-        help=(
-            "Avanzamento tra le finestre; "
-            "predefinito: test-size."
-        ),
+        help=("Avanzamento tra le finestre; predefinito: test-size."),
     )
-    _add_parameter_grid_arguments(
-        batch_optimize_walk_forward
-    )
+    _add_parameter_grid_arguments(batch_optimize_walk_forward)
     batch_optimize_walk_forward.add_argument(
         "--minimum-completed-trades",
         type=int,
         default=1,
-        help=(
-            "Numero minimo di trade completati "
-            "richiesto nella finestra in-sample."
-        ),
+        help=("Numero minimo di trade completati richiesto nella finestra in-sample."),
     )
     batch_optimize_walk_forward.add_argument(
         "--no-candidate-policy",
@@ -844,9 +751,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     for command_name in EXECUTION_COMMANDS:
-        _add_execution_arguments(
-            commands.choices[command_name]
-        )
+        _add_execution_arguments(commands.choices[command_name])
 
     return parser
 
@@ -867,9 +772,7 @@ def main() -> None:
         return
 
     if args.command == "analyze":
-        parameters = (
-            _strategy_parameters_from_args(args)
-        )
+        parameters = _strategy_parameters_from_args(args)
 
         frame = analyze_and_save(
             args.input,
@@ -914,9 +817,7 @@ def main() -> None:
 
             results[normalized_symbol] = result.metrics
 
-        report_path = Path(
-            "reports/batch_metrics.json"
-        )
+        report_path = Path("reports/batch_metrics.json")
         report_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -933,17 +834,11 @@ def main() -> None:
             report_content,
         )
 
-        csv_report_path = save_batch_summary_csv(
-            results
-        )
+        csv_report_path = save_batch_summary_csv(results)
 
         print(report_content)
-        print(
-            f"\nReport JSON salvato in {report_path}"
-        )
-        print(
-            f"Report CSV salvato in {csv_report_path}"
-        )
+        print(f"\nReport JSON salvato in {report_path}")
+        print(f"Report CSV salvato in {csv_report_path}")
         return
 
     if args.command == "validate":
@@ -954,16 +849,10 @@ def main() -> None:
 
         symbol = args.symbol.upper()
 
-        selected = frame.loc[
-            frame["symbol"].astype(str).str.upper()
-            == symbol
-        ].copy()
+        selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
         if selected.empty:
-            raise ValueError(
-                f"Simbolo {symbol} non trovato in "
-                f"{args.input}."
-            )
+            raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
         validation_split = split_by_date(
             selected,
@@ -984,20 +873,12 @@ def main() -> None:
 
         report = {
             "symbol": symbol,
-            "split_date": (
-                validation_split
-                .split_timestamp
-                .isoformat()
-            ),
+            "split_date": (validation_split.split_timestamp.isoformat()),
             "in_sample": in_sample_result.metrics,
-            "out_of_sample": (
-                out_of_sample_result.metrics
-            ),
+            "out_of_sample": (out_of_sample_result.metrics),
         }
 
-        report_path = Path(
-            f"reports/{symbol}_validation.json"
-        )
+        report_path = Path(f"reports/{symbol}_validation.json")
         report_path.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -1015,9 +896,7 @@ def main() -> None:
         )
 
         print(report_content)
-        print(
-            f"\nReport salvato in {report_path}"
-        )
+        print(f"\nReport salvato in {report_path}")
         return
 
     if args.command == "batch-validate":
@@ -1026,71 +905,40 @@ def main() -> None:
             parse_dates=["timestamp"],
         )
 
-        normalized_symbols = list(
-            dict.fromkeys(
-                symbol.upper()
-                for symbol in args.symbols
-            )
-        )
+        normalized_symbols = list(dict.fromkeys(symbol.upper() for symbol in args.symbols))
 
         results = {}
         summary_rows = []
 
         for symbol in normalized_symbols:
-            selected = frame.loc[
-                frame["symbol"].astype(str).str.upper()
-                == symbol
-            ].copy()
+            selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
             if selected.empty:
-                raise ValueError(
-                    f"Simbolo {symbol} non trovato in "
-                    f"{args.input}."
-                )
+                raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
             validation_split = split_by_date(
                 selected,
                 args.split_date,
             )
 
-            in_sample_result = (
-                run_long_only_backtest(
-                    validation_split.in_sample,
-                    initial_capital=(
-                        args.initial_capital
-                    ),
-                    cost_per_side=(
-                        args.cost_per_side
-                    ),
-                )
+            in_sample_result = run_long_only_backtest(
+                validation_split.in_sample,
+                initial_capital=(args.initial_capital),
+                cost_per_side=(args.cost_per_side),
             )
 
-            out_of_sample_result = (
-                run_long_only_backtest(
-                    validation_split.out_of_sample,
-                    initial_capital=(
-                        args.initial_capital
-                    ),
-                    cost_per_side=(
-                        args.cost_per_side
-                    ),
-                )
+            out_of_sample_result = run_long_only_backtest(
+                validation_split.out_of_sample,
+                initial_capital=(args.initial_capital),
+                cost_per_side=(args.cost_per_side),
             )
 
-            split_timestamp = (
-                validation_split
-                .split_timestamp
-                .isoformat()
-            )
+            split_timestamp = validation_split.split_timestamp.isoformat()
 
             results[symbol] = {
                 "split_date": split_timestamp,
-                "in_sample": (
-                    in_sample_result.metrics
-                ),
-                "out_of_sample": (
-                    out_of_sample_result.metrics
-                ),
+                "in_sample": (in_sample_result.metrics),
+                "out_of_sample": (out_of_sample_result.metrics),
             }
 
             summary_rows.append(
@@ -1111,12 +959,8 @@ def main() -> None:
                 }
             )
 
-        json_report_path = Path(
-            "reports/batch_validation.json"
-        )
-        csv_report_path = Path(
-            "reports/batch_validation.csv"
-        )
+        json_report_path = Path("reports/batch_validation.json")
+        csv_report_path = Path("reports/batch_validation.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1134,22 +978,14 @@ def main() -> None:
             report_content,
         )
 
-        pd.DataFrame(
-            summary_rows
-        ).to_csv(
+        pd.DataFrame(summary_rows).to_csv(
             csv_report_path,
             index=False,
         )
 
         print(report_content)
-        print(
-            "\nReport JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV salvato in "
-            f"{csv_report_path}"
-        )
+        print(f"\nReport JSON salvato in {json_report_path}")
+        print(f"Report CSV salvato in {csv_report_path}")
         return
 
     if args.command == "batch-walk-forward":
@@ -1158,38 +994,20 @@ def main() -> None:
             parse_dates=["timestamp"],
         )
 
-        normalized_symbols = list(
-            dict.fromkeys(
-                symbol.upper()
-                for symbol in args.symbols
-            )
-        )
+        normalized_symbols = list(dict.fromkeys(symbol.upper() for symbol in args.symbols))
 
-        effective_step_size = (
-            args.test_size
-            if args.step_size is None
-            else args.step_size
-        )
+        effective_step_size = args.test_size if args.step_size is None else args.step_size
 
-        windows_overlap = (
-            effective_step_size
-            < args.test_size
-        )
+        windows_overlap = effective_step_size < args.test_size
 
         results = {}
         comparison_rows = []
 
         for symbol in normalized_symbols:
-            selected = frame.loc[
-                frame["symbol"].astype(str).str.upper()
-                == symbol
-            ].copy()
+            selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
             if selected.empty:
-                raise ValueError(
-                    f"Simbolo {symbol} non trovato in "
-                    f"{args.input}."
-                )
+                raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
             splits = generate_walk_forward_splits(
                 frame=selected,
@@ -1202,82 +1020,40 @@ def main() -> None:
             out_of_sample_metrics = []
 
             for split in splits:
-                in_sample_result = (
-                    run_long_only_backtest(
-                        split.in_sample,
-                        initial_capital=(
-                            args.initial_capital
-                        ),
-                        cost_per_side=(
-                            args.cost_per_side
-                        ),
-                    )
+                in_sample_result = run_long_only_backtest(
+                    split.in_sample,
+                    initial_capital=(args.initial_capital),
+                    cost_per_side=(args.cost_per_side),
                 )
 
-                out_of_sample_result = (
-                    run_long_only_backtest(
-                        split.out_of_sample,
-                        initial_capital=(
-                            args.initial_capital
-                        ),
-                        cost_per_side=(
-                            args.cost_per_side
-                        ),
-                    )
+                out_of_sample_result = run_long_only_backtest(
+                    split.out_of_sample,
+                    initial_capital=(args.initial_capital),
+                    cost_per_side=(args.cost_per_side),
                 )
 
-                in_sample_metrics = (
-                    sanitize_metric_values(
-                        in_sample_result.metrics
-                    )
-                )
-                sanitized_out_of_sample_metrics = (
-                    sanitize_metric_values(
-                        out_of_sample_result.metrics
-                    )
+                in_sample_metrics = sanitize_metric_values(in_sample_result.metrics)
+                sanitized_out_of_sample_metrics = sanitize_metric_values(
+                    out_of_sample_result.metrics
                 )
 
-                out_of_sample_metrics.append(
-                    sanitized_out_of_sample_metrics
-                )
+                out_of_sample_metrics.append(sanitized_out_of_sample_metrics)
 
                 windows.append(
                     {
-                        "window_number": (
-                            split.window_number
-                        ),
-                        "train_start": (
-                            split.train_start
-                            .isoformat()
-                        ),
-                        "train_end": (
-                            split.train_end
-                            .isoformat()
-                        ),
-                        "test_start": (
-                            split.test_start
-                            .isoformat()
-                        ),
-                        "test_end": (
-                            split.test_end
-                            .isoformat()
-                        ),
-                        "in_sample": (
-                            in_sample_metrics
-                        ),
-                        "out_of_sample": (
-                            sanitized_out_of_sample_metrics
-                        ),
+                        "window_number": (split.window_number),
+                        "train_start": (split.train_start.isoformat()),
+                        "train_end": (split.train_end.isoformat()),
+                        "test_start": (split.test_start.isoformat()),
+                        "test_end": (split.test_end.isoformat()),
+                        "in_sample": (in_sample_metrics),
+                        "out_of_sample": (sanitized_out_of_sample_metrics),
                     }
                 )
 
-            summary = (
-                summarize_walk_forward_metrics(
-                    out_of_sample_metrics,
-                    allow_compounding=(
-                        not windows_overlap
-                    ),
-                )
+            summary = summarize_walk_forward_metrics(
+                out_of_sample_metrics,
+                allow_compounding=(not windows_overlap),
             )
 
             results[symbol] = {
@@ -1285,12 +1061,8 @@ def main() -> None:
                 "test_size": args.test_size,
                 "step_size": effective_step_size,
                 "window_count": len(windows),
-                "windows_overlap": (
-                    windows_overlap
-                ),
-                "compounding_enabled": (
-                    not windows_overlap
-                ),
+                "windows_overlap": (windows_overlap),
+                "compounding_enabled": (not windows_overlap),
                 "summary": summary,
                 "windows": windows,
             }
@@ -1300,25 +1072,15 @@ def main() -> None:
                     "symbol": symbol,
                     "train_size": args.train_size,
                     "test_size": args.test_size,
-                    "step_size": (
-                        effective_step_size
-                    ),
-                    "windows_overlap": (
-                        windows_overlap
-                    ),
-                    "compounding_enabled": (
-                        not windows_overlap
-                    ),
+                    "step_size": (effective_step_size),
+                    "windows_overlap": (windows_overlap),
+                    "compounding_enabled": (not windows_overlap),
                     **summary,
                 }
             )
 
-        json_report_path = Path(
-            "reports/batch_walk_forward.json"
-        )
-        csv_report_path = Path(
-            "reports/batch_walk_forward.csv"
-        )
+        json_report_path = Path("reports/batch_walk_forward.json")
+        csv_report_path = Path("reports/batch_walk_forward.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1331,9 +1093,7 @@ def main() -> None:
             "test_size": args.test_size,
             "step_size": effective_step_size,
             "windows_overlap": windows_overlap,
-            "compounding_enabled": (
-                not windows_overlap
-            ),
+            "compounding_enabled": (not windows_overlap),
             "results": results,
         }
 
@@ -1348,22 +1108,14 @@ def main() -> None:
             report_content,
         )
 
-        pd.DataFrame(
-            comparison_rows
-        ).to_csv(
+        pd.DataFrame(comparison_rows).to_csv(
             csv_report_path,
             index=False,
         )
 
         print(report_content)
-        print(
-            "\nReport JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV comparativo salvato in "
-            f"{csv_report_path}"
-        )
+        print(f"\nReport JSON salvato in {json_report_path}")
+        print(f"Report CSV comparativo salvato in {csv_report_path}")
         return
 
     if args.command == "walk-forward":
@@ -1374,16 +1126,10 @@ def main() -> None:
 
         symbol = args.symbol.upper()
 
-        selected = frame.loc[
-            frame["symbol"].astype(str).str.upper()
-            == symbol
-        ].copy()
+        selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
         if selected.empty:
-            raise ValueError(
-                f"Simbolo {symbol} non trovato in "
-                f"{args.input}."
-            )
+            raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
         splits = generate_walk_forward_splits(
             frame=selected,
@@ -1392,81 +1138,43 @@ def main() -> None:
             step_size=args.step_size,
         )
 
-        effective_step_size = (
-            args.test_size
-            if args.step_size is None
-            else args.step_size
-        )
+        effective_step_size = args.test_size if args.step_size is None else args.step_size
 
         windows = []
         summary_rows = []
         out_of_sample_metrics = []
 
         for split in splits:
-            in_sample_result = (
-                run_long_only_backtest(
-                    split.in_sample,
-                    initial_capital=(
-                        args.initial_capital
-                    ),
-                    cost_per_side=(
-                        args.cost_per_side
-                    ),
-                )
+            in_sample_result = run_long_only_backtest(
+                split.in_sample,
+                initial_capital=(args.initial_capital),
+                cost_per_side=(args.cost_per_side),
             )
 
-            out_of_sample_result = (
-                run_long_only_backtest(
-                    split.out_of_sample,
-                    initial_capital=(
-                        args.initial_capital
-                    ),
-                    cost_per_side=(
-                        args.cost_per_side
-                    ),
-                )
+            out_of_sample_result = run_long_only_backtest(
+                split.out_of_sample,
+                initial_capital=(args.initial_capital),
+                cost_per_side=(args.cost_per_side),
             )
 
-            in_sample_metrics = (
-                sanitize_metric_values(
-                    in_sample_result.metrics
-                )
-            )
-            sanitized_out_of_sample_metrics = (
-                sanitize_metric_values(
-                    out_of_sample_result.metrics
-                )
-            )
+            in_sample_metrics = sanitize_metric_values(in_sample_result.metrics)
+            sanitized_out_of_sample_metrics = sanitize_metric_values(out_of_sample_result.metrics)
 
-            out_of_sample_metrics.append(
-                sanitized_out_of_sample_metrics
-            )
+            out_of_sample_metrics.append(sanitized_out_of_sample_metrics)
 
             metadata = {
                 "window_number": split.window_number,
-                "train_start": (
-                    split.train_start.isoformat()
-                ),
-                "train_end": (
-                    split.train_end.isoformat()
-                ),
-                "test_start": (
-                    split.test_start.isoformat()
-                ),
-                "test_end": (
-                    split.test_end.isoformat()
-                ),
+                "train_start": (split.train_start.isoformat()),
+                "train_end": (split.train_end.isoformat()),
+                "test_start": (split.test_start.isoformat()),
+                "test_end": (split.test_end.isoformat()),
             }
 
             windows.append(
                 {
                     **metadata,
-                    "in_sample": (
-                        in_sample_metrics
-                    ),
-                    "out_of_sample": (
-                        sanitized_out_of_sample_metrics
-                    ),
+                    "in_sample": (in_sample_metrics),
+                    "out_of_sample": (sanitized_out_of_sample_metrics),
                 }
             )
 
@@ -1488,16 +1196,11 @@ def main() -> None:
                 }
             )
 
-        windows_overlap = (
-            effective_step_size
-            < args.test_size
-        )
+        windows_overlap = effective_step_size < args.test_size
 
         summary = summarize_walk_forward_metrics(
             out_of_sample_metrics,
-            allow_compounding=(
-                not windows_overlap
-            ),
+            allow_compounding=(not windows_overlap),
         )
 
         report = {
@@ -1507,19 +1210,13 @@ def main() -> None:
             "step_size": effective_step_size,
             "window_count": len(windows),
             "windows_overlap": windows_overlap,
-            "compounding_enabled": (
-                not windows_overlap
-            ),
+            "compounding_enabled": (not windows_overlap),
             "summary": summary,
             "windows": windows,
         }
 
-        json_report_path = Path(
-            f"reports/{symbol}_walk_forward.json"
-        )
-        csv_report_path = Path(
-            f"reports/{symbol}_walk_forward.csv"
-        )
+        json_report_path = Path(f"reports/{symbol}_walk_forward.json")
+        csv_report_path = Path(f"reports/{symbol}_walk_forward.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1537,29 +1234,19 @@ def main() -> None:
             report_content,
         )
 
-        pd.DataFrame(
-            summary_rows
-        ).to_csv(
+        pd.DataFrame(summary_rows).to_csv(
             csv_report_path,
             index=False,
         )
 
         print(report_content)
-        print(
-            "\nReport JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV salvato in "
-            f"{csv_report_path}"
-        )
+        print(f"\nReport JSON salvato in {json_report_path}")
+        print(f"Report CSV salvato in {csv_report_path}")
         return
 
     if args.command == "grid-search":
         if args.top <= 0:
-            raise ValueError(
-                "top deve essere positivo."
-            )
+            raise ValueError("top deve essere positivo.")
 
         frame = pd.read_csv(
             args.input,
@@ -1568,48 +1255,26 @@ def main() -> None:
 
         symbol = args.symbol.upper()
 
-        selected = frame.loc[
-            frame["symbol"].astype(str).str.upper()
-            == symbol
-        ].copy()
+        selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
         if selected.empty:
-            raise ValueError(
-                f"Simbolo {symbol} non trovato in "
-                f"{args.input}."
-            )
+            raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
-        grid = _parameter_grid_from_args(
-            args
-        )
+        grid = _parameter_grid_from_args(args)
 
-        robust_score_config = (
-            _robust_score_config_from_args(
-                args
-            )
-        )
+        robust_score_config = _robust_score_config_from_args(args)
 
         results = run_parameter_grid_search(
             selected,
             grid,
-            initial_capital=(
-                args.initial_capital
-            ),
-            cost_per_side=(
-                args.cost_per_side
-            ),
+            initial_capital=(args.initial_capital),
+            cost_per_side=(args.cost_per_side),
             score_metric=args.score_metric,
-            robust_score_config=(
-                robust_score_config
-            ),
+            robust_score_config=(robust_score_config),
             execution=execution,
         )
 
-        result_frame = (
-            grid_search_results_to_frame(
-                results
-            )
-        )
+        result_frame = grid_search_results_to_frame(results)
 
         top_count = min(
             args.top,
@@ -1619,18 +1284,11 @@ def main() -> None:
         report_rows = [
             {
                 "rank": rank,
-                "parameters": asdict(
-                    result.parameters
-                ),
-                "score_metric": (
-                    result.score_metric
-                ),
+                "parameters": asdict(result.parameters),
+                "score_metric": (result.score_metric),
                 "score": result.score,
                 "robust_score": (
-                    asdict(result.robust_score)
-                    if result.robust_score
-                    is not None
-                    else None
+                    asdict(result.robust_score) if result.robust_score is not None else None
                 ),
                 "metrics": result.metrics,
             }
@@ -1642,30 +1300,17 @@ def main() -> None:
 
         report = {
             "symbol": symbol,
-            "score_metric": (
-                args.score_metric
-            ),
+            "score_metric": (args.score_metric),
             "robust_score_config": (
-                asdict(robust_score_config)
-                if robust_score_config
-                is not None
-                else None
+                asdict(robust_score_config) if robust_score_config is not None else None
             ),
-            "combination_count": (
-                len(results)
-            ),
-            "displayed_top_count": (
-                top_count
-            ),
+            "combination_count": (len(results)),
+            "displayed_top_count": (top_count),
             "results": report_rows,
         }
 
-        json_report_path = Path(
-            f"reports/{symbol}_grid_search.json"
-        )
-        csv_report_path = Path(
-            f"reports/{symbol}_grid_search.csv"
-        )
+        json_report_path = Path(f"reports/{symbol}_grid_search.json")
+        csv_report_path = Path(f"reports/{symbol}_grid_search.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1686,23 +1331,10 @@ def main() -> None:
             index=False,
         )
 
-        print(
-            result_frame
-            .head(top_count)
-            .to_string(index=False)
-        )
-        print(
-            "\nCombinazioni valutate: "
-            f"{len(results)}"
-        )
-        print(
-            "Report JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV salvato in "
-            f"{csv_report_path}"
-        )
+        print(result_frame.head(top_count).to_string(index=False))
+        print(f"\nCombinazioni valutate: {len(results)}")
+        print(f"Report JSON salvato in {json_report_path}")
+        print(f"Report CSV salvato in {csv_report_path}")
         return
 
     if args.command == "optimize-walk-forward":
@@ -1713,26 +1345,14 @@ def main() -> None:
 
         symbol = args.symbol.upper()
 
-        selected = frame.loc[
-            frame["symbol"].astype(str).str.upper()
-            == symbol
-        ].copy()
+        selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
         if selected.empty:
-            raise ValueError(
-                f"Simbolo {symbol} non trovato in "
-                f"{args.input}."
-            )
+            raise ValueError(f"Simbolo {symbol} non trovato in {args.input}.")
 
-        grid = _parameter_grid_from_args(
-            args
-        )
+        grid = _parameter_grid_from_args(args)
 
-        robust_score_config = (
-            _robust_score_config_from_args(
-                args
-            )
-        )
+        robust_score_config = _robust_score_config_from_args(args)
 
         result = run_walk_forward_optimization(
             selected,
@@ -1740,45 +1360,21 @@ def main() -> None:
             train_size=args.train_size,
             test_size=args.test_size,
             step_size=args.step_size,
-            initial_capital=(
-                args.initial_capital
-            ),
-            cost_per_side=(
-                args.cost_per_side
-            ),
+            initial_capital=(args.initial_capital),
+            cost_per_side=(args.cost_per_side),
             score_metric=args.score_metric,
-            minimum_completed_trades=(
-                args.minimum_completed_trades
-            ),
-            robust_score_config=(
-                robust_score_config
-            ),
-            no_candidate_policy=(
-                args.no_candidate_policy
-            ),
+            minimum_completed_trades=(args.minimum_completed_trades),
+            robust_score_config=(robust_score_config),
+            no_candidate_policy=(args.no_candidate_policy),
             execution=execution,
         )
 
-        report = (
-            walk_forward_optimization_to_dict(
-                result
-            )
-        )
+        report = walk_forward_optimization_to_dict(result)
 
-        result_frame = (
-            walk_forward_optimization_to_frame(
-                result
-            )
-        )
+        result_frame = walk_forward_optimization_to_frame(result)
 
-        json_report_path = Path(
-            "reports/"
-            f"{symbol}_walk_forward_optimization.json"
-        )
-        csv_report_path = Path(
-            "reports/"
-            f"{symbol}_walk_forward_optimization.csv"
-        )
+        json_report_path = Path(f"reports/{symbol}_walk_forward_optimization.json")
+        csv_report_path = Path(f"reports/{symbol}_walk_forward_optimization.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1806,18 +1402,9 @@ def main() -> None:
                 allow_nan=False,
             )
         )
-        print(
-            "\nFinestre ottimizzate: "
-            f"{len(result.windows)}"
-        )
-        print(
-            "Report JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV salvato in "
-            f"{csv_report_path}"
-        )
+        print(f"\nFinestre ottimizzate: {len(result.windows)}")
+        print(f"Report JSON salvato in {json_report_path}")
+        print(f"Report CSV salvato in {csv_report_path}")
         return
 
     if args.command == "batch-optimize-walk-forward":
@@ -1826,74 +1413,35 @@ def main() -> None:
             parse_dates=["timestamp"],
         )
 
-        grid = _parameter_grid_from_args(
-            args
+        grid = _parameter_grid_from_args(args)
+
+        robust_score_config = _robust_score_config_from_args(args)
+
+        result = run_batch_walk_forward_optimization(
+            frame,
+            args.symbols,
+            grid,
+            train_size=args.train_size,
+            test_size=args.test_size,
+            step_size=args.step_size,
+            initial_capital=(args.initial_capital),
+            cost_per_side=(args.cost_per_side),
+            score_metric=args.score_metric,
+            minimum_completed_trades=(args.minimum_completed_trades),
+            robust_score_config=(robust_score_config),
+            no_candidate_policy=(args.no_candidate_policy),
+            execution=execution,
         )
 
-        robust_score_config = (
-            _robust_score_config_from_args(
-                args
-            )
-        )
+        report = batch_walk_forward_optimization_to_dict(result)
 
-        result = (
-            run_batch_walk_forward_optimization(
-                frame,
-                args.symbols,
-                grid,
-                train_size=args.train_size,
-                test_size=args.test_size,
-                step_size=args.step_size,
-                initial_capital=(
-                    args.initial_capital
-                ),
-                cost_per_side=(
-                    args.cost_per_side
-                ),
-                score_metric=args.score_metric,
-                minimum_completed_trades=(
-                    args.minimum_completed_trades
-                ),
-                robust_score_config=(
-                    robust_score_config
-                ),
-                no_candidate_policy=(
-                    args.no_candidate_policy
-                ),
-                execution=execution,
-            )
-        )
+        detailed_frame = batch_walk_forward_optimization_to_frame(result)
 
-        report = (
-            batch_walk_forward_optimization_to_dict(
-                result
-            )
-        )
+        comparison_frame = batch_walk_forward_comparison_to_frame(result)
 
-        detailed_frame = (
-            batch_walk_forward_optimization_to_frame(
-                result
-            )
-        )
-
-        comparison_frame = (
-            batch_walk_forward_comparison_to_frame(
-                result
-            )
-        )
-
-        json_report_path = Path(
-            "reports/"
-            "batch_walk_forward_optimization.json"
-        )
-        detailed_csv_report_path = Path(
-            "reports/"
-            "batch_walk_forward_optimization.csv"
-        )
-        comparison_csv_report_path = Path(
-            "reports/"
-            "batch_walk_forward_optimization_comparison.csv"
-        )
+        json_report_path = Path("reports/batch_walk_forward_optimization.json")
+        detailed_csv_report_path = Path("reports/batch_walk_forward_optimization.csv")
+        comparison_csv_report_path = Path("reports/batch_walk_forward_optimization_comparison.csv")
 
         json_report_path.parent.mkdir(
             parents=True,
@@ -1919,27 +1467,11 @@ def main() -> None:
             index=False,
         )
 
-        print(
-            comparison_frame.to_string(
-                index=False
-            )
-        )
-        print(
-            "\nSimboli ottimizzati: "
-            f"{len(result.symbols)}"
-        )
-        print(
-            "Report JSON salvato in "
-            f"{json_report_path}"
-        )
-        print(
-            "Report CSV dettagliato salvato in "
-            f"{detailed_csv_report_path}"
-        )
-        print(
-            "Report CSV comparativo salvato in "
-            f"{comparison_csv_report_path}"
-        )
+        print(comparison_frame.to_string(index=False))
+        print(f"\nSimboli ottimizzati: {len(result.symbols)}")
+        print(f"Report JSON salvato in {json_report_path}")
+        print(f"Report CSV dettagliato salvato in {detailed_csv_report_path}")
+        print(f"Report CSV comparativo salvato in {comparison_csv_report_path}")
         return
 
     if args.command == "research":
@@ -1965,12 +1497,8 @@ def main() -> None:
         return
 
     if args.command == "run":
-        raw_path = Path(
-            "data/raw/bars.csv"
-        )
-        processed_path = Path(
-            "data/processed/features.csv"
-        )
+        raw_path = Path("data/raw/bars.csv")
+        processed_path = Path("data/processed/features.csv")
 
         fetch_and_save(
             args.symbols,
@@ -1979,9 +1507,7 @@ def main() -> None:
             raw_path,
         )
 
-        parameters = (
-            _strategy_parameters_from_args(args)
-        )
+        parameters = _strategy_parameters_from_args(args)
 
         analyze_and_save(
             raw_path,
@@ -1989,9 +1515,7 @@ def main() -> None:
             parameters=parameters,
         )
 
-        symbol = (
-            args.symbol or args.symbols[0]
-        ).upper()
+        symbol = (args.symbol or args.symbols[0]).upper()
 
         result = backtest_and_save(
             processed_path,
@@ -2010,6 +1534,4 @@ def main() -> None:
         )
         return
 
-    raise RuntimeError(
-        f"Comando non gestito: {args.command}"
-    )
+    raise RuntimeError(f"Comando non gestito: {args.command}")

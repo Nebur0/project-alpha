@@ -104,7 +104,7 @@ def test_load_research_config_rejects_unknown_keys(workspace: Path) -> None:
 
     # Chiave sbagliata dentro una sezione: messaggio con la sezione.
     typo = workspace / "typo.toml"
-    typo.write_text(CONFIG + '\npermutation = 10\n', encoding="utf-8")
+    typo.write_text(CONFIG + "\npermutation = 10\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match=r"\[analysis\]"):
         load_research_config(typo, base_dir=workspace)
@@ -112,7 +112,9 @@ def test_load_research_config_rejects_unknown_keys(workspace: Path) -> None:
 
 def test_load_research_config_requires_walk_forward(workspace: Path) -> None:
     bad = workspace / "bad.toml"
-    bad.write_text('name = "x"\ndata = "a"\noutput_dir = "b"\nsymbols = ["A"]\n[grid]\n', encoding="utf-8")
+    bad.write_text(
+        'name = "x"\ndata = "a"\noutput_dir = "b"\nsymbols = ["A"]\n[grid]\n', encoding="utf-8"
+    )
 
     with pytest.raises(ValueError, match="walk_forward"):
         load_research_config(bad, base_dir=workspace)

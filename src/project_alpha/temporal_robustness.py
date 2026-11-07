@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from math import isfinite
 from numbers import Real
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -50,21 +50,13 @@ def _required_numeric(
     *,
     name: str,
 ) -> float:
-    if (
-        value is None
-        or isinstance(value, bool)
-        or not isinstance(value, Real)
-    ):
-        raise ValueError(
-            f"{name} deve essere numerico."
-        )
+    if value is None or isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} deve essere numerico.")
 
     numeric_value = float(value)
 
     if not isfinite(numeric_value):
-        raise ValueError(
-            f"{name} deve essere finito."
-        )
+        raise ValueError(f"{name} deve essere finito.")
 
     return numeric_value
 
@@ -84,30 +76,17 @@ def _validate_optimization_frame(
         "out_of_sample_completed_trades",
     }
 
-    missing_columns = (
-        required_columns
-        - set(frame.columns)
-    )
+    missing_columns = required_columns - set(frame.columns)
 
     if missing_columns:
-        raise ValueError(
-            "Colonne mancanti nel report "
-            "walk-forward: "
-            f"{sorted(missing_columns)}"
-        )
+        raise ValueError(f"Colonne mancanti nel report walk-forward: {sorted(missing_columns)}")
 
     if frame.empty:
-        raise ValueError(
-            "Il report walk-forward è vuoto."
-        )
+        raise ValueError("Il report walk-forward è vuoto.")
 
     result = frame.copy()
 
-    result["symbol"] = (
-        result["symbol"]
-        .astype(str)
-        .str.upper()
-    )
+    result["symbol"] = result["symbol"].astype(str).str.upper()
 
     result["test_start"] = pd.to_datetime(
         result["test_start"],
@@ -118,14 +97,8 @@ def _validate_optimization_frame(
         utc=True,
     )
 
-    if (
-        result["test_end"]
-        < result["test_start"]
-    ).any():
-        raise ValueError(
-            "Sono presenti finestre con "
-            "test_end precedente a test_start."
-        )
+    if (result["test_end"] < result["test_start"]).any():
+        raise ValueError("Sono presenti finestre con test_end precedente a test_start.")
 
     duplicate_mask = result.duplicated(
         subset=[
@@ -159,21 +132,15 @@ def _validate_optimization_frame(
             "symbol",
         ],
         kind="stable",
-    ).reset_index(
-        drop=True
-    )
+    ).reset_index(drop=True)
 
 
 def analyze_temporal_clusters(
     optimization_frame: pd.DataFrame,
 ) -> tuple[TemporalClusterResult, ...]:
-    frame = _validate_optimization_frame(
-        optimization_frame
-    )
+    frame = _validate_optimization_frame(optimization_frame)
 
-    results: list[
-        TemporalClusterResult
-    ] = []
+    results: list[TemporalClusterResult] = []
 
     grouped = frame.groupby(
         [
@@ -189,327 +156,154 @@ def analyze_temporal_clusters(
         test_end,
     ), group in grouped:
         strategy_returns = pd.to_numeric(
-            group[
-                "out_of_sample_total_return"
-            ],
+            group["out_of_sample_total_return"],
             errors="raise",
         )
 
         benchmark_returns = pd.to_numeric(
-            group[
-                (
-                    "out_of_sample_"
-                    "benchmark_total_return"
-                )
-            ],
+            group[("out_of_sample_benchmark_total_return")],
             errors="raise",
         )
 
-        excess_returns = (
-            strategy_returns
-            - benchmark_returns
-        )
+        excess_returns = strategy_returns - benchmark_returns
 
-        positive_symbol_count = int(
-            (
-                strategy_returns
-                > 0.0
-            ).sum()
-        )
+        positive_symbol_count = int((strategy_returns > 0.0).sum())
 
-        benchmark_beat_count = int(
-            (
-                excess_returns
-                > 0.0
-            ).sum()
-        )
+        benchmark_beat_count = int((excess_returns > 0.0).sum())
 
-        symbol_count = int(
-            len(group)
-        )
+        symbol_count = len(group)
 
         sharpe_values = pd.to_numeric(
-            group[
-                (
-                    "out_of_sample_"
-                    "annualized_sharpe"
-                )
-            ],
+            group[("out_of_sample_annualized_sharpe")],
             errors="coerce",
         ).dropna()
 
         drawdown_values = pd.to_numeric(
-            group[
-                (
-                    "out_of_sample_"
-                    "max_drawdown"
-                )
-            ],
+            group[("out_of_sample_max_drawdown")],
             errors="coerce",
         ).dropna()
 
         trade_values = pd.to_numeric(
-            group[
-                (
-                    "out_of_sample_"
-                    "completed_trades"
-                )
-            ],
+            group[("out_of_sample_completed_trades")],
             errors="coerce",
         ).dropna()
 
-        if (
-            not trade_values.empty
-            and (
-                trade_values < 0.0
-            ).any()
-        ):
-            raise ValueError(
-                "completed_trades non può "
-                "contenere valori negativi."
-            )
+        if not trade_values.empty and (trade_values < 0.0).any():
+            raise ValueError("completed_trades non può contenere valori negativi.")
 
         results.append(
             TemporalClusterResult(
-                test_start=pd.Timestamp(
-                    test_start
-                ),
-                test_end=pd.Timestamp(
-                    test_end
-                ),
-                symbol_count=(
-                    symbol_count
-                ),
-                positive_symbol_count=(
-                    positive_symbol_count
-                ),
-                positive_symbol_rate=(
-                    positive_symbol_count
-                    / symbol_count
-                ),
-                benchmark_beat_count=(
-                    benchmark_beat_count
-                ),
-                benchmark_beat_rate=(
-                    benchmark_beat_count
-                    / symbol_count
-                ),
+                test_start=pd.Timestamp(test_start),
+                test_end=pd.Timestamp(test_end),
+                symbol_count=(symbol_count),
+                positive_symbol_count=(positive_symbol_count),
+                positive_symbol_rate=(positive_symbol_count / symbol_count),
+                benchmark_beat_count=(benchmark_beat_count),
+                benchmark_beat_rate=(benchmark_beat_count / symbol_count),
                 mean_strategy_total_return=(
                     _required_numeric(
                         strategy_returns.mean(),
-                        name=(
-                            "mean_strategy_"
-                            "total_return"
-                        ),
+                        name=("mean_strategy_total_return"),
                     )
                 ),
                 median_strategy_total_return=(
                     _required_numeric(
                         strategy_returns.median(),
-                        name=(
-                            "median_strategy_"
-                            "total_return"
-                        ),
+                        name=("median_strategy_total_return"),
                     )
                 ),
                 mean_benchmark_total_return=(
                     _required_numeric(
                         benchmark_returns.mean(),
-                        name=(
-                            "mean_benchmark_"
-                            "total_return"
-                        ),
+                        name=("mean_benchmark_total_return"),
                     )
                 ),
                 median_benchmark_total_return=(
                     _required_numeric(
                         benchmark_returns.median(),
-                        name=(
-                            "median_benchmark_"
-                            "total_return"
-                        ),
+                        name=("median_benchmark_total_return"),
                     )
                 ),
                 mean_excess_return=(
                     _required_numeric(
                         excess_returns.mean(),
-                        name=(
-                            "mean_excess_return"
-                        ),
+                        name=("mean_excess_return"),
                     )
                 ),
                 median_excess_return=(
                     _required_numeric(
                         excess_returns.median(),
-                        name=(
-                            "median_excess_return"
-                        ),
+                        name=("median_excess_return"),
                     )
                 ),
                 mean_annualized_sharpe=(
-                    float(
-                        sharpe_values.mean()
-                    )
-                    if not sharpe_values.empty
-                    else None
+                    float(sharpe_values.mean()) if not sharpe_values.empty else None
                 ),
                 worst_max_drawdown=(
-                    float(
-                        drawdown_values.min()
-                    )
-                    if not drawdown_values.empty
-                    else None
+                    float(drawdown_values.min()) if not drawdown_values.empty else None
                 ),
-                total_completed_trades=(
-                    int(
-                        trade_values.sum()
-                    )
-                    if not trade_values.empty
-                    else 0
-                ),
+                total_completed_trades=(int(trade_values.sum()) if not trade_values.empty else 0),
             )
         )
 
-    return tuple(
-        results
-    )
+    return tuple(results)
 
 
 def summarize_temporal_robustness(
-    clusters: Iterable[
-        TemporalClusterResult
-    ],
+    clusters: Iterable[TemporalClusterResult],
 ) -> TemporalRobustnessSummary:
-    items = tuple(
-        clusters
-    )
+    items = tuple(clusters)
 
     if not items:
-        raise ValueError(
-            "Servono almeno un cluster "
-            "temporale."
-        )
+        raise ValueError("Servono almeno un cluster temporale.")
 
     strategy_means = pd.Series(
-        [
-            item.mean_strategy_total_return
-            for item in items
-        ],
+        [item.mean_strategy_total_return for item in items],
         dtype=float,
     )
 
     benchmark_means = pd.Series(
-        [
-            item.mean_benchmark_total_return
-            for item in items
-        ],
+        [item.mean_benchmark_total_return for item in items],
         dtype=float,
     )
 
     excess_means = pd.Series(
-        [
-            item.mean_excess_return
-            for item in items
-        ],
+        [item.mean_excess_return for item in items],
         dtype=float,
     )
 
-    positive_cluster_count = int(
-        (
-            strategy_means
-            > 0.0
-        ).sum()
-    )
+    positive_cluster_count = int((strategy_means > 0.0).sum())
 
-    benchmark_beat_cluster_count = int(
-        (
-            excess_means
-            > 0.0
-        ).sum()
-    )
+    benchmark_beat_cluster_count = int((excess_means > 0.0).sum())
 
-    cluster_count = len(
-        items
-    )
+    cluster_count = len(items)
 
     return TemporalRobustnessSummary(
-        cluster_count=(
-            cluster_count
-        ),
-        total_symbol_windows=(
-            sum(
-                item.symbol_count
-                for item in items
-            )
-        ),
-        mean_cluster_strategy_return=(
-            float(
-                strategy_means.mean()
-            )
-        ),
-        median_cluster_strategy_return=(
-            float(
-                strategy_means.median()
-            )
-        ),
-        mean_cluster_benchmark_return=(
-            float(
-                benchmark_means.mean()
-            )
-        ),
-        median_cluster_benchmark_return=(
-            float(
-                benchmark_means.median()
-            )
-        ),
-        mean_cluster_excess_return=(
-            float(
-                excess_means.mean()
-            )
-        ),
-        median_cluster_excess_return=(
-            float(
-                excess_means.median()
-            )
-        ),
-        positive_cluster_count=(
-            positive_cluster_count
-        ),
-        positive_cluster_rate=(
-            positive_cluster_count
-            / cluster_count
-        ),
-        benchmark_beat_cluster_count=(
-            benchmark_beat_cluster_count
-        ),
-        benchmark_beat_cluster_rate=(
-            benchmark_beat_cluster_count
-            / cluster_count
-        ),
+        cluster_count=(cluster_count),
+        total_symbol_windows=(sum(item.symbol_count for item in items)),
+        mean_cluster_strategy_return=(float(strategy_means.mean())),
+        median_cluster_strategy_return=(float(strategy_means.median())),
+        mean_cluster_benchmark_return=(float(benchmark_means.mean())),
+        median_cluster_benchmark_return=(float(benchmark_means.median())),
+        mean_cluster_excess_return=(float(excess_means.mean())),
+        median_cluster_excess_return=(float(excess_means.median())),
+        positive_cluster_count=(positive_cluster_count),
+        positive_cluster_rate=(positive_cluster_count / cluster_count),
+        benchmark_beat_cluster_count=(benchmark_beat_cluster_count),
+        benchmark_beat_cluster_rate=(benchmark_beat_cluster_count / cluster_count),
     )
 
 
 def temporal_clusters_to_frame(
-    clusters: Iterable[
-        TemporalClusterResult
-    ],
+    clusters: Iterable[TemporalClusterResult],
 ) -> pd.DataFrame:
-    return pd.DataFrame(
-        asdict(cluster)
-        for cluster in clusters
-    )
+    return pd.DataFrame(asdict(cluster) for cluster in clusters)
 
 
 def temporal_summary_to_frame(
     summary: TemporalRobustnessSummary,
 ) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            asdict(
-                summary
-            )
-        ]
-    )
+    return pd.DataFrame([asdict(summary)])
 
 
 def run_temporal_robustness_from_csv(
@@ -517,10 +311,7 @@ def run_temporal_robustness_from_csv(
     output_dir: Path,
 ) -> dict[str, object]:
     if not optimization_report_path.exists():
-        raise FileNotFoundError(
-            "Report walk-forward non trovato: "
-            f"{optimization_report_path}"
-        )
+        raise FileNotFoundError(f"Report walk-forward non trovato: {optimization_report_path}")
 
     frame = pd.read_csv(
         optimization_report_path,
@@ -530,39 +321,25 @@ def run_temporal_robustness_from_csv(
         ],
     )
 
-    clusters = analyze_temporal_clusters(
-        frame
-    )
+    clusters = analyze_temporal_clusters(frame)
 
-    summary = summarize_temporal_robustness(
-        clusters
-    )
+    summary = summarize_temporal_robustness(clusters)
 
     output_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    clusters_path = (
-        output_dir
-        / "temporal_clusters.csv"
-    )
+    clusters_path = output_dir / "temporal_clusters.csv"
 
-    summary_path = (
-        output_dir
-        / "temporal_summary.csv"
-    )
+    summary_path = output_dir / "temporal_summary.csv"
 
-    temporal_clusters_to_frame(
-        clusters
-    ).to_csv(
+    temporal_clusters_to_frame(clusters).to_csv(
         clusters_path,
         index=False,
     )
 
-    temporal_summary_to_frame(
-        summary
-    ).to_csv(
+    temporal_summary_to_frame(summary).to_csv(
         summary_path,
         index=False,
     )
@@ -570,10 +347,6 @@ def run_temporal_robustness_from_csv(
     return {
         "clusters": clusters,
         "summary": summary,
-        "clusters_path": (
-            clusters_path
-        ),
-        "summary_path": (
-            summary_path
-        ),
+        "clusters_path": (clusters_path),
+        "summary_path": (summary_path),
     }

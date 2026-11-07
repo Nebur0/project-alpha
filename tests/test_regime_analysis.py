@@ -62,31 +62,19 @@ def _optimization_frame() -> pd.DataFrame:
                 0.05,
                 -0.02,
             ],
-            (
-                "out_of_sample_"
-                "benchmark_total_return"
-            ): [
+            ("out_of_sample_benchmark_total_return"): [
                 0.03,
                 -0.04,
             ],
-            (
-                "out_of_sample_"
-                "annualized_sharpe"
-            ): [
+            ("out_of_sample_annualized_sharpe"): [
                 1.25,
                 -0.50,
             ],
-            (
-                "out_of_sample_"
-                "max_drawdown"
-            ): [
+            ("out_of_sample_max_drawdown"): [
                 -0.04,
                 -0.08,
             ],
-            (
-                "out_of_sample_"
-                "completed_trades"
-            ): [
+            ("out_of_sample_completed_trades"): [
                 3,
                 2,
             ],
@@ -97,12 +85,8 @@ def _optimization_frame() -> pd.DataFrame:
 def _write_inputs(
     tmp_path: Path,
 ) -> tuple[Path, Path]:
-    market_path = (
-        tmp_path / "market.csv"
-    )
-    optimization_path = (
-        tmp_path / "optimization.csv"
-    )
+    market_path = tmp_path / "market.csv"
+    optimization_path = tmp_path / "optimization.csv"
 
     _market_frame().to_csv(
         market_path,
@@ -119,8 +103,7 @@ def _write_inputs(
     )
 
 
-def test_build_parser_reads_arguments(
-) -> None:
+def test_build_parser_reads_arguments() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
@@ -128,11 +111,7 @@ def test_build_parser_reads_arguments(
             "--market",
             "data/raw/bars.csv",
             "--optimization-report",
-            (
-                "reports/"
-                "batch_walk_forward_"
-                "optimization.csv"
-            ),
+            ("reports/batch_walk_forward_optimization.csv"),
             "--output-dir",
             "reports/custom_regimes",
             "--annualization-factor",
@@ -142,28 +121,14 @@ def test_build_parser_reads_arguments(
         ]
     )
 
-    assert args.market == Path(
-        "data/raw/bars.csv"
-    )
-    assert args.optimization_report == Path(
-        "reports/"
-        "batch_walk_forward_"
-        "optimization.csv"
-    )
-    assert args.output_dir == Path(
-        "reports/custom_regimes"
-    )
+    assert args.market == Path("data/raw/bars.csv")
+    assert args.optimization_report == Path("reports/batch_walk_forward_optimization.csv")
+    assert args.output_dir == Path("reports/custom_regimes")
     assert args.annualization_factor == 365
-    assert (
-        args.high_volatility_threshold
-        == pytest.approx(
-            0.30
-        )
-    )
+    assert args.high_volatility_threshold == pytest.approx(0.30)
 
 
-def test_build_parser_uses_frozen_defaults(
-) -> None:
+def test_build_parser_uses_frozen_defaults() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
@@ -175,16 +140,9 @@ def test_build_parser_uses_frozen_defaults(
         ]
     )
 
-    assert args.output_dir == Path(
-        "reports/advanced_robustness"
-    )
+    assert args.output_dir == Path("reports/advanced_robustness")
     assert args.annualization_factor == 252
-    assert (
-        args.high_volatility_threshold
-        == pytest.approx(
-            0.25
-        )
-    )
+    assert args.high_volatility_threshold == pytest.approx(0.25)
 
 
 def test_run_regime_analysis_creates_reports(
@@ -193,13 +151,9 @@ def test_run_regime_analysis_creates_reports(
     (
         market_path,
         optimization_path,
-    ) = _write_inputs(
-        tmp_path
-    )
+    ) = _write_inputs(tmp_path)
 
-    output_dir = (
-        tmp_path / "reports"
-    )
+    output_dir = tmp_path / "reports"
 
     result = run_regime_analysis(
         market_path,
@@ -208,41 +162,22 @@ def test_run_regime_analysis_creates_reports(
         high_volatility_threshold=10.0,
     )
 
-    assert len(
-        result["window_results"]
-    ) == 2
-    assert len(
-        result["summaries"]
-    ) == 2
+    assert len(result["window_results"]) == 2
+    assert len(result["summaries"]) == 2
 
-    window_csv_path = (
-        output_dir
-        / "regime_windows.csv"
-    )
-    summary_csv_path = (
-        output_dir
-        / "regime_summary.csv"
-    )
-    json_path = (
-        output_dir
-        / "regime_analysis.json"
-    )
+    window_csv_path = output_dir / "regime_windows.csv"
+    summary_csv_path = output_dir / "regime_summary.csv"
+    json_path = output_dir / "regime_analysis.json"
 
     assert window_csv_path.exists()
     assert summary_csv_path.exists()
     assert json_path.exists()
 
-    window_frame = pd.read_csv(
-        window_csv_path
-    )
-    summary_frame = pd.read_csv(
-        summary_csv_path
-    )
+    window_frame = pd.read_csv(window_csv_path)
+    summary_frame = pd.read_csv(summary_csv_path)
 
     assert len(window_frame) == 2
-    assert set(
-        summary_frame["regime"]
-    ) == {
+    assert set(summary_frame["regime"]) == {
         "UP_LOW_VOL",
         "DOWN_LOW_VOL",
     }
@@ -254,13 +189,9 @@ def test_run_regime_analysis_serializes_config(
     (
         market_path,
         optimization_path,
-    ) = _write_inputs(
-        tmp_path
-    )
+    ) = _write_inputs(tmp_path)
 
-    output_dir = (
-        tmp_path / "reports"
-    )
+    output_dir = tmp_path / "reports"
 
     run_regime_analysis(
         market_path,
@@ -270,14 +201,7 @@ def test_run_regime_analysis_serializes_config(
         high_volatility_threshold=0.30,
     )
 
-    report = json.loads(
-        (
-            output_dir
-            / "regime_analysis.json"
-        ).read_text(
-            encoding="utf-8"
-        )
-    )
+    report = json.loads((output_dir / "regime_analysis.json").read_text(encoding="utf-8"))
 
     assert report["config"] == {
         "annualization_factor": 365,
@@ -285,17 +209,8 @@ def test_run_regime_analysis_serializes_config(
     }
     assert report["window_count"] == 2
     assert report["regime_count"] >= 1
-    assert report["market_path"] == str(
-        market_path
-    )
-    assert (
-        report[
-            "optimization_report_path"
-        ]
-        == str(
-            optimization_path
-        )
-    )
+    assert report["market_path"] == str(market_path)
+    assert report["optimization_report_path"] == str(optimization_path)
 
 
 def test_run_regime_analysis_returns_output_paths(
@@ -304,13 +219,9 @@ def test_run_regime_analysis_returns_output_paths(
     (
         market_path,
         optimization_path,
-    ) = _write_inputs(
-        tmp_path
-    )
+    ) = _write_inputs(tmp_path)
 
-    output_dir = (
-        tmp_path / "reports"
-    )
+    output_dir = tmp_path / "reports"
 
     result = run_regime_analysis(
         market_path,
@@ -318,33 +229,15 @@ def test_run_regime_analysis_returns_output_paths(
         output_dir,
     )
 
-    assert result[
-        "window_csv_path"
-    ] == (
-        output_dir
-        / "regime_windows.csv"
-    )
-    assert result[
-        "summary_csv_path"
-    ] == (
-        output_dir
-        / "regime_summary.csv"
-    )
-    assert result[
-        "json_path"
-    ] == (
-        output_dir
-        / "regime_analysis.json"
-    )
+    assert result["window_csv_path"] == (output_dir / "regime_windows.csv")
+    assert result["summary_csv_path"] == (output_dir / "regime_summary.csv")
+    assert result["json_path"] == (output_dir / "regime_analysis.json")
 
 
 def test_run_regime_analysis_rejects_missing_market_file(
     tmp_path: Path,
 ) -> None:
-    optimization_path = (
-        tmp_path
-        / "optimization.csv"
-    )
+    optimization_path = tmp_path / "optimization.csv"
 
     _optimization_frame().to_csv(
         optimization_path,
@@ -365,9 +258,7 @@ def test_run_regime_analysis_rejects_missing_market_file(
 def test_run_regime_analysis_rejects_missing_optimization_report(
     tmp_path: Path,
 ) -> None:
-    market_path = (
-        tmp_path / "market.csv"
-    )
+    market_path = tmp_path / "market.csv"
 
     _market_frame().to_csv(
         market_path,
@@ -391,21 +282,15 @@ def test_run_regime_analysis_rejects_invalid_config(
     (
         market_path,
         optimization_path,
-    ) = _write_inputs(
-        tmp_path
-    )
+    ) = _write_inputs(tmp_path)
 
     with pytest.raises(
         ValueError,
-        match=(
-            "high_volatility_threshold"
-        ),
+        match=("high_volatility_threshold"),
     ):
         run_regime_analysis(
             market_path,
             optimization_path,
             tmp_path / "reports",
-            high_volatility_threshold=(
-                -0.01
-            ),
+            high_volatility_threshold=(-0.01),
         )

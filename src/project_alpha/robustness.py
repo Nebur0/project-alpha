@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from math import isfinite, sqrt
 from numbers import Real
-from typing import Iterable
 
 import pandas as pd
-
 
 REGIME_UP_LOW_VOL = "UP_LOW_VOL"
 REGIME_UP_HIGH_VOL = "UP_HIGH_VOL"
@@ -25,9 +24,7 @@ class RegimeAnalysisConfig:
             or not isinstance(self.annualization_factor, int)
             or self.annualization_factor <= 0
         ):
-            raise ValueError(
-                "annualization_factor deve essere un intero positivo."
-            )
+            raise ValueError("annualization_factor deve essere un intero positivo.")
 
         threshold = self.high_volatility_threshold
 
@@ -37,9 +34,7 @@ class RegimeAnalysisConfig:
             or not isfinite(float(threshold))
             or float(threshold) < 0.0
         ):
-            raise ValueError(
-                "high_volatility_threshold deve essere un numero finito non negativo."
-            )
+            raise ValueError("high_volatility_threshold deve essere un numero finito non negativo.")
 
 
 @dataclass(frozen=True)
@@ -82,21 +77,13 @@ def _required_numeric(
     *,
     name: str,
 ) -> float:
-    if (
-        value is None
-        or isinstance(value, bool)
-        or not isinstance(value, Real)
-    ):
-        raise ValueError(
-            f"{name} deve essere numerico."
-        )
+    if value is None or isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(f"{name} deve essere numerico.")
 
     numeric_value = float(value)
 
     if not isfinite(numeric_value):
-        raise ValueError(
-            f"{name} deve essere finito."
-        )
+        raise ValueError(f"{name} deve essere finito.")
 
     return numeric_value
 
@@ -128,13 +115,8 @@ def _optional_non_negative_int(
         name=name,
     )
 
-    if (
-        numeric_value < 0.0
-        or not numeric_value.is_integer()
-    ):
-        raise ValueError(
-            f"{name} deve essere un intero non negativo."
-        )
+    if numeric_value < 0.0 or not numeric_value.is_integer():
+        raise ValueError(f"{name} deve essere un intero non negativo.")
 
     return int(numeric_value)
 
@@ -146,23 +128,17 @@ def calculate_annualized_realized_volatility(
     annualization_factor: int = 252,
 ) -> float:
     if frame.empty:
-        raise ValueError(
-            "La finestra di mercato è vuota."
-        )
+        raise ValueError("La finestra di mercato è vuota.")
 
     if close_column not in frame.columns:
-        raise ValueError(
-            f"Colonna '{close_column}' mancante."
-        )
+        raise ValueError(f"Colonna '{close_column}' mancante.")
 
     if (
         isinstance(annualization_factor, bool)
         or not isinstance(annualization_factor, int)
         or annualization_factor <= 0
     ):
-        raise ValueError(
-            "annualization_factor deve essere un intero positivo."
-        )
+        raise ValueError("annualization_factor deve essere un intero positivo.")
 
     close = pd.to_numeric(
         frame[close_column],
@@ -170,29 +146,20 @@ def calculate_annualized_realized_volatility(
     )
 
     if close.isna().any():
-        raise ValueError(
-            "La serie close contiene valori mancanti o non numerici."
-        )
+        raise ValueError("La serie close contiene valori mancanti o non numerici.")
 
     if (close <= 0.0).any():
-        raise ValueError(
-            "La serie close deve contenere solo valori positivi."
-        )
+        raise ValueError("La serie close deve contenere solo valori positivi.")
 
     returns = close.pct_change().dropna()
 
     if len(returns) < 2:
         return 0.0
 
-    volatility = (
-        float(returns.std(ddof=1))
-        * sqrt(float(annualization_factor))
-    )
+    volatility = float(returns.std(ddof=1)) * sqrt(float(annualization_factor))
 
     if not isfinite(volatility):
-        raise ValueError(
-            "Volatilità annualizzata non finita."
-        )
+        raise ValueError("Volatilità annualizzata non finita.")
 
     return volatility
 
@@ -202,11 +169,7 @@ def classify_market_regime(
     annualized_realized_volatility: Real,
     config: RegimeAnalysisConfig | None = None,
 ) -> tuple[str, str, str]:
-    effective_config = (
-        config
-        if config is not None
-        else RegimeAnalysisConfig()
-    )
+    effective_config = config if config is not None else RegimeAnalysisConfig()
 
     benchmark_return = _required_numeric(
         benchmark_total_return,
@@ -218,26 +181,17 @@ def classify_market_regime(
     )
 
     if realized_volatility < 0.0:
-        raise ValueError(
-            "annualized_realized_volatility non può essere negativa."
-        )
+        raise ValueError("annualized_realized_volatility non può essere negativa.")
 
-    market_direction = (
-        "UP"
-        if benchmark_return >= 0.0
-        else "DOWN"
-    )
+    market_direction = "UP" if benchmark_return >= 0.0 else "DOWN"
 
     volatility_regime = (
         "HIGH_VOL"
-        if realized_volatility
-        >= effective_config.high_volatility_threshold
+        if realized_volatility >= effective_config.high_volatility_threshold
         else "LOW_VOL"
     )
 
-    regime = (
-        f"{market_direction}_{volatility_regime}"
-    )
+    regime = f"{market_direction}_{volatility_regime}"
 
     return (
         regime,
@@ -255,25 +209,16 @@ def _validate_market_frame(
         "close",
     }
 
-    missing_columns = (
-        required_columns - set(frame.columns)
-    )
+    missing_columns = required_columns - set(frame.columns)
 
     if missing_columns:
-        raise ValueError(
-            "Colonne mancanti nel market frame: "
-            f"{sorted(missing_columns)}"
-        )
+        raise ValueError(f"Colonne mancanti nel market frame: {sorted(missing_columns)}")
 
     if frame.empty:
-        raise ValueError(
-            "Il market frame è vuoto."
-        )
+        raise ValueError("Il market frame è vuoto.")
 
     result = frame.copy()
-    result["symbol"] = (
-        result["symbol"].astype(str).str.upper()
-    )
+    result["symbol"] = result["symbol"].astype(str).str.upper()
     result["timestamp"] = pd.to_datetime(
         result["timestamp"],
         utc=True,
@@ -300,25 +245,16 @@ def _validate_optimization_frame(
         "out_of_sample_completed_trades",
     }
 
-    missing_columns = (
-        required_columns - set(frame.columns)
-    )
+    missing_columns = required_columns - set(frame.columns)
 
     if missing_columns:
-        raise ValueError(
-            "Colonne mancanti nel report walk-forward: "
-            f"{sorted(missing_columns)}"
-        )
+        raise ValueError(f"Colonne mancanti nel report walk-forward: {sorted(missing_columns)}")
 
     if frame.empty:
-        raise ValueError(
-            "Il report walk-forward è vuoto."
-        )
+        raise ValueError("Il report walk-forward è vuoto.")
 
     result = frame.copy()
-    result["symbol"] = (
-        result["symbol"].astype(str).str.upper()
-    )
+    result["symbol"] = result["symbol"].astype(str).str.upper()
     result["test_start"] = pd.to_datetime(
         result["test_start"],
         utc=True,
@@ -339,51 +275,34 @@ def analyze_walk_forward_regimes(
     optimization_frame: pd.DataFrame,
     config: RegimeAnalysisConfig | None = None,
 ) -> tuple[RegimeWindowResult, ...]:
-    effective_config = (
-        config
-        if config is not None
-        else RegimeAnalysisConfig()
-    )
+    effective_config = config if config is not None else RegimeAnalysisConfig()
 
     market = _validate_market_frame(market_frame)
-    optimization = _validate_optimization_frame(
-        optimization_frame
-    )
+    optimization = _validate_optimization_frame(optimization_frame)
 
     results: list[RegimeWindowResult] = []
 
-    available_symbols = set(
-        market["symbol"].unique()
-    )
+    available_symbols = set(market["symbol"].unique())
 
     for row in optimization.itertuples(index=False):
         symbol = str(row.symbol).upper()
 
         if symbol not in available_symbols:
-            raise ValueError(
-                f"Simbolo {symbol} assente dal market frame."
-            )
+            raise ValueError(f"Simbolo {symbol} assente dal market frame.")
 
         window_number = _optional_non_negative_int(
             row.window_number,
             name="window_number",
         )
 
-        if (
-            window_number is None
-            or window_number <= 0
-        ):
-            raise ValueError(
-                "window_number deve essere un intero positivo."
-            )
+        if window_number is None or window_number <= 0:
+            raise ValueError("window_number deve essere un intero positivo.")
 
         test_start = pd.Timestamp(row.test_start)
         test_end = pd.Timestamp(row.test_end)
 
         if test_end < test_start:
-            raise ValueError(
-                "test_end non può precedere test_start."
-            )
+            raise ValueError("test_end non può precedere test_start.")
 
         window_market = market.loc[
             market["symbol"].eq(symbol)
@@ -392,18 +311,11 @@ def analyze_walk_forward_regimes(
         ]
 
         if window_market.empty:
-            raise ValueError(
-                "Nessun dato di mercato per "
-                f"{symbol}, window {window_number}."
-            )
+            raise ValueError(f"Nessun dato di mercato per {symbol}, window {window_number}.")
 
-        realized_volatility = (
-            calculate_annualized_realized_volatility(
-                window_market,
-                annualization_factor=(
-                    effective_config.annualization_factor
-                ),
-            )
+        realized_volatility = calculate_annualized_realized_volatility(
+            window_market,
+            annualization_factor=(effective_config.annualization_factor),
         )
 
         benchmark_total_return = _required_numeric(
@@ -435,14 +347,9 @@ def analyze_walk_forward_regimes(
                 market_direction=market_direction,
                 volatility_regime=volatility_regime,
                 benchmark_total_return=benchmark_total_return,
-                annualized_realized_volatility=(
-                    realized_volatility
-                ),
+                annualized_realized_volatility=(realized_volatility),
                 strategy_total_return=strategy_total_return,
-                excess_return=(
-                    strategy_total_return
-                    - benchmark_total_return
-                ),
+                excess_return=(strategy_total_return - benchmark_total_return),
                 annualized_sharpe=_optional_numeric(
                     row.out_of_sample_annualized_sharpe,
                     name="out_of_sample_annualized_sharpe",
@@ -464,10 +371,7 @@ def analyze_walk_forward_regimes(
 def regime_window_results_to_frame(
     results: Iterable[RegimeWindowResult],
 ) -> pd.DataFrame:
-    return pd.DataFrame(
-        asdict(result)
-        for result in results
-    )
+    return pd.DataFrame(asdict(result) for result in results)
 
 
 def summarize_regime_results(
@@ -499,13 +403,9 @@ def summarize_regime_results(
             errors="raise",
         )
 
-        positive_window_count = int(
-            (strategy_returns > 0.0).sum()
-        )
-        benchmark_beat_count = int(
-            (excess_returns > 0.0).sum()
-        )
-        window_count = int(len(group))
+        positive_window_count = int((strategy_returns > 0.0).sum())
+        benchmark_beat_count = int((excess_returns > 0.0).sum())
+        window_count = len(group)
 
         sharpe_values = pd.to_numeric(
             group["annualized_sharpe"],
@@ -527,40 +427,20 @@ def summarize_regime_results(
                 regime=str(regime),
                 window_count=window_count,
                 positive_window_count=positive_window_count,
-                positive_window_rate=(
-                    positive_window_count / window_count
-                ),
+                positive_window_rate=(positive_window_count / window_count),
                 benchmark_beat_count=benchmark_beat_count,
-                benchmark_beat_rate=(
-                    benchmark_beat_count / window_count
-                ),
-                mean_strategy_total_return=float(
-                    strategy_returns.mean()
-                ),
-                median_strategy_total_return=float(
-                    strategy_returns.median()
-                ),
-                mean_benchmark_total_return=float(
-                    benchmark_returns.mean()
-                ),
-                mean_excess_return=float(
-                    excess_returns.mean()
-                ),
+                benchmark_beat_rate=(benchmark_beat_count / window_count),
+                mean_strategy_total_return=float(strategy_returns.mean()),
+                median_strategy_total_return=float(strategy_returns.median()),
+                mean_benchmark_total_return=float(benchmark_returns.mean()),
+                mean_excess_return=float(excess_returns.mean()),
                 mean_annualized_sharpe=(
-                    float(sharpe_values.mean())
-                    if not sharpe_values.empty
-                    else None
+                    float(sharpe_values.mean()) if not sharpe_values.empty else None
                 ),
                 worst_max_drawdown=(
-                    float(drawdown_values.min())
-                    if not drawdown_values.empty
-                    else None
+                    float(drawdown_values.min()) if not drawdown_values.empty else None
                 ),
-                total_completed_trades=(
-                    int(trade_values.sum())
-                    if not trade_values.empty
-                    else 0
-                ),
+                total_completed_trades=(int(trade_values.sum()) if not trade_values.empty else 0),
             )
         )
 
@@ -570,7 +450,4 @@ def summarize_regime_results(
 def regime_summaries_to_frame(
     summaries: Iterable[RegimeSummary],
 ) -> pd.DataFrame:
-    return pd.DataFrame(
-        asdict(summary)
-        for summary in summaries
-    )
+    return pd.DataFrame(asdict(summary) for summary in summaries)

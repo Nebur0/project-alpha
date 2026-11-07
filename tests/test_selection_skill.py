@@ -89,22 +89,31 @@ def _small_grid() -> dict[str, list[int]]:
 
 
 def test_oos_rank_returns_one_for_best_value() -> None:
-    assert _oos_rank(
-        [0.10, 0.20, 0.05],
-        1,
-    ) == 1
+    assert (
+        _oos_rank(
+            [0.10, 0.20, 0.05],
+            1,
+        )
+        == 1
+    )
 
 
 def test_oos_rank_uses_competition_rank_for_ties() -> None:
-    assert _oos_rank(
-        [0.20, 0.20, 0.10],
-        1,
-    ) == 1
+    assert (
+        _oos_rank(
+            [0.20, 0.20, 0.10],
+            1,
+        )
+        == 1
+    )
 
-    assert _oos_rank(
-        [0.20, 0.10, 0.10],
-        1,
-    ) == 2
+    assert (
+        _oos_rank(
+            [0.20, 0.10, 0.10],
+            1,
+        )
+        == 2
+    )
 
 
 @pytest.mark.parametrize(
@@ -205,10 +214,7 @@ def test_analyze_selection_skill_preserves_symbol() -> None:
         minimum_completed_trades=0,
     )
 
-    assert {
-        window.symbol
-        for window in windows
-    } == {"SPY"}
+    assert {window.symbol for window in windows} == {"SPY"}
 
 
 def test_analyze_selection_skill_rejects_multiple_symbols() -> None:
@@ -351,10 +357,7 @@ def test_run_selection_skill_batch_combines_symbols() -> None:
     )
 
     assert len(windows) == 4
-    assert {
-        window.symbol
-        for window in windows
-    } == {"SPY", "QQQ"}
+    assert {window.symbol for window in windows} == {"SPY", "QQQ"}
 
 
 def test_run_selection_skill_batch_rejects_missing_symbol() -> None:
@@ -397,15 +400,9 @@ def test_run_selection_skill_from_csv_creates_reports(
         minimum_completed_trades=0,
     )
 
-    windows_path = (
-        output_dir
-        / "selection_skill_windows.csv"
-    )
+    windows_path = output_dir / "selection_skill_windows.csv"
 
-    summary_path = (
-        output_dir
-        / "selection_skill_summary.csv"
-    )
+    summary_path = output_dir / "selection_skill_summary.csv"
 
     assert windows_path.exists()
     assert summary_path.exists()

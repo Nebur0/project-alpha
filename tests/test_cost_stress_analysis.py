@@ -17,11 +17,7 @@ def _sample_market_frame(
 ) -> pd.DataFrame:
     index = np.arange(periods)
 
-    close = (
-        100.0
-        + index * 0.30
-        + np.sin(index / 3.0 + phase) * 2.0
-    )
+    close = 100.0 + index * 0.30 + np.sin(index / 3.0 + phase) * 2.0
 
     return pd.DataFrame(
         {
@@ -88,9 +84,7 @@ def test_cost_stress_reports_requested_scenarios() -> None:
         costs_per_side=[0.0, 0.001, 0.003],
     )
 
-    assert result.scenarios[
-        "cost_bps_per_side"
-    ].tolist() == [0.0, 10.0, 30.0]
+    assert result.scenarios["cost_bps_per_side"].tolist() == [0.0, 10.0, 30.0]
 
 
 def test_cost_stress_keeps_exposure_constant() -> None:
@@ -102,10 +96,7 @@ def test_cost_stress_keeps_exposure_constant() -> None:
         costs_per_side=[0.0, 0.001, 0.003],
     )
 
-    assert (
-        result.scenarios["mean_gross_exposure"].nunique()
-        == 1
-    )
+    assert result.scenarios["mean_gross_exposure"].nunique() == 1
 
 
 def test_higher_cost_reduces_final_return() -> None:
@@ -161,7 +152,4 @@ def test_cost_stress_records_baseline_cost() -> None:
         baseline_cost_per_side=0.001,
     )
 
-    assert (
-        result.baseline_cost_per_side
-        == pytest.approx(0.001)
-    )
+    assert result.baseline_cost_per_side == pytest.approx(0.001)

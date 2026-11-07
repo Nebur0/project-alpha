@@ -67,9 +67,7 @@ def performance_summary(
         "total_return": final - 1.0,
         "cagr": (final ** (1.0 / years) - 1.0) if years > 0 and final > 0 else None,
         "annualized_volatility": std * sqrt(TRADING_DAYS),
-        "annualized_sharpe": (
-            float(values.mean()) / std * sqrt(TRADING_DAYS) if std > 0 else None
-        ),
+        "annualized_sharpe": (float(values.mean()) / std * sqrt(TRADING_DAYS) if std > 0 else None),
         "max_drawdown": float((equity / np.maximum.accumulate(equity) - 1.0).min()),
     }
 
@@ -198,9 +196,7 @@ def _position_matrix(
     curves: Mapping[str, pd.DataFrame],
     column: str,
 ) -> np.ndarray:
-    return np.column_stack(
-        [curve[column].to_numpy(dtype=float) for curve in curves.values()]
-    )
+    return np.column_stack([curve[column].to_numpy(dtype=float) for curve in curves.values()])
 
 
 def decompose_gross_returns(
@@ -512,9 +508,7 @@ class EvaluationReport:
             "decomposition": self.decomposition,
             "capm": asdict(self.capm),
             "treynor_mazuy": asdict(self.treynor_mazuy),
-            "permutation": {
-                name: asdict(result) for name, result in self.permutation.items()
-            },
+            "permutation": {name: asdict(result) for name, result in self.permutation.items()},
             "on_off": self.on_off.to_dict(orient="records"),
             "by_window": self.by_window.to_dict(orient="records"),
         }
@@ -632,9 +626,7 @@ def evaluate_walk_forward_portfolio(
         by_window=_by_window(curves, strategy, benchmark, exposure),
         probabilistic_sharpe=psr,
         deflated_sharpe=dsr,
-        min_track_record_years=(
-            min_trl / TRADING_DAYS if min_trl is not None else None
-        ),
+        min_track_record_years=(min_trl / TRADING_DAYS if min_trl is not None else None),
         trials=trials,
         trials_sharpe_std=trials_sharpe_std,
     )

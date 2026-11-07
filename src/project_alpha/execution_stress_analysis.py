@@ -41,9 +41,7 @@ def _normalize_scenarios(
     scenarios: Sequence[tuple[str, ExecutionConfig]],
 ) -> tuple[tuple[str, ExecutionConfig], ...]:
     if not scenarios:
-        raise ValueError(
-            "È necessario specificare almeno uno scenario di esecuzione."
-        )
+        raise ValueError("È necessario specificare almeno uno scenario di esecuzione.")
 
     names: set[str] = set()
     normalized: list[tuple[str, ExecutionConfig]] = []
@@ -52,19 +50,13 @@ def _normalize_scenarios(
         label = str(name).strip()
 
         if not label:
-            raise ValueError(
-                "Il nome dello scenario non può essere vuoto."
-            )
+            raise ValueError("Il nome dello scenario non può essere vuoto.")
 
         if label in names:
-            raise ValueError(
-                f"Scenario di esecuzione duplicato: {label}."
-            )
+            raise ValueError(f"Scenario di esecuzione duplicato: {label}.")
 
         if not isinstance(execution, ExecutionConfig):
-            raise ValueError(
-                f"Lo scenario {label} deve usare un ExecutionConfig."
-            )
+            raise ValueError(f"Lo scenario {label} deve usare un ExecutionConfig.")
 
         names.add(label)
         normalized.append((label, execution))
@@ -76,9 +68,7 @@ def analyze_frozen_selection_execution_stress(
     frame: pd.DataFrame,
     baseline_batch: BatchWalkForwardOptimizationResult,
     *,
-    scenarios: Sequence[
-        tuple[str, ExecutionConfig]
-    ] = DEFAULT_EXECUTION_SCENARIOS,
+    scenarios: Sequence[tuple[str, ExecutionConfig]] = DEFAULT_EXECUTION_SCENARIOS,
     cost_per_side: float = 0.001,
     initial_capital: float = 10_000.0,
 ) -> ExecutionStressAnalysisResult:
@@ -87,14 +77,10 @@ def analyze_frozen_selection_execution_stress(
     cost = float(cost_per_side)
 
     if not np.isfinite(cost) or cost < 0.0:
-        raise ValueError(
-            "Il costo per lato deve essere finito e non negativo."
-        )
+        raise ValueError("Il costo per lato deve essere finito e non negativo.")
 
     if initial_capital <= 0:
-        raise ValueError(
-            "Il capitale iniziale deve essere positivo."
-        )
+        raise ValueError("Il capitale iniziale deve essere positivo.")
 
     rows: list[dict[str, float | int | str]] = []
 
@@ -119,13 +105,9 @@ def analyze_frozen_selection_execution_stress(
                 "total_return": float(metrics["total_return"]),
                 "cagr": float(metrics["cagr"]),
                 "annualized_sharpe": float(metrics["annualized_sharpe"]),
-                "annualized_volatility": float(
-                    metrics["annualized_volatility"]
-                ),
+                "annualized_volatility": float(metrics["annualized_volatility"]),
                 "max_drawdown": float(metrics["max_drawdown"]),
-                "mean_gross_exposure": float(
-                    metrics["mean_gross_exposure"]
-                ),
+                "mean_gross_exposure": float(metrics["mean_gross_exposure"]),
                 "symbol_count": int(metrics["symbol_count"]),
             }
         )

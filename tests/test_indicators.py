@@ -11,9 +11,7 @@ from project_alpha.indicators import (
 
 
 def test_ema_preserves_length() -> None:
-    series = pd.Series(
-        np.arange(1.0, 101.0)
-    )
+    series = pd.Series(np.arange(1.0, 101.0))
 
     result = ema(
         series,
@@ -26,9 +24,7 @@ def test_ema_preserves_length() -> None:
 
 
 def test_rsi_uptrend_reaches_high_value() -> None:
-    series = pd.Series(
-        np.arange(1.0, 101.0)
-    )
+    series = pd.Series(np.arange(1.0, 101.0))
 
     result = rsi(
         series,
@@ -64,8 +60,7 @@ def test_atr_constant_range() -> None:
     assert result.iloc[-1] == 2.0
 
 
-def test_add_indicators_uses_custom_strategy_parameters(
-) -> None:
+def test_add_indicators_uses_custom_strategy_parameters() -> None:
     periods = 30
 
     frame = pd.DataFrame(
@@ -127,21 +122,13 @@ def test_add_indicators_uses_custom_strategy_parameters(
         "previous_high_5",
     }
 
-    assert expected_columns.issubset(
-        result.columns
-    )
+    assert expected_columns.issubset(result.columns)
 
     assert result["ema_3"].iloc[:2].isna().all()
     assert result["ema_3"].iloc[2:].notna().all()
 
-    assert result[
-        "volume_sma_4"
-    ].iloc[:3].isna().all()
+    assert result["volume_sma_4"].iloc[:3].isna().all()
 
-    assert result[
-        "previous_high_5"
-    ].iloc[:5].isna().all()
+    assert result["previous_high_5"].iloc[:5].isna().all()
 
-    assert result[
-        "previous_high_5"
-    ].iloc[5:].notna().all()
+    assert result["previous_high_5"].iloc[5:].notna().all()

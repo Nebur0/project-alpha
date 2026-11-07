@@ -30,44 +30,21 @@ class StrategyParameters:
         }
 
         for name, value in periods.items():
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, int)
-                or value <= 0
-            ):
-                raise ValueError(
-                    f"{name} deve essere un intero positivo."
-                )
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} deve essere un intero positivo.")
 
-        if not (
-            self.fast_ema_period
-            < self.slow_ema_period
-            < self.trend_ema_period
-        ):
-            raise ValueError(
-                "I periodi EMA devono rispettare: "
-                "fast < slow < trend."
-            )
+        if not (self.fast_ema_period < self.slow_ema_period < self.trend_ema_period):
+            raise ValueError("I periodi EMA devono rispettare: fast < slow < trend.")
 
-        if not (
-            0.0
-            <= self.rsi_lower
-            < self.rsi_upper
-            <= 100.0
-        ):
-            raise ValueError(
-                "Le soglie RSI devono rispettare: "
-                "0 <= lower < upper <= 100."
-            )
+        if not (0.0 <= self.rsi_lower < self.rsi_upper <= 100.0):
+            raise ValueError("Le soglie RSI devono rispettare: 0 <= lower < upper <= 100.")
 
 
 @dataclass(frozen=True)
 class Settings:
     alpaca_api_key: str
     alpaca_api_secret: str
-    alpaca_data_base_url: str = (
-        "https://data.alpaca.markets"
-    )
+    alpaca_data_base_url: str = "https://data.alpaca.markets"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -88,12 +65,7 @@ class Settings:
             "https://data.alpaca.markets",
         ).rstrip("/")
 
-        if (
-            not key
-            or not secret
-            or key == "replace_me"
-            or secret == "replace_me"
-        ):
+        if not key or not secret or key == "replace_me" or secret == "replace_me":
             raise RuntimeError(
                 "Credenziali Alpaca mancanti. "
                 "Copia .env.example in .env e inserisci "

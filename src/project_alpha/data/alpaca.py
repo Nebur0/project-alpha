@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
-from typing import Iterable
 
 import pandas as pd
 import requests
@@ -62,9 +62,7 @@ def fetch_daily_bars(
             response.raise_for_status()
         except requests.HTTPError as exc:
             detail = response.text[:500]
-            raise RuntimeError(
-                f"Errore Alpaca HTTP {response.status_code}: {detail}"
-            ) from exc
+            raise RuntimeError(f"Errore Alpaca HTTP {response.status_code}: {detail}") from exc
 
         payload = response.json()
         bars_by_symbol = payload.get("bars", {})
@@ -91,8 +89,7 @@ def fetch_daily_bars(
 
     if not records:
         raise RuntimeError(
-            "Nessuna candela ricevuta. Controllare simboli, intervallo, credenziali "
-            "e piano dati."
+            "Nessuna candela ricevuta. Controllare simboli, intervallo, credenziali e piano dati."
         )
 
     frame = pd.DataFrame.from_records(records, columns=_COLUMNS)

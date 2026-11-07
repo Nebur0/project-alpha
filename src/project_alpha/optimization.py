@@ -29,7 +29,6 @@ from project_alpha.validation import (
     generate_walk_forward_splits,
 )
 
-
 GridValue = int | float
 MetricValue = float | int | None
 
@@ -87,11 +86,7 @@ class WalkForwardOptimizationResult:
 
     @property
     def flat_window_count(self) -> int:
-        return sum(
-            1
-            for window in self.windows
-            if window.is_flat
-        )
+        return sum(1 for window in self.windows if window.is_flat)
 
 
 INVALID_COMBINATION_POLICIES = (
@@ -137,10 +132,7 @@ def generate_strategy_parameters(
     la generazione (comportamento precedente).
     """
     if on_invalid not in INVALID_COMBINATION_POLICIES:
-        raise ValueError(
-            "on_invalid deve essere uno tra "
-            f"{list(INVALID_COMBINATION_POLICIES)}."
-        )
+        raise ValueError(f"on_invalid deve essere uno tra {list(INVALID_COMBINATION_POLICIES)}.")
 
     inspection = inspect_parameter_grid(
         grid,
@@ -166,61 +158,33 @@ def inspect_parameter_grid(
     raise_on_invalid: bool = False,
 ) -> ParameterGridInspection:
     if not grid:
-        raise ValueError(
-            "La griglia dei parametri è vuota."
-        )
+        raise ValueError("La griglia dei parametri è vuota.")
 
-    allowed_fields = {
-        field.name
-        for field in fields(StrategyParameters)
-    }
+    allowed_fields = {field.name for field in fields(StrategyParameters)}
 
-    unknown_fields = (
-        set(grid)
-        - allowed_fields
-    )
+    unknown_fields = set(grid) - allowed_fields
 
     if unknown_fields:
-        raise ValueError(
-            "Parametri strategici sconosciuti: "
-            f"{sorted(unknown_fields)}"
-        )
+        raise ValueError(f"Parametri strategici sconosciuti: {sorted(unknown_fields)}")
 
     parameter_names = sorted(grid)
-    parameter_values: list[
-        tuple[GridValue, ...]
-    ] = []
+    parameter_values: list[tuple[GridValue, ...]] = []
 
     for parameter_name in parameter_names:
-        values = tuple(
-            dict.fromkeys(
-                grid[parameter_name]
-            )
-        )
+        values = tuple(dict.fromkeys(grid[parameter_name]))
 
         if not values:
-            raise ValueError(
-                "La griglia del parametro "
-                f"'{parameter_name}' è vuota."
-            )
+            raise ValueError(f"La griglia del parametro '{parameter_name}' è vuota.")
 
         parameter_values.append(values)
 
-    default_values = asdict(
-        StrategyParameters()
-    )
+    default_values = asdict(StrategyParameters())
 
-    combinations: list[
-        StrategyParameters
-    ] = []
+    combinations: list[StrategyParameters] = []
     invalid_reasons: list[str] = []
 
-    for values in product(
-        *parameter_values
-    ):
-        candidate_values = (
-            default_values.copy()
-        )
+    for values in product(*parameter_values):
+        candidate_values = default_values.copy()
 
         candidate_values.update(
             dict(
@@ -233,11 +197,7 @@ def inspect_parameter_grid(
         )
 
         try:
-            combinations.append(
-                StrategyParameters(
-                    **candidate_values
-                )
-            )
+            combinations.append(StrategyParameters(**candidate_values))
         except ValueError as exc:
             if raise_on_invalid:
                 raise
@@ -260,11 +220,7 @@ def _metric_as_float(
 ) -> float | None:
     value = metrics.get(metric_name)
 
-    if (
-        value is None
-        or isinstance(value, bool)
-        or not isinstance(value, Real)
-    ):
+    if value is None or isinstance(value, bool) or not isinstance(value, Real):
         return None
 
     return float(value)
@@ -275,16 +231,11 @@ def _resolve_robust_score_config(
     robust_score_config: RobustScoreConfig | None,
 ) -> RobustScoreConfig | None:
     if score_metric == ROBUST_SCORE_METRIC:
-        return (
-            robust_score_config
-            or RobustScoreConfig()
-        )
+        return robust_score_config or RobustScoreConfig()
 
     if robust_score_config is not None:
         raise ValueError(
-            "robust_score_config può essere "
-            "usato solo con "
-            "score_metric='robust_score'."
+            "robust_score_config può essere usato solo con score_metric='robust_score'."
         )
 
     return None
@@ -304,10 +255,7 @@ def _calculate_candidate_score(
 ]:
     if score_metric == ROBUST_SCORE_METRIC:
         if robust_score_config is None:
-            raise RuntimeError(
-                "Configurazione robust score "
-                "non inizializzata."
-            )
+            raise RuntimeError("Configurazione robust score non inizializzata.")
 
         try:
             robust_score = calculate_robust_score(
@@ -323,10 +271,7 @@ def _calculate_candidate_score(
         )
 
     if score_metric not in metrics:
-        raise ValueError(
-            "Metrica di ordinamento "
-            f"'{score_metric}' non disponibile."
-        )
+        raise ValueError(f"Metrica di ordinamento '{score_metric}' non disponibile.")
 
     return (
         _metric_as_float(
@@ -351,27 +296,15 @@ def _validate_single_symbol_frame(
     frame: pd.DataFrame,
 ) -> str:
     if frame.empty:
-        raise ValueError(
-            "Il dataset è vuoto."
-        )
+        raise ValueError("Il dataset è vuoto.")
 
     if "symbol" not in frame.columns:
-        raise ValueError(
-            "La colonna 'symbol' è obbligatoria."
-        )
+        raise ValueError("La colonna 'symbol' è obbligatoria.")
 
-    symbols = (
-        frame["symbol"]
-        .astype(str)
-        .str.upper()
-        .unique()
-    )
+    symbols = frame["symbol"].astype(str).str.upper().unique()
 
     if len(symbols) != 1:
-        raise ValueError(
-            "L'ottimizzazione deve ricevere "
-            "un solo simbolo alla volta."
-        )
+        raise ValueError("L'ottimizzazione deve ricevere un solo simbolo alla volta.")
 
     return str(symbols[0])
 
@@ -381,14 +314,10 @@ def _validate_backtest_arguments(
     cost_per_side: float,
 ) -> None:
     if initial_capital <= 0.0:
-        raise ValueError(
-            "initial_capital deve essere positivo."
-        )
+        raise ValueError("initial_capital deve essere positivo.")
 
     if cost_per_side < 0.0:
-        raise ValueError(
-            "cost_per_side non può essere negativo."
-        )
+        raise ValueError("cost_per_side non può essere negativo.")
 
 
 def run_parameter_grid_search(
@@ -400,12 +329,8 @@ def run_parameter_grid_search(
     *,
     initial_capital: float = 10_000.0,
     cost_per_side: float = 0.001,
-    score_metric: str = (
-        "annualized_sharpe"
-    ),
-    robust_score_config: (
-        RobustScoreConfig | None
-    ) = None,
+    score_metric: str = ("annualized_sharpe"),
+    robust_score_config: (RobustScoreConfig | None) = None,
     execution: ExecutionConfig | None = None,
 ) -> list[GridSearchResult]:
     _validate_single_symbol_frame(frame)
@@ -415,16 +340,12 @@ def run_parameter_grid_search(
         cost_per_side,
     )
 
-    effective_robust_score_config = (
-        _resolve_robust_score_config(
-            score_metric,
-            robust_score_config,
-        )
+    effective_robust_score_config = _resolve_robust_score_config(
+        score_metric,
+        robust_score_config,
     )
 
-    parameter_sets = (
-        generate_strategy_parameters(grid)
-    )
+    parameter_sets = generate_strategy_parameters(grid)
 
     results: list[GridSearchResult] = []
 
@@ -439,22 +360,14 @@ def run_parameter_grid_search(
             parameters,
         )
 
-        backtest_result = (
-            run_long_only_backtest(
-                positioned,
-                initial_capital=(
-                    initial_capital
-                ),
-                cost_per_side=(
-                    cost_per_side
-                ),
-                **_execution_kwargs(execution),
-            )
+        backtest_result = run_long_only_backtest(
+            positioned,
+            initial_capital=(initial_capital),
+            cost_per_side=(cost_per_side),
+            **_execution_kwargs(execution),
         )
 
-        metrics = sanitize_metric_values(
-            backtest_result.metrics
-        )
+        metrics = sanitize_metric_values(backtest_result.metrics)
 
         (
             score,
@@ -462,9 +375,7 @@ def run_parameter_grid_search(
         ) = _calculate_candidate_score(
             metrics,
             score_metric=score_metric,
-            robust_score_config=(
-                effective_robust_score_config
-            ),
+            robust_score_config=(effective_robust_score_config),
         )
 
         results.append(
@@ -480,11 +391,7 @@ def run_parameter_grid_search(
     def sort_key(
         result: GridSearchResult,
     ) -> tuple[float, float, float]:
-        score = (
-            result.score
-            if result.score is not None
-            else float("-inf")
-        )
+        score = result.score if result.score is not None else float("-inf")
 
         total_return = _metric_as_float(
             result.metrics,
@@ -498,16 +405,8 @@ def run_parameter_grid_search(
 
         return (
             score,
-            (
-                total_return
-                if total_return is not None
-                else float("-inf")
-            ),
-            (
-                max_drawdown
-                if max_drawdown is not None
-                else float("-inf")
-            ),
+            (total_return if total_return is not None else float("-inf")),
+            (max_drawdown if max_drawdown is not None else float("-inf")),
         )
 
     return sorted(
@@ -518,9 +417,7 @@ def run_parameter_grid_search(
 
 
 def grid_search_results_to_frame(
-    results: Sequence[
-        GridSearchResult
-    ],
+    results: Sequence[GridSearchResult],
 ) -> pd.DataFrame:
     rows = []
 
@@ -535,37 +432,19 @@ def grid_search_results_to_frame(
 
         if result.robust_score is not None:
             robust_values = {
-                "robust_score": (
-                    result.robust_score.score
-                ),
-                "robust_sharpe": (
-                    result.robust_score.sharpe
-                ),
-                "robust_excess_return": (
-                    result.robust_score
-                    .excess_return
-                ),
-                "robust_max_drawdown": (
-                    result.robust_score
-                    .max_drawdown
-                ),
-                "robust_completed_trades": (
-                    result.robust_score
-                    .completed_trades
-                ),
-                "robust_trade_shortfall": (
-                    result.robust_score
-                    .trade_shortfall
-                ),
+                "robust_score": (result.robust_score.score),
+                "robust_sharpe": (result.robust_score.sharpe),
+                "robust_excess_return": (result.robust_score.excess_return),
+                "robust_max_drawdown": (result.robust_score.max_drawdown),
+                "robust_completed_trades": (result.robust_score.completed_trades),
+                "robust_trade_shortfall": (result.robust_score.trade_shortfall),
             }
 
         rows.append(
             {
                 "rank": rank,
                 **asdict(result.parameters),
-                "score_metric": (
-                    result.score_metric
-                ),
+                "score_metric": (result.score_metric),
                 "score": result.score,
                 **robust_values,
                 **result.metrics,
@@ -576,9 +455,7 @@ def grid_search_results_to_frame(
 
 
 def _select_best_training_result(
-    results: Sequence[
-        GridSearchResult
-    ],
+    results: Sequence[GridSearchResult],
     *,
     minimum_completed_trades: int,
 ) -> GridSearchResult:
@@ -594,19 +471,12 @@ def _select_best_training_result(
         if completed_trades is None:
             continue
 
-        if (
-            completed_trades
-            < minimum_completed_trades
-        ):
+        if completed_trades < minimum_completed_trades:
             continue
 
         return result
 
-    raise ValueError(
-        "Nessuna combinazione soddisfa i "
-        "requisiti minimi nella finestra "
-        "in-sample."
-    )
+    raise ValueError("Nessuna combinazione soddisfa i requisiti minimi nella finestra in-sample.")
 
 
 def _prepare_out_of_sample_frame(
@@ -622,30 +492,20 @@ def _prepare_out_of_sample_frame(
         ignore_index=True,
     )
 
-    context = (
-        context
-        .sort_values(
-            "timestamp",
-            kind="stable",
-        )
-        .reset_index(drop=True)
-    )
+    context = context.sort_values(
+        "timestamp",
+        kind="stable",
+    ).reset_index(drop=True)
 
     enriched_context = add_indicators(
         context,
         parameters,
     )
 
-    test_start = pd.Timestamp(
-        out_of_sample["timestamp"].min()
-    )
-    test_end = pd.Timestamp(
-        out_of_sample["timestamp"].max()
-    )
+    test_start = pd.Timestamp(out_of_sample["timestamp"].min())
+    test_end = pd.Timestamp(out_of_sample["timestamp"].max())
 
-    timestamp_series = pd.to_datetime(
-        enriched_context["timestamp"]
-    )
+    timestamp_series = pd.to_datetime(enriched_context["timestamp"])
 
     selected = enriched_context.loc[
         timestamp_series.between(
@@ -656,10 +516,7 @@ def _prepare_out_of_sample_frame(
     ].copy()
 
     if selected.empty:
-        raise ValueError(
-            "La finestra out-of-sample "
-            "preparata è vuota."
-        )
+        raise ValueError("La finestra out-of-sample preparata è vuota.")
 
     return add_baseline_position(
         selected,
@@ -672,10 +529,7 @@ def prepare_flat_out_of_sample_frame(
 ) -> pd.DataFrame:
     """Finestra OOS senza posizione: la strategia resta in cash."""
     if out_of_sample.empty:
-        raise ValueError(
-            "La finestra out-of-sample "
-            "preparata è vuota."
-        )
+        raise ValueError("La finestra out-of-sample preparata è vuota.")
 
     flat = out_of_sample.copy()
     flat["entry_signal"] = False
@@ -697,36 +551,25 @@ def run_walk_forward_optimization(
     step_size: int | None = None,
     initial_capital: float = 10_000.0,
     cost_per_side: float = 0.001,
-    score_metric: str = (
-        "annualized_sharpe"
-    ),
+    score_metric: str = ("annualized_sharpe"),
     minimum_completed_trades: int = 1,
-    robust_score_config: (
-        RobustScoreConfig | None
-    ) = None,
+    robust_score_config: (RobustScoreConfig | None) = None,
     no_candidate_policy: str = "raise",
     execution: ExecutionConfig | None = None,
 ) -> WalkForwardOptimizationResult:
-    symbol = _validate_single_symbol_frame(
-        frame
-    )
+    symbol = _validate_single_symbol_frame(frame)
 
     if no_candidate_policy not in NO_CANDIDATE_POLICIES:
-        raise ValueError(
-            "no_candidate_policy deve essere uno tra "
-            f"{list(NO_CANDIDATE_POLICIES)}."
-        )
+        raise ValueError(f"no_candidate_policy deve essere uno tra {list(NO_CANDIDATE_POLICIES)}.")
 
     _validate_backtest_arguments(
         initial_capital,
         cost_per_side,
     )
 
-    effective_robust_score_config = (
-        _resolve_robust_score_config(
-            score_metric,
-            robust_score_config,
-        )
+    effective_robust_score_config = _resolve_robust_score_config(
+        score_metric,
+        robust_score_config,
     )
 
     if (
@@ -740,10 +583,7 @@ def run_walk_forward_optimization(
         )
         or minimum_completed_trades < 0
     ):
-        raise ValueError(
-            "minimum_completed_trades deve "
-            "essere un intero non negativo."
-        )
+        raise ValueError("minimum_completed_trades deve essere un intero non negativo.")
 
     splits = generate_walk_forward_splits(
         frame=frame,
@@ -752,55 +592,32 @@ def run_walk_forward_optimization(
         step_size=step_size,
     )
 
-    effective_step_size = (
-        test_size
-        if step_size is None
-        else step_size
-    )
+    effective_step_size = test_size if step_size is None else step_size
 
-    windows_overlap = (
-        effective_step_size
-        < test_size
-    )
+    windows_overlap = effective_step_size < test_size
 
-    windows: list[
-        WalkForwardOptimizationWindow
-    ] = []
+    windows: list[WalkForwardOptimizationWindow] = []
 
-    out_of_sample_metrics: list[
-        dict[str, MetricValue]
-    ] = []
+    out_of_sample_metrics: list[dict[str, MetricValue]] = []
 
     for split in splits:
-        training_results = (
-            run_parameter_grid_search(
-                split.in_sample,
-                grid,
-                initial_capital=(
-                    initial_capital
-                ),
-                cost_per_side=(
-                    cost_per_side
-                ),
-                score_metric=score_metric,
-                robust_score_config=(
-                    effective_robust_score_config
-                ),
-                **_execution_kwargs(execution),
-            )
+        training_results = run_parameter_grid_search(
+            split.in_sample,
+            grid,
+            initial_capital=(initial_capital),
+            cost_per_side=(cost_per_side),
+            score_metric=score_metric,
+            robust_score_config=(effective_robust_score_config),
+            **_execution_kwargs(execution),
         )
 
         selected_result: GridSearchResult | None
         flat_reason: str | None = None
 
         try:
-            selected_result = (
-                _select_best_training_result(
-                    training_results,
-                    minimum_completed_trades=(
-                        minimum_completed_trades
-                    ),
-                )
+            selected_result = _select_best_training_result(
+                training_results,
+                minimum_completed_trades=(minimum_completed_trades),
             )
         except ValueError as exc:
             if no_candidate_policy == "raise":
@@ -810,82 +627,40 @@ def run_walk_forward_optimization(
             flat_reason = str(exc)
 
         if selected_result is None:
-            positioned_out_of_sample = (
-                prepare_flat_out_of_sample_frame(
-                    split.out_of_sample
-                )
-            )
+            positioned_out_of_sample = prepare_flat_out_of_sample_frame(split.out_of_sample)
         else:
-            positioned_out_of_sample = (
-                _prepare_out_of_sample_frame(
-                    split.in_sample,
-                    split.out_of_sample,
-                    selected_result.parameters,
-                )
+            positioned_out_of_sample = _prepare_out_of_sample_frame(
+                split.in_sample,
+                split.out_of_sample,
+                selected_result.parameters,
             )
 
-        out_of_sample_result = (
-            run_long_only_backtest(
-                positioned_out_of_sample,
-                initial_capital=(
-                    initial_capital
-                ),
-                cost_per_side=(
-                    cost_per_side
-                ),
-                **_execution_kwargs(execution),
-            )
+        out_of_sample_result = run_long_only_backtest(
+            positioned_out_of_sample,
+            initial_capital=(initial_capital),
+            cost_per_side=(cost_per_side),
+            **_execution_kwargs(execution),
         )
 
-        sanitized_out_of_sample_metrics = (
-            sanitize_metric_values(
-                out_of_sample_result.metrics
-            )
-        )
+        sanitized_out_of_sample_metrics = sanitize_metric_values(out_of_sample_result.metrics)
 
-        out_of_sample_metrics.append(
-            sanitized_out_of_sample_metrics
-        )
+        out_of_sample_metrics.append(sanitized_out_of_sample_metrics)
 
         windows.append(
             WalkForwardOptimizationWindow(
-                window_number=(
-                    split.window_number
-                ),
-                train_start=(
-                    split.train_start
-                ),
-                train_end=(
-                    split.train_end
-                ),
-                test_start=(
-                    split.test_start
-                ),
-                test_end=(
-                    split.test_end
-                ),
+                window_number=(split.window_number),
+                train_start=(split.train_start),
+                train_end=(split.train_end),
+                test_start=(split.test_start),
+                test_end=(split.test_end),
                 selected_parameters=(
-                    selected_result.parameters
-                    if selected_result is not None
-                    else None
+                    selected_result.parameters if selected_result is not None else None
                 ),
-                selected_score=(
-                    selected_result.score
-                    if selected_result is not None
-                    else None
-                ),
-                in_sample_metrics=(
-                    selected_result.metrics
-                    if selected_result is not None
-                    else {}
-                ),
-                out_of_sample_metrics=(
-                    sanitized_out_of_sample_metrics
-                ),
+                selected_score=(selected_result.score if selected_result is not None else None),
+                in_sample_metrics=(selected_result.metrics if selected_result is not None else {}),
+                out_of_sample_metrics=(sanitized_out_of_sample_metrics),
                 robust_score=(
-                    selected_result.robust_score
-                    if selected_result is not None
-                    else None
+                    selected_result.robust_score if selected_result is not None else None
                 ),
                 flat_reason=flat_reason,
             )
@@ -893,9 +668,7 @@ def run_walk_forward_optimization(
 
     summary = summarize_walk_forward_metrics(
         out_of_sample_metrics,
-        allow_compounding=(
-            not windows_overlap
-        ),
+        allow_compounding=(not windows_overlap),
     )
 
     return WalkForwardOptimizationResult(
@@ -904,16 +677,10 @@ def run_walk_forward_optimization(
         train_size=train_size,
         test_size=test_size,
         step_size=effective_step_size,
-        minimum_completed_trades=(
-            minimum_completed_trades
-        ),
+        minimum_completed_trades=(minimum_completed_trades),
         windows_overlap=windows_overlap,
-        compounding_enabled=(
-            not windows_overlap
-        ),
-        robust_score_config=(
-            effective_robust_score_config
-        ),
+        compounding_enabled=(not windows_overlap),
+        robust_score_config=(effective_robust_score_config),
         windows=tuple(windows),
         summary=summary,
         no_candidate_policy=no_candidate_policy,
@@ -925,10 +692,7 @@ def _parameters_as_dict(
     parameters: StrategyParameters | None,
 ) -> dict[str, GridValue | None]:
     if parameters is None:
-        return {
-            field.name: None
-            for field in fields(StrategyParameters)
-        }
+        return {field.name: None for field in fields(StrategyParameters)}
 
     return asdict(parameters)
 
@@ -941,48 +705,24 @@ def walk_forward_optimization_to_dict(
     for window in result.windows:
         windows.append(
             {
-                "window_number": (
-                    window.window_number
-                ),
-                "train_start": (
-                    window.train_start
-                    .isoformat()
-                ),
-                "train_end": (
-                    window.train_end
-                    .isoformat()
-                ),
-                "test_start": (
-                    window.test_start
-                    .isoformat()
-                ),
-                "test_end": (
-                    window.test_end
-                    .isoformat()
-                ),
+                "window_number": (window.window_number),
+                "train_start": (window.train_start.isoformat()),
+                "train_end": (window.train_end.isoformat()),
+                "test_start": (window.test_start.isoformat()),
+                "test_end": (window.test_end.isoformat()),
                 "selected_parameters": (
                     asdict(window.selected_parameters)
-                    if window.selected_parameters
-                    is not None
+                    if window.selected_parameters is not None
                     else None
                 ),
                 "is_flat": window.is_flat,
                 "flat_reason": window.flat_reason,
-                "selected_score": (
-                    window.selected_score
-                ),
+                "selected_score": (window.selected_score),
                 "selected_robust_score": (
-                    asdict(window.robust_score)
-                    if window.robust_score
-                    is not None
-                    else None
+                    asdict(window.robust_score) if window.robust_score is not None else None
                 ),
-                "in_sample": (
-                    window.in_sample_metrics
-                ),
-                "out_of_sample": (
-                    window.out_of_sample_metrics
-                ),
+                "in_sample": (window.in_sample_metrics),
+                "out_of_sample": (window.out_of_sample_metrics),
             }
         )
 
@@ -992,35 +732,16 @@ def walk_forward_optimization_to_dict(
         "train_size": result.train_size,
         "test_size": result.test_size,
         "step_size": result.step_size,
-        "minimum_completed_trades": (
-            result.minimum_completed_trades
-        ),
+        "minimum_completed_trades": (result.minimum_completed_trades),
         "robust_score_config": (
-            asdict(result.robust_score_config)
-            if result.robust_score_config
-            is not None
-            else None
+            asdict(result.robust_score_config) if result.robust_score_config is not None else None
         ),
-        "window_count": len(
-            result.windows
-        ),
-        "no_candidate_policy": (
-            result.no_candidate_policy
-        ),
-        "execution": (
-            asdict(result.execution)
-            if result.execution is not None
-            else None
-        ),
-        "flat_window_count": (
-            result.flat_window_count
-        ),
-        "windows_overlap": (
-            result.windows_overlap
-        ),
-        "compounding_enabled": (
-            result.compounding_enabled
-        ),
+        "window_count": len(result.windows),
+        "no_candidate_policy": (result.no_candidate_policy),
+        "execution": (asdict(result.execution) if result.execution is not None else None),
+        "flat_window_count": (result.flat_window_count),
+        "windows_overlap": (result.windows_overlap),
+        "compounding_enabled": (result.compounding_enabled),
         "summary": result.summary,
         "windows": windows,
     }
@@ -1035,69 +756,30 @@ def walk_forward_optimization_to_frame(
         rows.append(
             {
                 "symbol": result.symbol,
-                "window_number": (
-                    window.window_number
-                ),
-                "train_start": (
-                    window.train_start
-                ),
-                "train_end": (
-                    window.train_end
-                ),
-                "test_start": (
-                    window.test_start
-                ),
-                "test_end": (
-                    window.test_end
-                ),
-                **_parameters_as_dict(
-                    window.selected_parameters
-                ),
+                "window_number": (window.window_number),
+                "train_start": (window.train_start),
+                "train_end": (window.train_end),
+                "test_start": (window.test_start),
+                "test_end": (window.test_end),
+                **_parameters_as_dict(window.selected_parameters),
                 "is_flat": window.is_flat,
-                "score_metric": (
-                    result.score_metric
-                ),
-                "selected_score": (
-                    window.selected_score
-                ),
+                "score_metric": (result.score_metric),
+                "selected_score": (window.selected_score),
                 "selected_robust_score": (
-                    window.robust_score.score
-                    if window.robust_score
-                    is not None
-                    else None
+                    window.robust_score.score if window.robust_score is not None else None
                 ),
                 "selected_robust_excess_return": (
-                    window.robust_score
-                    .excess_return
-                    if window.robust_score
-                    is not None
-                    else None
+                    window.robust_score.excess_return if window.robust_score is not None else None
                 ),
                 "selected_robust_trade_shortfall": (
-                    window.robust_score
-                    .trade_shortfall
-                    if window.robust_score
-                    is not None
-                    else None
+                    window.robust_score.trade_shortfall if window.robust_score is not None else None
                 ),
                 **{
-                    f"in_sample_{name}": value
-                    for name, value in (
-                        window
-                        .in_sample_metrics
-                        .items()
-                    )
+                    f"in_sample_{name}": value for name, value in (window.in_sample_metrics.items())
                 },
                 **{
-                    (
-                        "out_of_sample_"
-                        f"{name}"
-                    ): value
-                    for name, value in (
-                        window
-                        .out_of_sample_metrics
-                        .items()
-                    )
+                    (f"out_of_sample_{name}"): value
+                    for name, value in (window.out_of_sample_metrics.items())
                 },
             }
         )

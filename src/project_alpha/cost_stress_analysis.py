@@ -13,7 +13,6 @@ from project_alpha.portfolio_walk_forward import (
     run_walk_forward_portfolio_backtest,
 )
 
-
 DEFAULT_COSTS_PER_SIDE = (
     0.0000,
     0.0005,
@@ -33,10 +32,7 @@ def _normalize_costs(
     costs_per_side: Sequence[float],
 ) -> tuple[float, ...]:
     if not costs_per_side:
-        raise ValueError(
-            "È necessario specificare almeno "
-            "un livello di costo."
-        )
+        raise ValueError("È necessario specificare almeno un livello di costo.")
 
     normalized: list[float] = []
 
@@ -44,14 +40,10 @@ def _normalize_costs(
         cost = float(raw_cost)
 
         if not np.isfinite(cost):
-            raise ValueError(
-                "I costi per lato devono essere finiti."
-            )
+            raise ValueError("I costi per lato devono essere finiti.")
 
         if cost < 0.0:
-            raise ValueError(
-                "I costi per lato non possono essere negativi."
-            )
+            raise ValueError("I costi per lato non possono essere negativi.")
 
         if cost not in normalized:
             normalized.append(cost)
@@ -72,14 +64,10 @@ def analyze_frozen_selection_cost_stress(
     baseline_cost = float(baseline_cost_per_side)
 
     if not np.isfinite(baseline_cost) or baseline_cost < 0.0:
-        raise ValueError(
-            "Il costo baseline deve essere finito e non negativo."
-        )
+        raise ValueError("Il costo baseline deve essere finito e non negativo.")
 
     if initial_capital <= 0:
-        raise ValueError(
-            "Il capitale iniziale deve essere positivo."
-        )
+        raise ValueError("Il capitale iniziale deve essere positivo.")
 
     rows: list[dict[str, float | int]] = []
     reference_exposure: float | None = None
@@ -114,12 +102,8 @@ def analyze_frozen_selection_cost_stress(
                 "cost_bps_per_side": float(cost_per_side * 10_000.0),
                 "total_return": float(metrics["total_return"]),
                 "cagr": float(metrics["cagr"]),
-                "annualized_sharpe": float(
-                    metrics["annualized_sharpe"]
-                ),
-                "annualized_volatility": float(
-                    metrics["annualized_volatility"]
-                ),
+                "annualized_sharpe": float(metrics["annualized_sharpe"]),
+                "annualized_volatility": float(metrics["annualized_volatility"]),
                 "max_drawdown": float(metrics["max_drawdown"]),
                 "mean_gross_exposure": exposure,
                 "symbol_count": int(metrics["symbol_count"]),

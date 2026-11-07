@@ -33,7 +33,7 @@ def test_cost_is_charged_on_position_change() -> None:
     result = run_long_only_backtest(frame, initial_capital=1000.0, cost_per_side=0.001)
     assert result.equity_curve["trading_cost"].sum() == pytest.approx(0.002)
 
-    
+
 def test_completed_trade_metrics() -> None:
     frame = pd.DataFrame(
         {

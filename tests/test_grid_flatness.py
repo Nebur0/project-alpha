@@ -67,9 +67,7 @@ def _market_frame(
 
     return pd.DataFrame(
         {
-            "symbol": [
-                symbol
-            ] * len(closes),
+            "symbol": [symbol] * len(closes),
             "timestamp": pd.date_range(
                 "2024-01-01",
                 periods=len(closes),
@@ -77,18 +75,10 @@ def _market_frame(
                 tz="UTC",
             ),
             "open": closes,
-            "high": [
-                value + 1.0
-                for value in closes
-            ],
-            "low": [
-                value - 1.0
-                for value in closes
-            ],
+            "high": [value + 1.0 for value in closes],
+            "low": [value - 1.0 for value in closes],
             "close": closes,
-            "volume": [
-                1_000_000
-            ] * len(closes),
+            "volume": [1_000_000] * len(closes),
         }
     )
 
@@ -113,8 +103,7 @@ def _small_grid() -> dict[
     }
 
 
-def test_normalized_grid_axes_returns_sorted_unique_values(
-) -> None:
+def test_normalized_grid_axes_returns_sorted_unique_values() -> None:
     axes = _normalized_grid_axes(
         {
             "fast_ema_period": [
@@ -149,8 +138,7 @@ def test_normalized_grid_axes_returns_sorted_unique_values(
     }
 
 
-def test_normalized_grid_axes_rejects_missing_parameter(
-) -> None:
+def test_normalized_grid_axes_rejects_missing_parameter() -> None:
     with pytest.raises(
         ValueError,
         match="Mancanti",
@@ -169,11 +157,8 @@ def test_normalized_grid_axes_rejects_missing_parameter(
         )
 
 
-def test_are_immediate_neighbors_true_when_one_axis_moves_one_step(
-) -> None:
-    axes = _normalized_grid_axes(
-        _small_grid()
-    )
+def test_are_immediate_neighbors_true_when_one_axis_moves_one_step() -> None:
+    axes = _normalized_grid_axes(_small_grid())
 
     first = StrategyParameters(
         fast_ema_period=2,
@@ -194,11 +179,8 @@ def test_are_immediate_neighbors_true_when_one_axis_moves_one_step(
     )
 
 
-def test_are_immediate_neighbors_false_when_two_axes_change(
-) -> None:
-    axes = _normalized_grid_axes(
-        _small_grid()
-    )
+def test_are_immediate_neighbors_false_when_two_axes_change() -> None:
+    axes = _normalized_grid_axes(_small_grid())
 
     first = StrategyParameters(
         fast_ema_period=2,
@@ -219,11 +201,8 @@ def test_are_immediate_neighbors_false_when_two_axes_change(
     )
 
 
-def test_are_immediate_neighbors_false_for_same_parameters(
-) -> None:
-    axes = _normalized_grid_axes(
-        _small_grid()
-    )
+def test_are_immediate_neighbors_false_for_same_parameters() -> None:
+    axes = _normalized_grid_axes(_small_grid())
 
     parameters = StrategyParameters(
         fast_ema_period=2,
@@ -238,8 +217,7 @@ def test_are_immediate_neighbors_false_for_same_parameters(
     )
 
 
-def test_unique_return_count_merges_only_exact_tolerance_matches(
-) -> None:
+def test_unique_return_count_merges_only_exact_tolerance_matches() -> None:
     result = _unique_return_count(
         [
             0.10,
@@ -252,8 +230,7 @@ def test_unique_return_count_merges_only_exact_tolerance_matches(
     assert result == 2
 
 
-def test_analyze_grid_flatness_returns_expected_window_count(
-) -> None:
+def test_analyze_grid_flatness_returns_expected_window_count() -> None:
     windows = analyze_grid_flatness(
         _market_frame(),
         _small_grid(),
@@ -267,51 +244,19 @@ def test_analyze_grid_flatness_returns_expected_window_count(
     assert len(windows) == 2
 
     for window in windows:
-        assert (
-            window.candidate_count
-            == 8
-        )
-        assert (
-            1
-            <= window.unique_oos_return_count
-            <= 8
-        )
-        assert (
-            1
-            <= window.selected_equivalent_count
-            <= 8
-        )
-        assert (
-            0.0
-            < window.selected_equivalent_rate
-            <= 1.0
-        )
-        assert (
-            0.0
-            < window.within_1pp_best_rate
-            <= 1.0
-        )
-        assert (
-            0.0
-            < window.within_2pp_best_rate
-            <= 1.0
-        )
-        assert (
-            window.selected_regret
-            >= 0.0
-        )
-        assert (
-            window.selected_neighbor_count
-            >= 1
-        )
+        assert window.candidate_count == 8
+        assert 1 <= window.unique_oos_return_count <= 8
+        assert 1 <= window.selected_equivalent_count <= 8
+        assert 0.0 < window.selected_equivalent_rate <= 1.0
+        assert 0.0 < window.within_1pp_best_rate <= 1.0
+        assert 0.0 < window.within_2pp_best_rate <= 1.0
+        assert window.selected_regret >= 0.0
+        assert window.selected_neighbor_count >= 1
 
 
-def test_analyze_grid_flatness_preserves_symbol(
-) -> None:
+def test_analyze_grid_flatness_preserves_symbol() -> None:
     windows = analyze_grid_flatness(
-        _market_frame(
-            symbol="spy"
-        ),
+        _market_frame(symbol="spy"),
         _small_grid(),
         train_size=20,
         test_size=10,
@@ -320,24 +265,16 @@ def test_analyze_grid_flatness_preserves_symbol(
         minimum_completed_trades=0,
     )
 
-    assert {
-        window.symbol
-        for window in windows
-    } == {
+    assert {window.symbol for window in windows} == {
         "SPY",
     }
 
 
-def test_analyze_grid_flatness_rejects_multiple_symbols(
-) -> None:
+def test_analyze_grid_flatness_rejects_multiple_symbols() -> None:
     frame = pd.concat(
         [
-            _market_frame(
-                symbol="SPY"
-            ),
-            _market_frame(
-                symbol="QQQ"
-            ),
+            _market_frame(symbol="SPY"),
+            _market_frame(symbol="QQQ"),
         ],
         ignore_index=True,
     )
@@ -357,8 +294,7 @@ def test_analyze_grid_flatness_rejects_multiple_symbols(
         )
 
 
-def test_grid_flatness_to_frame_contains_expected_columns(
-) -> None:
+def test_grid_flatness_to_frame_contains_expected_columns() -> None:
     windows = analyze_grid_flatness(
         _market_frame(),
         _small_grid(),
@@ -369,9 +305,7 @@ def test_grid_flatness_to_frame_contains_expected_columns(
         minimum_completed_trades=0,
     )
 
-    frame = grid_flatness_to_frame(
-        windows
-    )
+    frame = grid_flatness_to_frame(windows)
 
     expected_columns = {
         "symbol",
@@ -392,13 +326,10 @@ def test_grid_flatness_to_frame_contains_expected_columns(
         "selected_mean_abs_neighbor_delta",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_summarize_grid_flatness_matches_windows(
-) -> None:
+def test_summarize_grid_flatness_matches_windows() -> None:
     windows = analyze_grid_flatness(
         _market_frame(),
         _small_grid(),
@@ -409,56 +340,27 @@ def test_summarize_grid_flatness_matches_windows(
         minimum_completed_trades=0,
     )
 
-    summary = summarize_grid_flatness(
-        windows
-    )
+    summary = summarize_grid_flatness(windows)
 
     assert summary.symbol_count == 1
     assert summary.window_count == 2
-    assert (
-        0.0
-        < summary.mean_selected_equivalent_rate
-        <= 1.0
-    )
-    assert (
-        0.0
-        < summary.mean_within_1pp_best_rate
-        <= 1.0
-    )
-    assert (
-        0.0
-        < summary.mean_within_2pp_best_rate
-        <= 1.0
-    )
-    assert (
-        0.0
-        <= summary.selected_within_1pp_best_rate
-        <= 1.0
-    )
-    assert (
-        0.0
-        <= summary.selected_within_2pp_best_rate
-        <= 1.0
-    )
-    assert (
-        summary.mean_selected_regret
-        >= 0.0
-    )
+    assert 0.0 < summary.mean_selected_equivalent_rate <= 1.0
+    assert 0.0 < summary.mean_within_1pp_best_rate <= 1.0
+    assert 0.0 < summary.mean_within_2pp_best_rate <= 1.0
+    assert 0.0 <= summary.selected_within_1pp_best_rate <= 1.0
+    assert 0.0 <= summary.selected_within_2pp_best_rate <= 1.0
+    assert summary.mean_selected_regret >= 0.0
 
 
-def test_summarize_grid_flatness_rejects_empty_input(
-) -> None:
+def test_summarize_grid_flatness_rejects_empty_input() -> None:
     with pytest.raises(
         ValueError,
         match="almeno una finestra",
     ):
-        summarize_grid_flatness(
-            []
-        )
+        summarize_grid_flatness([])
 
 
-def test_grid_flatness_summary_to_frame_contains_expected_columns(
-) -> None:
+def test_grid_flatness_summary_to_frame_contains_expected_columns() -> None:
     windows = analyze_grid_flatness(
         _market_frame(),
         _small_grid(),
@@ -469,15 +371,9 @@ def test_grid_flatness_summary_to_frame_contains_expected_columns(
         minimum_completed_trades=0,
     )
 
-    summary = summarize_grid_flatness(
-        windows
-    )
+    summary = summarize_grid_flatness(windows)
 
-    frame = (
-        grid_flatness_summary_to_frame(
-            summary
-        )
-    )
+    frame = grid_flatness_summary_to_frame(summary)
 
     expected_columns = {
         "symbol_count",
@@ -495,21 +391,14 @@ def test_grid_flatness_summary_to_frame_contains_expected_columns(
         "mean_selected_mean_abs_neighbor_delta",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_run_grid_flatness_batch_combines_symbols(
-) -> None:
+def test_run_grid_flatness_batch_combines_symbols() -> None:
     frame = pd.concat(
         [
-            _market_frame(
-                symbol="SPY"
-            ),
-            _market_frame(
-                symbol="QQQ"
-            ),
+            _market_frame(symbol="SPY"),
+            _market_frame(symbol="QQQ"),
         ],
         ignore_index=True,
     )
@@ -530,25 +419,19 @@ def test_run_grid_flatness_batch_combines_symbols(
 
     assert len(windows) == 4
 
-    assert {
-        window.symbol
-        for window in windows
-    } == {
+    assert {window.symbol for window in windows} == {
         "SPY",
         "QQQ",
     }
 
 
-def test_run_grid_flatness_batch_rejects_missing_symbol(
-) -> None:
+def test_run_grid_flatness_batch_rejects_missing_symbol() -> None:
     with pytest.raises(
         ValueError,
         match="QQQ",
     ):
         run_grid_flatness_batch(
-            _market_frame(
-                symbol="SPY"
-            ),
+            _market_frame(symbol="SPY"),
             [
                 "QQQ",
             ],
@@ -564,63 +447,41 @@ def test_run_grid_flatness_batch_rejects_missing_symbol(
 def test_run_grid_flatness_from_csv_creates_reports(
     tmp_path: Path,
 ) -> None:
-    market_path = (
-        tmp_path
-        / "market.csv"
-    )
+    market_path = tmp_path / "market.csv"
 
-    output_dir = (
-        tmp_path
-        / "grid_flatness"
-    )
+    output_dir = tmp_path / "grid_flatness"
 
     _market_frame().to_csv(
         market_path,
         index=False,
     )
 
-    result = (
-        run_grid_flatness_from_csv(
-            market_path,
-            [
-                "SPY",
-            ],
-            _small_grid(),
-            output_dir,
-            train_size=20,
-            test_size=10,
-            step_size=10,
-            score_metric="total_return",
-            minimum_completed_trades=0,
-        )
+    result = run_grid_flatness_from_csv(
+        market_path,
+        [
+            "SPY",
+        ],
+        _small_grid(),
+        output_dir,
+        train_size=20,
+        test_size=10,
+        step_size=10,
+        score_metric="total_return",
+        minimum_completed_trades=0,
     )
 
-    windows_path = (
-        output_dir
-        / "grid_flatness_windows.csv"
-    )
+    windows_path = output_dir / "grid_flatness_windows.csv"
 
-    summary_path = (
-        output_dir
-        / "grid_flatness_summary.csv"
-    )
+    summary_path = output_dir / "grid_flatness_summary.csv"
 
     assert windows_path.exists()
     assert summary_path.exists()
 
-    assert (
-        result["windows_path"]
-        == windows_path
-    )
+    assert result["windows_path"] == windows_path
 
-    assert (
-        result["summary_path"]
-        == summary_path
-    )
+    assert result["summary_path"] == summary_path
 
-    assert len(
-        result["windows"]
-    ) == 2
+    assert len(result["windows"]) == 2
 
 
 def test_run_grid_flatness_from_csv_rejects_missing_file(
@@ -631,14 +492,12 @@ def test_run_grid_flatness_from_csv_rejects_missing_file(
         match="Market dataset",
     ):
         run_grid_flatness_from_csv(
-            tmp_path
-            / "missing.csv",
+            tmp_path / "missing.csv",
             [
                 "SPY",
             ],
             _small_grid(),
-            tmp_path
-            / "out",
+            tmp_path / "out",
             train_size=20,
             test_size=10,
             step_size=10,

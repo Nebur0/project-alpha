@@ -113,9 +113,7 @@ def test_decomposition_components_sum_to_gross_return() -> None:
     parts = decompose_gross_returns(positions, returns, weights)
 
     assert (
-        parts["exposure_component"]
-        + parts["timing_component"]
-        + parts["selection_component"]
+        parts["exposure_component"] + parts["timing_component"] + parts["selection_component"]
     ) == pytest.approx(parts["gross_return_arithmetic"])
 
 

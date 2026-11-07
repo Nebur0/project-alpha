@@ -9,31 +9,14 @@ def add_baseline_position(
     frame: pd.DataFrame,
     parameters: StrategyParameters | None = None,
 ) -> pd.DataFrame:
-    parameters = (
-        parameters
-        if parameters is not None
-        else StrategyParameters()
-    )
+    parameters = parameters if parameters is not None else StrategyParameters()
 
-    fast_ema_column = (
-        f"ema_{parameters.fast_ema_period}"
-    )
-    slow_ema_column = (
-        f"ema_{parameters.slow_ema_period}"
-    )
-    trend_ema_column = (
-        f"ema_{parameters.trend_ema_period}"
-    )
-    rsi_column = (
-        f"rsi_{parameters.rsi_period}"
-    )
-    volume_column = (
-        f"volume_sma_{parameters.volume_period}"
-    )
-    breakout_column = (
-        f"previous_high_"
-        f"{parameters.breakout_period}"
-    )
+    fast_ema_column = f"ema_{parameters.fast_ema_period}"
+    slow_ema_column = f"ema_{parameters.slow_ema_period}"
+    trend_ema_column = f"ema_{parameters.trend_ema_period}"
+    rsi_column = f"rsi_{parameters.rsi_period}"
+    volume_column = f"volume_sma_{parameters.volume_period}"
+    breakout_column = f"previous_high_{parameters.breakout_period}"
 
     required = {
         "symbol",
@@ -48,15 +31,10 @@ def add_baseline_position(
         breakout_column,
     }
 
-    missing = required.difference(
-        frame.columns
-    )
+    missing = required.difference(frame.columns)
 
     if missing:
-        raise ValueError(
-            "Colonne mancanti per la strategia: "
-            f"{sorted(missing)}"
-        )
+        raise ValueError(f"Colonne mancanti per la strategia: {sorted(missing)}")
 
     parts: list[pd.DataFrame] = []
 
@@ -64,44 +42,22 @@ def add_baseline_position(
         "symbol",
         sort=False,
     ):
-        group = (
-            group.sort_values("timestamp")
-            .copy()
-        )
+        group = group.sort_values("timestamp").copy()
 
         entry = (
-            (
-                group["close"]
-                > group[trend_ema_column]
-            )
-            & (
-                group[fast_ema_column]
-                > group[slow_ema_column]
-            )
+            (group["close"] > group[trend_ema_column])
+            & (group[fast_ema_column] > group[slow_ema_column])
             & group[rsi_column].between(
                 parameters.rsi_lower,
                 parameters.rsi_upper,
                 inclusive="both",
             )
-            & (
-                group["close"]
-                > group[breakout_column]
-            )
-            & (
-                group["volume"]
-                > group[volume_column]
-            )
+            & (group["close"] > group[breakout_column])
+            & (group["volume"] > group[volume_column])
         )
 
-        exit_signal = (
-            (
-                group["close"]
-                < group[fast_ema_column]
-            )
-            | (
-                group[fast_ema_column]
-                < group[slow_ema_column]
-            )
+        exit_signal = (group["close"] < group[fast_ema_column]) | (
+            group[fast_ema_column] < group[slow_ema_column]
         )
 
         state = 0
@@ -112,6 +68,7 @@ def add_baseline_position(
         for enter_now, exit_now in zip(
             entry.fillna(False),
             exit_signal.fillna(False),
+            strict=True,
         ):
             did_enter = False
             did_exit = False

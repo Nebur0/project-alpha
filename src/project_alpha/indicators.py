@@ -11,9 +11,7 @@ def ema(
     span: int,
 ) -> pd.Series:
     if span <= 0:
-        raise ValueError(
-            "Lo span EMA deve essere positivo."
-        )
+        raise ValueError("Lo span EMA deve essere positivo.")
 
     return series.ewm(
         span=span,
@@ -27,9 +25,7 @@ def rsi(
     period: int = 14,
 ) -> pd.Series:
     if period <= 0:
-        raise ValueError(
-            "Il periodo RSI deve essere positivo."
-        )
+        raise ValueError("Il periodo RSI deve essere positivo.")
 
     delta = series.diff()
     gains = delta.clip(lower=0.0)
@@ -47,18 +43,9 @@ def rsi(
         min_periods=period,
     ).mean()
 
-    relative_strength = (
-        avg_gain
-        / avg_loss.replace(0.0, np.nan)
-    )
+    relative_strength = avg_gain / avg_loss.replace(0.0, np.nan)
 
-    output = (
-        100.0
-        - (
-            100.0
-            / (1.0 + relative_strength)
-        )
-    )
+    output = 100.0 - (100.0 / (1.0 + relative_strength))
 
     output = output.where(
         avg_loss.ne(0.0),
@@ -78,23 +65,15 @@ def atr(
     period: int = 14,
 ) -> pd.Series:
     if period <= 0:
-        raise ValueError(
-            "Il periodo ATR deve essere positivo."
-        )
+        raise ValueError("Il periodo ATR deve essere positivo.")
 
     previous_close = frame["close"].shift(1)
 
     true_range = pd.concat(
         [
             frame["high"] - frame["low"],
-            (
-                frame["high"]
-                - previous_close
-            ).abs(),
-            (
-                frame["low"]
-                - previous_close
-            ).abs(),
+            (frame["high"] - previous_close).abs(),
+            (frame["low"] - previous_close).abs(),
         ],
         axis=1,
     ).max(axis=1)
@@ -120,43 +99,20 @@ def add_indicators(
         "volume",
     }
 
-    missing = required.difference(
-        frame.columns
-    )
+    missing = required.difference(frame.columns)
 
     if missing:
-        raise ValueError(
-            f"Colonne mancanti: {sorted(missing)}"
-        )
+        raise ValueError(f"Colonne mancanti: {sorted(missing)}")
 
-    parameters = (
-        parameters
-        if parameters is not None
-        else StrategyParameters()
-    )
+    parameters = parameters if parameters is not None else StrategyParameters()
 
-    fast_ema_column = (
-        f"ema_{parameters.fast_ema_period}"
-    )
-    slow_ema_column = (
-        f"ema_{parameters.slow_ema_period}"
-    )
-    trend_ema_column = (
-        f"ema_{parameters.trend_ema_period}"
-    )
-    rsi_column = (
-        f"rsi_{parameters.rsi_period}"
-    )
-    atr_column = (
-        f"atr_{parameters.atr_period}"
-    )
-    volume_column = (
-        f"volume_sma_{parameters.volume_period}"
-    )
-    breakout_column = (
-        f"previous_high_"
-        f"{parameters.breakout_period}"
-    )
+    fast_ema_column = f"ema_{parameters.fast_ema_period}"
+    slow_ema_column = f"ema_{parameters.slow_ema_period}"
+    trend_ema_column = f"ema_{parameters.trend_ema_period}"
+    rsi_column = f"rsi_{parameters.rsi_period}"
+    atr_column = f"atr_{parameters.atr_period}"
+    volume_column = f"volume_sma_{parameters.volume_period}"
+    breakout_column = f"previous_high_{parameters.breakout_period}"
 
     parts: list[pd.DataFrame] = []
 
@@ -164,10 +120,7 @@ def add_indicators(
         "symbol",
         sort=False,
     ):
-        group = (
-            group.sort_values("timestamp")
-            .copy()
-        )
+        group = group.sort_values("timestamp").copy()
 
         group[fast_ema_column] = ema(
             group["close"],
@@ -198,9 +151,7 @@ def add_indicators(
             group["volume"]
             .rolling(
                 parameters.volume_period,
-                min_periods=(
-                    parameters.volume_period
-                ),
+                min_periods=(parameters.volume_period),
             )
             .mean()
         )
@@ -209,9 +160,7 @@ def add_indicators(
             group["high"]
             .rolling(
                 parameters.breakout_period,
-                min_periods=(
-                    parameters.breakout_period
-                ),
+                min_periods=(parameters.breakout_period),
             )
             .max()
             .shift(1)

@@ -62,9 +62,7 @@ def to_json_safe(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return [to_json_safe(item) for item in value.tolist()]
 
-    raise TypeError(
-        f"Tipo non serializzabile in JSON: {type(value).__name__}."
-    )
+    raise TypeError(f"Tipo non serializzabile in JSON: {type(value).__name__}.")
 
 
 def dumps_json(

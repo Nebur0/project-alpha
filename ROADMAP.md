@@ -34,10 +34,10 @@ Principi:
 | # | Blocco | Stato |
 |---|---|---|
 | 1 | Correttezza del core: JSON sicuro, scritture atomiche, griglie e finestre WF tolleranti | ✅ PR #16 |
-| 2 | Realismo dell'esecuzione: next open, ritardo, cash, turnover, durata posizioni | ⏳ |
-| 3 | Modulo di valutazione: pari esposizione/beta, decomposizione timing/selezione, permutazioni, PSR/DSR | ☐ |
-| 4 | Pipeline riproducibile: un comando + config, manifest (hash dati e codice), registro prove | ☐ |
-| 5 | Pulizia: merge su `main`, ruff in CI, README aggiornato | ☐ |
+| 2 | Realismo dell'esecuzione: next open, ritardo, cash, turnover, durata posizioni | ✅ PR #17 |
+| 3 | Modulo di valutazione: pari esposizione/beta, decomposizione timing/selezione, permutazioni, PSR/DSR | ✅ PR #18 |
+| 4 | Pipeline riproducibile: un comando + config, manifest (hash dati e codice), registro prove | ✅ PR #19 |
+| 5 | Pulizia: ruff in CI, formattazione, README aggiornato (merge su `main` dal proprietario) | ✅ PR #20 |
 
 **Uscita:** ogni risultato si rigenera con un comando ed è accompagnato dalla
 valutazione standard.
