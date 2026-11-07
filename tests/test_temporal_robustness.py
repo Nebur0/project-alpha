@@ -45,37 +45,25 @@ def _optimization_frame() -> pd.DataFrame:
                 0.10,
                 0.20,
             ],
-            (
-                "out_of_sample_"
-                "benchmark_total_return"
-            ): [
+            ("out_of_sample_benchmark_total_return"): [
                 -0.15,
                 -0.20,
                 0.25,
                 0.30,
             ],
-            (
-                "out_of_sample_"
-                "annualized_sharpe"
-            ): [
+            ("out_of_sample_annualized_sharpe"): [
                 -0.20,
                 0.10,
                 0.80,
                 1.20,
             ],
-            (
-                "out_of_sample_"
-                "max_drawdown"
-            ): [
+            ("out_of_sample_max_drawdown"): [
                 -0.08,
                 -0.05,
                 -0.04,
                 -0.06,
             ],
-            (
-                "out_of_sample_"
-                "completed_trades"
-            ): [
+            ("out_of_sample_completed_trades"): [
                 2,
                 1,
                 3,
@@ -85,153 +73,60 @@ def _optimization_frame() -> pd.DataFrame:
     )
 
 
-def test_analyze_temporal_clusters_groups_same_period(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_analyze_temporal_clusters_groups_same_period() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
     assert len(clusters) == 2
     assert clusters[0].symbol_count == 2
     assert clusters[1].symbol_count == 2
 
 
-def test_analyze_temporal_clusters_calculates_first_cluster_metrics(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_analyze_temporal_clusters_calculates_first_cluster_metrics() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
     first = clusters[0]
 
-    assert (
-        first.positive_symbol_count
-        == 1
-    )
-    assert (
-        first.positive_symbol_rate
-        == pytest.approx(
-            0.5
-        )
-    )
+    assert first.positive_symbol_count == 1
+    assert first.positive_symbol_rate == pytest.approx(0.5)
 
-    assert (
-        first.benchmark_beat_count
-        == 2
-    )
-    assert (
-        first.benchmark_beat_rate
-        == pytest.approx(
-            1.0
-        )
-    )
+    assert first.benchmark_beat_count == 2
+    assert first.benchmark_beat_rate == pytest.approx(1.0)
 
-    assert (
-        first.mean_strategy_total_return
-        == pytest.approx(
-            -0.005
-        )
-    )
-    assert (
-        first.median_strategy_total_return
-        == pytest.approx(
-            -0.005
-        )
-    )
+    assert first.mean_strategy_total_return == pytest.approx(-0.005)
+    assert first.median_strategy_total_return == pytest.approx(-0.005)
 
-    assert (
-        first.mean_benchmark_total_return
-        == pytest.approx(
-            -0.175
-        )
-    )
+    assert first.mean_benchmark_total_return == pytest.approx(-0.175)
 
-    assert (
-        first.mean_excess_return
-        == pytest.approx(
-            0.17
-        )
-    )
+    assert first.mean_excess_return == pytest.approx(0.17)
 
-    assert (
-        first.mean_annualized_sharpe
-        == pytest.approx(
-            -0.05
-        )
-    )
+    assert first.mean_annualized_sharpe == pytest.approx(-0.05)
 
-    assert (
-        first.worst_max_drawdown
-        == pytest.approx(
-            -0.08
-        )
-    )
+    assert first.worst_max_drawdown == pytest.approx(-0.08)
 
-    assert (
-        first.total_completed_trades
-        == 3
-    )
+    assert first.total_completed_trades == 3
 
 
-def test_analyze_temporal_clusters_calculates_second_cluster_metrics(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_analyze_temporal_clusters_calculates_second_cluster_metrics() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
     second = clusters[1]
 
-    assert (
-        second.positive_symbol_count
-        == 2
-    )
-    assert (
-        second.positive_symbol_rate
-        == pytest.approx(
-            1.0
-        )
-    )
+    assert second.positive_symbol_count == 2
+    assert second.positive_symbol_rate == pytest.approx(1.0)
 
-    assert (
-        second.benchmark_beat_count
-        == 0
-    )
-    assert (
-        second.benchmark_beat_rate
-        == pytest.approx(
-            0.0
-        )
-    )
+    assert second.benchmark_beat_count == 0
+    assert second.benchmark_beat_rate == pytest.approx(0.0)
 
-    assert (
-        second.mean_strategy_total_return
-        == pytest.approx(
-            0.15
-        )
-    )
+    assert second.mean_strategy_total_return == pytest.approx(0.15)
 
-    assert (
-        second.mean_benchmark_total_return
-        == pytest.approx(
-            0.275
-        )
-    )
+    assert second.mean_benchmark_total_return == pytest.approx(0.275)
 
-    assert (
-        second.mean_excess_return
-        == pytest.approx(
-            -0.125
-        )
-    )
+    assert second.mean_excess_return == pytest.approx(-0.125)
 
-    assert (
-        second.total_completed_trades
-        == 7
-    )
+    assert second.total_completed_trades == 7
 
 
-def test_analyze_temporal_clusters_normalizes_symbol_case(
-) -> None:
+def test_analyze_temporal_clusters_normalizes_symbol_case() -> None:
     frame = _optimization_frame()
     frame["symbol"] = [
         "spy",
@@ -240,47 +135,32 @@ def test_analyze_temporal_clusters_normalizes_symbol_case(
         "QQQ",
     ]
 
-    clusters = analyze_temporal_clusters(
-        frame
-    )
+    clusters = analyze_temporal_clusters(frame)
 
     assert len(clusters) == 2
 
 
-def test_analyze_temporal_clusters_rejects_missing_columns(
-) -> None:
-    frame = _optimization_frame().drop(
-        columns=[
-            "out_of_sample_total_return"
-        ]
-    )
+def test_analyze_temporal_clusters_rejects_missing_columns() -> None:
+    frame = _optimization_frame().drop(columns=["out_of_sample_total_return"])
 
     with pytest.raises(
         ValueError,
         match="Colonne mancanti",
     ):
-        analyze_temporal_clusters(
-            frame
-        )
+        analyze_temporal_clusters(frame)
 
 
-def test_analyze_temporal_clusters_rejects_empty_frame(
-) -> None:
-    frame = _optimization_frame().iloc[
-        0:0
-    ]
+def test_analyze_temporal_clusters_rejects_empty_frame() -> None:
+    frame = _optimization_frame().iloc[0:0]
 
     with pytest.raises(
         ValueError,
         match="vuoto",
     ):
-        analyze_temporal_clusters(
-            frame
-        )
+        analyze_temporal_clusters(frame)
 
 
-def test_analyze_temporal_clusters_rejects_invalid_dates(
-) -> None:
+def test_analyze_temporal_clusters_rejects_invalid_dates() -> None:
     frame = _optimization_frame()
     frame.loc[
         0,
@@ -291,19 +171,14 @@ def test_analyze_temporal_clusters_rejects_invalid_dates(
         ValueError,
         match="test_end",
     ):
-        analyze_temporal_clusters(
-            frame
-        )
+        analyze_temporal_clusters(frame)
 
 
-def test_analyze_temporal_clusters_rejects_duplicate_symbol_period(
-) -> None:
+def test_analyze_temporal_clusters_rejects_duplicate_symbol_period() -> None:
     frame = pd.concat(
         [
             _optimization_frame(),
-            _optimization_frame().iloc[
-                [0]
-            ],
+            _optimization_frame().iloc[[0]],
         ],
         ignore_index=True,
     )
@@ -312,13 +187,10 @@ def test_analyze_temporal_clusters_rejects_duplicate_symbol_period(
         ValueError,
         match="duplicate",
     ):
-        analyze_temporal_clusters(
-            frame
-        )
+        analyze_temporal_clusters(frame)
 
 
-def test_analyze_temporal_clusters_rejects_negative_completed_trades(
-) -> None:
+def test_analyze_temporal_clusters_rejects_negative_completed_trades() -> None:
     frame = _optimization_frame()
 
     frame.loc[
@@ -330,95 +202,44 @@ def test_analyze_temporal_clusters_rejects_negative_completed_trades(
         ValueError,
         match="completed_trades",
     ):
-        analyze_temporal_clusters(
-            frame
-        )
+        analyze_temporal_clusters(frame)
 
 
-def test_summarize_temporal_robustness_calculates_cluster_level_stats(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_summarize_temporal_robustness_calculates_cluster_level_stats() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
-    summary = summarize_temporal_robustness(
-        clusters
-    )
+    summary = summarize_temporal_robustness(clusters)
 
     assert summary.cluster_count == 2
     assert summary.total_symbol_windows == 4
 
-    assert (
-        summary.mean_cluster_strategy_return
-        == pytest.approx(
-            0.0725
-        )
-    )
+    assert summary.mean_cluster_strategy_return == pytest.approx(0.0725)
 
-    assert (
-        summary.median_cluster_strategy_return
-        == pytest.approx(
-            0.0725
-        )
-    )
+    assert summary.median_cluster_strategy_return == pytest.approx(0.0725)
 
-    assert (
-        summary.mean_cluster_benchmark_return
-        == pytest.approx(
-            0.05
-        )
-    )
+    assert summary.mean_cluster_benchmark_return == pytest.approx(0.05)
 
-    assert (
-        summary.mean_cluster_excess_return
-        == pytest.approx(
-            0.0225
-        )
-    )
+    assert summary.mean_cluster_excess_return == pytest.approx(0.0225)
 
-    assert (
-        summary.positive_cluster_count
-        == 1
-    )
-    assert (
-        summary.positive_cluster_rate
-        == pytest.approx(
-            0.5
-        )
-    )
+    assert summary.positive_cluster_count == 1
+    assert summary.positive_cluster_rate == pytest.approx(0.5)
 
-    assert (
-        summary.benchmark_beat_cluster_count
-        == 1
-    )
-    assert (
-        summary.benchmark_beat_cluster_rate
-        == pytest.approx(
-            0.5
-        )
-    )
+    assert summary.benchmark_beat_cluster_count == 1
+    assert summary.benchmark_beat_cluster_rate == pytest.approx(0.5)
 
 
-def test_summarize_temporal_robustness_rejects_empty_input(
-) -> None:
+def test_summarize_temporal_robustness_rejects_empty_input() -> None:
     with pytest.raises(
         ValueError,
         match="almeno un cluster",
     ):
-        summarize_temporal_robustness(
-            []
-        )
+        summarize_temporal_robustness([])
 
 
-def test_temporal_clusters_to_frame_contains_expected_columns(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_temporal_clusters_to_frame_contains_expected_columns() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
-    frame = temporal_clusters_to_frame(
-        clusters
-    )
+    frame = temporal_clusters_to_frame(clusters)
 
     expected_columns = {
         "test_start",
@@ -439,24 +260,15 @@ def test_temporal_clusters_to_frame_contains_expected_columns(
         "total_completed_trades",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_temporal_summary_to_frame_contains_expected_columns(
-) -> None:
-    clusters = analyze_temporal_clusters(
-        _optimization_frame()
-    )
+def test_temporal_summary_to_frame_contains_expected_columns() -> None:
+    clusters = analyze_temporal_clusters(_optimization_frame())
 
-    summary = summarize_temporal_robustness(
-        clusters
-    )
+    summary = summarize_temporal_robustness(clusters)
 
-    frame = temporal_summary_to_frame(
-        summary
-    )
+    frame = temporal_summary_to_frame(summary)
 
     expected_columns = {
         "cluster_count",
@@ -473,23 +285,15 @@ def test_temporal_summary_to_frame_contains_expected_columns(
         "benchmark_beat_cluster_rate",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
 def test_run_temporal_robustness_from_csv_creates_reports(
     tmp_path: Path,
 ) -> None:
-    input_path = (
-        tmp_path
-        / "walk_forward.csv"
-    )
+    input_path = tmp_path / "walk_forward.csv"
 
-    output_dir = (
-        tmp_path
-        / "temporal"
-    )
+    output_dir = tmp_path / "temporal"
 
     _optimization_frame().to_csv(
         input_path,
@@ -501,37 +305,20 @@ def test_run_temporal_robustness_from_csv_creates_reports(
         output_dir,
     )
 
-    clusters_path = (
-        output_dir
-        / "temporal_clusters.csv"
-    )
+    clusters_path = output_dir / "temporal_clusters.csv"
 
-    summary_path = (
-        output_dir
-        / "temporal_summary.csv"
-    )
+    summary_path = output_dir / "temporal_summary.csv"
 
     assert clusters_path.exists()
     assert summary_path.exists()
 
-    assert (
-        result["clusters_path"]
-        == clusters_path
-    )
+    assert result["clusters_path"] == clusters_path
 
-    assert (
-        result["summary_path"]
-        == summary_path
-    )
+    assert result["summary_path"] == summary_path
 
-    assert len(
-        result["clusters"]
-    ) == 2
+    assert len(result["clusters"]) == 2
 
-    assert (
-        result["summary"].cluster_count
-        == 2
-    )
+    assert result["summary"].cluster_count == 2
 
 
 def test_run_temporal_robustness_from_csv_rejects_missing_file(

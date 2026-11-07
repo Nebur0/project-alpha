@@ -20,53 +20,28 @@ def _base_metrics() -> dict[
 
 
 def test_calculate_robust_score_uses_default_weights() -> None:
-    result = calculate_robust_score(
-        _base_metrics()
-    )
+    result = calculate_robust_score(_base_metrics())
 
-    assert result.sharpe == pytest.approx(
-        1.20
-    )
-    assert result.total_return == pytest.approx(
-        0.30
-    )
-    assert (
-        result.benchmark_total_return
-        == pytest.approx(
-            0.20
-        )
-    )
-    assert result.excess_return == pytest.approx(
-        0.10
-    )
-    assert result.max_drawdown == pytest.approx(
-        -0.10
-    )
+    assert result.sharpe == pytest.approx(1.20)
+    assert result.total_return == pytest.approx(0.30)
+    assert result.benchmark_total_return == pytest.approx(0.20)
+    assert result.excess_return == pytest.approx(0.10)
+    assert result.max_drawdown == pytest.approx(-0.10)
     assert result.completed_trades == 20
-    assert result.trade_shortfall == pytest.approx(
-        0.0
-    )
+    assert result.trade_shortfall == pytest.approx(0.0)
 
-    assert result.score == pytest.approx(
-        1.20
-    )
+    assert result.score == pytest.approx(1.20)
 
 
 def test_calculate_robust_score_penalizes_trade_shortfall() -> None:
     metrics = _base_metrics()
     metrics["completed_trades"] = 10
 
-    result = calculate_robust_score(
-        metrics
-    )
+    result = calculate_robust_score(metrics)
 
-    assert result.trade_shortfall == pytest.approx(
-        0.5
-    )
+    assert result.trade_shortfall == pytest.approx(0.5)
 
-    assert result.score == pytest.approx(
-        0.95
-    )
+    assert result.score == pytest.approx(0.95)
 
 
 def test_calculate_robust_score_uses_custom_weights() -> None:
@@ -86,16 +61,9 @@ def test_calculate_robust_score_uses_custom_weights() -> None:
         config,
     )
 
-    expected_score = (
-        2.0 * 1.20
-        + 3.0 * 0.10
-        + 4.0 * -0.10
-        - 5.0 * 0.50
-    )
+    expected_score = 2.0 * 1.20 + 3.0 * 0.10 + 4.0 * -0.10 - 5.0 * 0.50
 
-    assert result.score == pytest.approx(
-        expected_score
-    )
+    assert result.score == pytest.approx(expected_score)
 
 
 def test_calculate_robust_score_rewards_excess_return() -> None:
@@ -104,18 +72,11 @@ def test_calculate_robust_score_rewards_excess_return() -> None:
     second_metrics = _base_metrics()
     second_metrics["total_return"] = 0.40
 
-    first = calculate_robust_score(
-        first_metrics
-    )
+    first = calculate_robust_score(first_metrics)
 
-    second = calculate_robust_score(
-        second_metrics
-    )
+    second = calculate_robust_score(second_metrics)
 
-    assert (
-        second.excess_return
-        > first.excess_return
-    )
+    assert second.excess_return > first.excess_return
 
     assert second.score > first.score
 
@@ -126,13 +87,9 @@ def test_calculate_robust_score_penalizes_drawdown() -> None:
     second_metrics = _base_metrics()
     second_metrics["max_drawdown"] = -0.30
 
-    first = calculate_robust_score(
-        first_metrics
-    )
+    first = calculate_robust_score(first_metrics)
 
-    second = calculate_robust_score(
-        second_metrics
-    )
+    second = calculate_robust_score(second_metrics)
 
     assert second.score < first.score
 
@@ -188,9 +145,7 @@ def test_robust_score_config_rejects_invalid_weights(
         ValueError,
         match="finito non negativo",
     ):
-        RobustScoreConfig(
-            **kwargs
-        )
+        RobustScoreConfig(**kwargs)
 
 
 @pytest.mark.parametrize(
@@ -207,16 +162,9 @@ def test_robust_score_config_rejects_invalid_target_trades(
 ) -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "target_completed_trades deve "
-            "essere un intero positivo"
-        ),
+        match=("target_completed_trades deve essere un intero positivo"),
     ):
-        RobustScoreConfig(
-            target_completed_trades=(
-                target_completed_trades
-            )
-        )
+        RobustScoreConfig(target_completed_trades=(target_completed_trades))
 
 
 @pytest.mark.parametrize(
@@ -238,9 +186,7 @@ def test_calculate_robust_score_rejects_missing_metric(
         ValueError,
         match=metric_name,
     ):
-        calculate_robust_score(
-            metrics
-        )
+        calculate_robust_score(metrics)
 
 
 @pytest.mark.parametrize(
@@ -275,9 +221,7 @@ def test_calculate_robust_score_rejects_invalid_metric_values(
         ValueError,
         match=metric_name,
     ):
-        calculate_robust_score(
-            metrics
-        )
+        calculate_robust_score(metrics)
 
 
 @pytest.mark.parametrize(
@@ -295,14 +239,10 @@ def test_calculate_robust_score_rejects_invalid_completed_trades(
     completed_trades: object,
 ) -> None:
     metrics = _base_metrics()
-    metrics["completed_trades"] = (
-        completed_trades
-    )
+    metrics["completed_trades"] = completed_trades
 
     with pytest.raises(
         ValueError,
         match="completed_trades",
     ):
-        calculate_robust_score(
-            metrics
-        )
+        calculate_robust_score(metrics)

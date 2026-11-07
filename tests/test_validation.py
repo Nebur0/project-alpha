@@ -35,15 +35,9 @@ def test_split_by_date_separates_periods() -> None:
     assert len(result.in_sample) == 3
     assert len(result.out_of_sample) == 3
 
-    assert (
-        result.in_sample["timestamp"].max()
-        < result.split_timestamp
-    )
+    assert result.in_sample["timestamp"].max() < result.split_timestamp
 
-    assert (
-        result.out_of_sample["timestamp"].min()
-        >= result.split_timestamp
-    )
+    assert result.out_of_sample["timestamp"].min() >= result.split_timestamp
 
 
 def test_split_date_belongs_to_out_of_sample() -> None:

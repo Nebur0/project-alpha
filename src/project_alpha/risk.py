@@ -34,9 +34,7 @@ class RiskPolicy:
                 or not np.isfinite(value)
                 or value <= 0.0
             ):
-                raise ValueError(
-                    f"{name} deve essere un numero positivo e finito."
-                )
+                raise ValueError(f"{name} deve essere un numero positivo e finito.")
 
 
 @dataclass(frozen=True)
@@ -57,9 +55,7 @@ def _normalize_weights(
     proposed_weights: Mapping[str, float],
 ) -> dict[str, float]:
     if not proposed_weights:
-        raise ValueError(
-            "È necessario specificare almeno un peso proposto."
-        )
+        raise ValueError("È necessario specificare almeno un peso proposto.")
 
     normalized: dict[str, float] = {}
 
@@ -67,29 +63,18 @@ def _normalize_weights(
         symbol = str(raw_symbol).strip().upper()
 
         if not symbol:
-            raise ValueError(
-                "I simboli della proposta non possono essere vuoti."
-            )
+            raise ValueError("I simboli della proposta non possono essere vuoti.")
 
         if symbol in normalized:
-            raise ValueError(
-                f"Simbolo duplicato nella proposta: {symbol}."
-            )
+            raise ValueError(f"Simbolo duplicato nella proposta: {symbol}.")
 
-        if (
-            isinstance(raw_weight, bool)
-            or not isinstance(raw_weight, (int, float))
-        ):
-            raise ValueError(
-                f"Il peso di {symbol} deve essere numerico."
-            )
+        if isinstance(raw_weight, bool) or not isinstance(raw_weight, (int, float)):
+            raise ValueError(f"Il peso di {symbol} deve essere numerico.")
 
         weight = float(raw_weight)
 
         if not np.isfinite(weight):
-            raise ValueError(
-                f"Il peso di {symbol} deve essere finito."
-            )
+            raise ValueError(f"Il peso di {symbol} deve essere finito.")
 
         normalized[symbol] = weight
 
@@ -110,37 +95,24 @@ def _validate_equity_state(
     normalized: dict[str, float] = {}
 
     for name, raw_value in values.items():
-        if (
-            isinstance(raw_value, bool)
-            or not isinstance(raw_value, (int, float))
-        ):
-            raise ValueError(
-                f"{name} deve essere numerico."
-            )
+        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+            raise ValueError(f"{name} deve essere numerico.")
 
         value = float(raw_value)
 
         if not np.isfinite(value):
-            raise ValueError(
-                f"{name} deve essere finito."
-            )
+            raise ValueError(f"{name} deve essere finito.")
 
         normalized[name] = value
 
     if normalized["current_equity"] <= 0.0:
-        raise ValueError(
-            "current_equity deve essere positivo."
-        )
+        raise ValueError("current_equity deve essere positivo.")
 
     if normalized["peak_equity"] <= 0.0:
-        raise ValueError(
-            "peak_equity deve essere positivo."
-        )
+        raise ValueError("peak_equity deve essere positivo.")
 
     if normalized["current_equity"] > normalized["peak_equity"]:
-        raise ValueError(
-            "current_equity non può essere maggiore di peak_equity."
-        )
+        raise ValueError("current_equity non può essere maggiore di peak_equity.")
 
     return (
         normalized["current_equity"],
@@ -171,49 +143,27 @@ def evaluate_risk_policy(
         daily_return,
     )
 
-    gross_exposure = float(
-        sum(abs(weight) for weight in weights.values())
-    )
+    gross_exposure = float(sum(abs(weight) for weight in weights.values()))
 
-    max_absolute_position_weight = float(
-        max(abs(weight) for weight in weights.values())
-    )
+    max_absolute_position_weight = float(max(abs(weight) for weight in weights.values()))
 
-    current_drawdown = float(
-        normalized_current_equity / normalized_peak_equity - 1.0
-    )
+    current_drawdown = float(normalized_current_equity / normalized_peak_equity - 1.0)
 
     violations: list[str] = []
 
-    if (
-        max_absolute_position_weight
-        > effective_policy.max_position_weight
-    ):
+    if max_absolute_position_weight > effective_policy.max_position_weight:
         violations.append("MAX_POSITION_WEIGHT")
 
-    if (
-        gross_exposure
-        > effective_policy.max_gross_exposure
-    ):
+    if gross_exposure > effective_policy.max_gross_exposure:
         violations.append("MAX_GROSS_EXPOSURE")
 
-    if (
-        normalized_daily_return
-        < -effective_policy.max_daily_loss
-    ):
+    if normalized_daily_return < -effective_policy.max_daily_loss:
         violations.append("MAX_DAILY_LOSS")
 
-    if (
-        current_drawdown
-        < -effective_policy.max_drawdown
-    ):
+    if current_drawdown < -effective_policy.max_drawdown:
         violations.append("MAX_DRAWDOWN")
 
-    status = (
-        RiskDecisionStatus.ALLOW
-        if not violations
-        else RiskDecisionStatus.REJECT
-    )
+    status = RiskDecisionStatus.ALLOW if not violations else RiskDecisionStatus.REJECT
 
     return RiskDecision(
         status=status,

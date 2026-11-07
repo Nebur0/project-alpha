@@ -17,10 +17,7 @@ def _curve(
         asset_returns = strategy_returns
 
     if executed_positions is None:
-        executed_positions = [
-            1.0
-            for _ in range(periods)
-        ]
+        executed_positions = [1.0 for _ in range(periods)]
 
     return pd.DataFrame(
         {
@@ -31,12 +28,8 @@ def _curve(
                 tz="UTC",
             ),
             "asset_return": asset_returns,
-            "executed_position": (
-                executed_positions
-            ),
-            "strategy_return": (
-                strategy_returns
-            ),
+            "executed_position": (executed_positions),
+            "strategy_return": (strategy_returns),
         }
     )
 
@@ -51,11 +44,9 @@ def test_equal_weight_portfolio_combines_daily_returns() -> None:
         ),
     }
 
-    result = (
-        run_fixed_weight_portfolio_backtest(
-            curves,
-            initial_capital=1000.0,
-        )
+    result = run_fixed_weight_portfolio_backtest(
+        curves,
+        initial_capital=1000.0,
     )
 
     curve = result.equity_curve
@@ -75,13 +66,9 @@ def test_equal_weight_portfolio_combines_daily_returns() -> None:
         "portfolio_return",
     ] == pytest.approx(0.05)
 
-    assert result.metrics[
-        "final_equity"
-    ] == pytest.approx(1102.5)
+    assert result.metrics["final_equity"] == pytest.approx(1102.5)
 
-    assert result.metrics[
-        "total_return"
-    ] == pytest.approx(0.1025)
+    assert result.metrics["total_return"] == pytest.approx(0.1025)
 
 
 def test_custom_weights_are_applied() -> None:
@@ -94,15 +81,13 @@ def test_custom_weights_are_applied() -> None:
         ),
     }
 
-    result = (
-        run_fixed_weight_portfolio_backtest(
-            curves,
-            weights={
-                "AAA": 0.75,
-                "BBB": 0.25,
-            },
-            initial_capital=1000.0,
-        )
+    result = run_fixed_weight_portfolio_backtest(
+        curves,
+        weights={
+            "AAA": 0.75,
+            "BBB": 0.25,
+        },
+        initial_capital=1000.0,
     )
 
     assert result.equity_curve.loc[
@@ -110,9 +95,7 @@ def test_custom_weights_are_applied() -> None:
         "portfolio_return",
     ] == pytest.approx(0.05)
 
-    assert result.metrics[
-        "final_equity"
-    ] == pytest.approx(1050.0)
+    assert result.metrics["final_equity"] == pytest.approx(1050.0)
 
 
 def test_portfolio_tracks_weighted_benchmark_and_exposure() -> None:
@@ -141,10 +124,8 @@ def test_portfolio_tracks_weighted_benchmark_and_exposure() -> None:
         ),
     }
 
-    result = (
-        run_fixed_weight_portfolio_backtest(
-            curves,
-        )
+    result = run_fixed_weight_portfolio_backtest(
+        curves,
     )
 
     curve = result.equity_curve
@@ -159,9 +140,7 @@ def test_portfolio_tracks_weighted_benchmark_and_exposure() -> None:
         "gross_exposure",
     ] == pytest.approx(0.5)
 
-    assert result.metrics[
-        "benchmark_total_return"
-    ] == pytest.approx(0.0)
+    assert result.metrics["benchmark_total_return"] == pytest.approx(0.0)
 
 
 def test_benchmark_risk_metrics_are_reported() -> None:
@@ -185,11 +164,9 @@ def test_benchmark_risk_metrics_are_reported() -> None:
         ),
     }
 
-    result = (
-        run_fixed_weight_portfolio_backtest(
-            curves,
-            initial_capital=1000.0,
-        )
+    result = run_fixed_weight_portfolio_backtest(
+        curves,
+        initial_capital=1000.0,
     )
 
     benchmark_returns = pd.Series(
@@ -201,44 +178,21 @@ def test_benchmark_risk_metrics_are_reported() -> None:
         dtype=float,
     )
 
-    expected_volatility = (
-        benchmark_returns.std(ddof=1)
-        * (252.0 ** 0.5)
-    )
+    expected_volatility = benchmark_returns.std(ddof=1) * (252.0**0.5)
 
-    expected_sharpe = (
-        benchmark_returns.mean()
-        / benchmark_returns.std(ddof=1)
-        * (252.0 ** 0.5)
-    )
+    expected_sharpe = benchmark_returns.mean() / benchmark_returns.std(ddof=1) * (252.0**0.5)
 
-    assert result.metrics[
-        "benchmark_final_equity"
-    ] == pytest.approx(1045.0)
+    assert result.metrics["benchmark_final_equity"] == pytest.approx(1045.0)
 
-    assert result.metrics[
-        "benchmark_total_return"
-    ] == pytest.approx(0.045)
+    assert result.metrics["benchmark_total_return"] == pytest.approx(0.045)
 
-    assert result.metrics[
-        "benchmark_max_drawdown"
-    ] == pytest.approx(-0.05)
+    assert result.metrics["benchmark_max_drawdown"] == pytest.approx(-0.05)
 
-    assert result.metrics[
-        "benchmark_annualized_volatility"
-    ] == pytest.approx(
-        expected_volatility
-    )
+    assert result.metrics["benchmark_annualized_volatility"] == pytest.approx(expected_volatility)
 
-    assert result.metrics[
-        "benchmark_annualized_sharpe"
-    ] == pytest.approx(
-        expected_sharpe
-    )
+    assert result.metrics["benchmark_annualized_sharpe"] == pytest.approx(expected_sharpe)
 
-    assert result.metrics[
-        "benchmark_cagr"
-    ] is not None
+    assert result.metrics["benchmark_cagr"] is not None
 
 
 def test_mismatched_timestamps_are_rejected() -> None:

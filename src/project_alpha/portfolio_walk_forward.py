@@ -38,39 +38,24 @@ def _normalize_symbol_frame(
     symbol: str,
 ) -> pd.DataFrame:
     if frame.empty:
-        raise ValueError(
-            "Il dataset walk-forward è vuoto."
-        )
+        raise ValueError("Il dataset walk-forward è vuoto.")
 
     required = {
         "symbol",
         "timestamp",
     }
 
-    missing = required.difference(
-        frame.columns
-    )
+    missing = required.difference(frame.columns)
 
     if missing:
-        raise ValueError(
-            "Colonne mancanti nel dataset: "
-            f"{sorted(missing)}"
-        )
+        raise ValueError(f"Colonne mancanti nel dataset: {sorted(missing)}")
 
     normalized_symbol = symbol.strip().upper()
 
-    selected = frame.loc[
-        frame["symbol"]
-        .astype(str)
-        .str.upper()
-        .eq(normalized_symbol)
-    ].copy()
+    selected = frame.loc[frame["symbol"].astype(str).str.upper().eq(normalized_symbol)].copy()
 
     if selected.empty:
-        raise ValueError(
-            f"Simbolo {normalized_symbol} non "
-            "trovato nel dataset."
-        )
+        raise ValueError(f"Simbolo {normalized_symbol} non trovato nel dataset.")
 
     selected["timestamp"] = pd.to_datetime(
         selected["timestamp"],
@@ -78,13 +63,10 @@ def _normalize_symbol_frame(
         errors="raise",
     )
 
-    return (
-        selected.sort_values(
-            "timestamp",
-            kind="stable",
-        )
-        .reset_index(drop=True)
-    )
+    return selected.sort_values(
+        "timestamp",
+        kind="stable",
+    ).reset_index(drop=True)
 
 
 def _validate_split_against_window(
@@ -128,9 +110,7 @@ def reconstruct_walk_forward_oos_curve(
 ) -> pd.DataFrame:
     if result.windows_overlap:
         raise ValueError(
-            "La ricostruzione della curva OOS "
-            "non supporta finestre walk-forward "
-            "sovrapposte."
+            "La ricostruzione della curva OOS non supporta finestre walk-forward sovrapposte."
         )
 
     selected = _normalize_symbol_frame(
@@ -147,39 +127,27 @@ def reconstruct_walk_forward_oos_curve(
 
     if len(splits) != len(result.windows):
         raise ValueError(
-            "Il numero di finestre generate non "
-            "corrisponde al risultato "
-            "walk-forward."
+            "Il numero di finestre generate non corrisponde al risultato walk-forward."
         )
 
     curves: list[pd.DataFrame] = []
 
-    for window_index, split in enumerate(
-        splits
-    ):
+    for window_index, split in enumerate(splits):
         _validate_split_against_window(
             split,
             result,
             window_index,
         )
 
-        window = result.windows[
-            window_index
-        ]
+        window = result.windows[window_index]
 
         if window.selected_parameters is None:
-            positioned = (
-                prepare_flat_out_of_sample_frame(
-                    split.out_of_sample
-                )
-            )
+            positioned = prepare_flat_out_of_sample_frame(split.out_of_sample)
         else:
-            positioned = (
-                _prepare_out_of_sample_frame(
-                    split.in_sample,
-                    split.out_of_sample,
-                    window.selected_parameters,
-                )
+            positioned = _prepare_out_of_sample_frame(
+                split.in_sample,
+                split.out_of_sample,
+                window.selected_parameters,
             )
 
         # Le selezioni dei parametri restano quelle del walk-forward
@@ -188,28 +156,17 @@ def reconstruct_walk_forward_oos_curve(
             positioned,
             initial_capital=initial_capital,
             cost_per_side=cost_per_side,
-            execution=(
-                execution
-                if execution is not None
-                else result.execution
-            ),
+            execution=(execution if execution is not None else result.execution),
         )
 
         curve = backtest.equity_curve.copy()
-        curve["symbol"] = (
-            result.symbol.strip().upper()
-        )
-        curve["window_number"] = (
-            window.window_number
-        )
+        curve["symbol"] = result.symbol.strip().upper()
+        curve["window_number"] = window.window_number
 
         curves.append(curve)
 
     if not curves:
-        raise ValueError(
-            "Il risultato walk-forward non "
-            "contiene finestre OOS."
-        )
+        raise ValueError("Il risultato walk-forward non contiene finestre OOS.")
 
     combined = pd.concat(
         curves,
@@ -222,36 +179,20 @@ def reconstruct_walk_forward_oos_curve(
         errors="raise",
     )
 
-    combined = (
-        combined.sort_values(
-            "timestamp",
-            kind="stable",
-        )
-        .reset_index(drop=True)
-    )
+    combined = combined.sort_values(
+        "timestamp",
+        kind="stable",
+    ).reset_index(drop=True)
 
     if combined["timestamp"].duplicated().any():
-        raise ValueError(
-            "La curva OOS ricostruita contiene "
-            "timestamp duplicati."
-        )
+        raise ValueError("La curva OOS ricostruita contiene timestamp duplicati.")
 
     combined["walk_forward_equity"] = (
-        initial_capital
-        * (
-            1.0
-            + combined["strategy_return"]
-        ).cumprod()
+        initial_capital * (1.0 + combined["strategy_return"]).cumprod()
     )
 
-    combined[
-        "walk_forward_benchmark_equity"
-    ] = (
-        initial_capital
-        * (
-            1.0
-            + combined["asset_return"]
-        ).cumprod()
+    combined["walk_forward_benchmark_equity"] = (
+        initial_capital * (1.0 + combined["asset_return"]).cumprod()
     )
 
     return combined
@@ -267,10 +208,7 @@ def run_walk_forward_portfolio_backtest(
     execution: ExecutionConfig | None = None,
 ) -> WalkForwardPortfolioResult:
     if not batch_result.symbols:
-        raise ValueError(
-            "Il risultato batch non contiene "
-            "simboli."
-        )
+        raise ValueError("Il risultato batch non contiene simboli.")
 
     symbol_curves: dict[
         str,
@@ -279,27 +217,20 @@ def run_walk_forward_portfolio_backtest(
 
     for symbol in batch_result.symbols:
         if symbol not in batch_result.results:
-            raise ValueError(
-                "Risultato walk-forward mancante "
-                f"per il simbolo {symbol}."
-            )
+            raise ValueError(f"Risultato walk-forward mancante per il simbolo {symbol}.")
 
-        symbol_curves[symbol] = (
-            reconstruct_walk_forward_oos_curve(
-                frame,
-                batch_result.results[symbol],
-                initial_capital=initial_capital,
-                cost_per_side=cost_per_side,
-                execution=execution,
-            )
-        )
-
-    portfolio = (
-        run_fixed_weight_portfolio_backtest(
-            symbol_curves,
-            weights=weights,
+        symbol_curves[symbol] = reconstruct_walk_forward_oos_curve(
+            frame,
+            batch_result.results[symbol],
             initial_capital=initial_capital,
+            cost_per_side=cost_per_side,
+            execution=execution,
         )
+
+    portfolio = run_fixed_weight_portfolio_backtest(
+        symbol_curves,
+        weights=weights,
+        initial_capital=initial_capital,
     )
 
     return WalkForwardPortfolioResult(

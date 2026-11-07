@@ -40,14 +40,10 @@ def split_by_date(
     split_date: str | date | datetime | pd.Timestamp,
 ) -> ValidationSplit:
     if frame.empty:
-        raise ValueError(
-            "Il dataset da dividere è vuoto."
-        )
+        raise ValueError("Il dataset da dividere è vuoto.")
 
     if "timestamp" not in frame.columns:
-        raise ValueError(
-            "La colonna 'timestamp' è obbligatoria."
-        )
+        raise ValueError("La colonna 'timestamp' è obbligatoria.")
 
     data = frame.copy()
 
@@ -57,40 +53,19 @@ def split_by_date(
         errors="raise",
     )
 
-    data = (
-        data.sort_values("timestamp")
-        .reset_index(drop=True)
-    )
+    data = data.sort_values("timestamp").reset_index(drop=True)
 
-    split_timestamp = _to_utc_timestamp(
-        split_date
-    )
+    split_timestamp = _to_utc_timestamp(split_date)
 
-    in_sample = (
-        data.loc[
-            data["timestamp"] < split_timestamp
-        ]
-        .copy()
-        .reset_index(drop=True)
-    )
+    in_sample = data.loc[data["timestamp"] < split_timestamp].copy().reset_index(drop=True)
 
-    out_of_sample = (
-        data.loc[
-            data["timestamp"] >= split_timestamp
-        ]
-        .copy()
-        .reset_index(drop=True)
-    )
+    out_of_sample = data.loc[data["timestamp"] >= split_timestamp].copy().reset_index(drop=True)
 
     if in_sample.empty:
-        raise ValueError(
-            "La porzione in-sample è vuota."
-        )
+        raise ValueError("La porzione in-sample è vuota.")
 
     if out_of_sample.empty:
-        raise ValueError(
-            "La porzione out-of-sample è vuota."
-        )
+        raise ValueError("La porzione out-of-sample è vuota.")
 
     return ValidationSplit(
         in_sample=in_sample,
@@ -106,32 +81,22 @@ def generate_walk_forward_splits(
     step_size: int | None = None,
 ) -> list[WalkForwardSplit]:
     if frame.empty:
-        raise ValueError(
-            "Il dataset walk-forward è vuoto."
-        )
+        raise ValueError("Il dataset walk-forward è vuoto.")
 
     if "timestamp" not in frame.columns:
-        raise ValueError(
-            "La colonna 'timestamp' è obbligatoria."
-        )
+        raise ValueError("La colonna 'timestamp' è obbligatoria.")
 
     if train_size <= 0:
-        raise ValueError(
-            "train_size deve essere positivo."
-        )
+        raise ValueError("train_size deve essere positivo.")
 
     if test_size <= 0:
-        raise ValueError(
-            "test_size deve essere positivo."
-        )
+        raise ValueError("test_size deve essere positivo.")
 
     if step_size is None:
         step_size = test_size
 
     if step_size <= 0:
-        raise ValueError(
-            "step_size deve essere positivo."
-        )
+        raise ValueError("step_size deve essere positivo.")
 
     data = frame.copy()
 
@@ -141,19 +106,13 @@ def generate_walk_forward_splits(
         errors="raise",
     )
 
-    data = (
-        data.sort_values("timestamp")
-        .reset_index(drop=True)
-    )
+    data = data.sort_values("timestamp").reset_index(drop=True)
 
-    minimum_required_rows = (
-        train_size + test_size
-    )
+    minimum_required_rows = train_size + test_size
 
     if len(data) < minimum_required_rows:
         raise ValueError(
-            "Il dataset non contiene abbastanza righe "
-            "per creare una finestra walk-forward."
+            "Il dataset non contiene abbastanza righe per creare una finestra walk-forward."
         )
 
     splits: list[WalkForwardSplit] = []
@@ -161,45 +120,22 @@ def generate_walk_forward_splits(
     train_end_index = train_size
     window_number = 1
 
-    while (
-        train_end_index + test_size
-        <= len(data)
-    ):
-        test_end_index = (
-            train_end_index + test_size
-        )
+    while train_end_index + test_size <= len(data):
+        test_end_index = train_end_index + test_size
 
-        in_sample = (
-            data.iloc[:train_end_index]
-            .copy()
-            .reset_index(drop=True)
-        )
+        in_sample = data.iloc[:train_end_index].copy().reset_index(drop=True)
 
-        out_of_sample = (
-            data.iloc[
-                train_end_index:test_end_index
-            ]
-            .copy()
-            .reset_index(drop=True)
-        )
+        out_of_sample = data.iloc[train_end_index:test_end_index].copy().reset_index(drop=True)
 
         splits.append(
             WalkForwardSplit(
                 window_number=window_number,
                 in_sample=in_sample,
                 out_of_sample=out_of_sample,
-                train_start=(
-                    in_sample["timestamp"].iloc[0]
-                ),
-                train_end=(
-                    in_sample["timestamp"].iloc[-1]
-                ),
-                test_start=(
-                    out_of_sample["timestamp"].iloc[0]
-                ),
-                test_end=(
-                    out_of_sample["timestamp"].iloc[-1]
-                ),
+                train_start=(in_sample["timestamp"].iloc[0]),
+                train_end=(in_sample["timestamp"].iloc[-1]),
+                test_start=(out_of_sample["timestamp"].iloc[0]),
+                test_end=(out_of_sample["timestamp"].iloc[-1]),
             )
         )
 

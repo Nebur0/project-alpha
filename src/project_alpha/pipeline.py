@@ -49,9 +49,7 @@ def fetch_and_save(
     symbols: Iterable[str],
     start: date,
     end: date | None = None,
-    output: Path = Path(
-        "data/raw/bars.csv"
-    ),
+    output: Path = Path("data/raw/bars.csv"),
 ) -> pd.DataFrame:
     ensure_directories()
 
@@ -73,21 +71,13 @@ def fetch_and_save(
 
 
 def analyze_and_save(
-    input_path: Path = Path(
-        "data/raw/bars.csv"
-    ),
-    output: Path = Path(
-        "data/processed/features.csv"
-    ),
+    input_path: Path = Path("data/raw/bars.csv"),
+    output: Path = Path("data/processed/features.csv"),
     parameters: StrategyParameters | None = None,
 ) -> pd.DataFrame:
     ensure_directories()
 
-    parameters = (
-        parameters
-        if parameters is not None
-        else StrategyParameters()
-    )
+    parameters = parameters if parameters is not None else StrategyParameters()
 
     frame = pd.read_csv(
         input_path,
@@ -128,16 +118,10 @@ def backtest_and_save(
 
     symbol = symbol.upper()
 
-    selected = frame.loc[
-        frame["symbol"].astype(str).str.upper()
-        == symbol
-    ].copy()
+    selected = frame.loc[frame["symbol"].astype(str).str.upper() == symbol].copy()
 
     if selected.empty:
-        raise ValueError(
-            f"Simbolo {symbol} non trovato in "
-            f"{input_path}."
-        )
+        raise ValueError(f"Simbolo {symbol} non trovato in {input_path}.")
 
     result = run_long_only_backtest(
         selected,
@@ -146,15 +130,9 @@ def backtest_and_save(
         execution=execution,
     )
 
-    equity_path = (
-        Path("reports")
-        / f"{symbol}_equity.csv"
-    )
+    equity_path = Path("reports") / f"{symbol}_equity.csv"
 
-    metrics_path = (
-        Path("reports")
-        / f"{symbol}_metrics.json"
-    )
+    metrics_path = Path("reports") / f"{symbol}_metrics.json"
 
     # Le metriche vengono serializzate prima di scrivere qualsiasi
     # file: metriche non finite (es. Sharpe senza trade) diventano

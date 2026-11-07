@@ -365,12 +365,9 @@ def test_execution_stress_analysis_builds_scenario_table() -> None:
         "close_delay_1",
     ]
     assert table.loc[0, "total_return"] == pytest.approx(
-        run_walk_forward_portfolio_backtest(frame, batch)
-        .portfolio.metrics["total_return"]
+        run_walk_forward_portfolio_backtest(frame, batch).portfolio.metrics["total_return"]
     )
-    assert table.loc[0, "mean_gross_exposure"] == pytest.approx(
-        table.loc[1, "mean_gross_exposure"]
-    )
+    assert table.loc[0, "mean_gross_exposure"] == pytest.approx(table.loc[1, "mean_gross_exposure"])
 
 
 def test_execution_stress_rejects_bad_scenarios() -> None:
@@ -396,9 +393,7 @@ def test_execution_stress_rejects_bad_scenarios() -> None:
 
 
 def test_cli_execution_arguments_default_to_none() -> None:
-    args = cli.build_parser().parse_args(
-        ["backtest", "--symbol", "SPY"]
-    )
+    args = cli.build_parser().parse_args(["backtest", "--symbol", "SPY"])
 
     assert args.execution_mode == "close"
     assert cli._execution_from_args(args) is None

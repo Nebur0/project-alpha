@@ -27,11 +27,7 @@ def _sample_market_frame(
 ) -> pd.DataFrame:
     index = np.arange(periods)
 
-    close = (
-        100.0
-        + index * 0.30
-        + np.sin(index / 3.0) * 2.0
-    )
+    close = 100.0 + index * 0.30 + np.sin(index / 3.0) * 2.0
 
     return pd.DataFrame(
         {
@@ -46,10 +42,7 @@ def _sample_market_frame(
             "high": close + 1.00,
             "low": close - 1.00,
             "close": close,
-            "volume": (
-                1_000.0
-                + (index % 10) * 100.0
-            ),
+            "volume": (1_000.0 + (index % 10) * 100.0),
         }
     )
 
@@ -90,8 +83,7 @@ def _small_parameter_grid() -> dict[
     }
 
 
-def test_generate_strategy_parameters_creates_combinations(
-) -> None:
+def test_generate_strategy_parameters_creates_combinations() -> None:
     parameters = generate_strategy_parameters(
         {
             "fast_ema_period": [
@@ -143,8 +135,7 @@ def test_generate_strategy_parameters_creates_combinations(
     }
 
 
-def test_generate_strategy_parameters_uses_defaults_for_missing_fields(
-) -> None:
+def test_generate_strategy_parameters_uses_defaults_for_missing_fields() -> None:
     parameters = generate_strategy_parameters(
         {
             "fast_ema_period": [
@@ -162,19 +153,14 @@ def test_generate_strategy_parameters_uses_defaults_for_missing_fields(
     result = parameters[0]
 
     assert result.rsi_period == 14
-    assert result.rsi_lower == pytest.approx(
-        50.0
-    )
-    assert result.rsi_upper == pytest.approx(
-        70.0
-    )
+    assert result.rsi_lower == pytest.approx(50.0)
+    assert result.rsi_upper == pytest.approx(70.0)
     assert result.atr_period == 14
     assert result.volume_period == 20
     assert result.breakout_period == 20
 
 
-def test_generate_strategy_parameters_rejects_invalid_grid(
-) -> None:
+def test_generate_strategy_parameters_rejects_invalid_grid() -> None:
     with pytest.raises(
         ValueError,
         match="griglia dei parametri è vuota",
@@ -204,8 +190,7 @@ def test_generate_strategy_parameters_rejects_invalid_grid(
         )
 
 
-def test_run_parameter_grid_search_returns_ranked_results(
-) -> None:
+def test_run_parameter_grid_search_returns_ranked_results() -> None:
     frame = _sample_market_frame()
 
     results = run_parameter_grid_search(
@@ -216,39 +201,24 @@ def test_run_parameter_grid_search_returns_ranked_results(
 
     assert len(results) == 2
 
-    assert all(
-        result.score_metric
-        == "total_return"
-        for result in results
-    )
+    assert all(result.score_metric == "total_return" for result in results)
 
-    assert {
-        result.parameters.fast_ema_period
-        for result in results
-    } == {
+    assert {result.parameters.fast_ema_period for result in results} == {
         3,
         4,
     }
 
-    scores = [
-        result.score
-        for result in results
-    ]
+    scores = [result.score for result in results]
 
     assert scores == sorted(
         scores,
         reverse=True,
     )
 
-    assert all(
-        "total_return"
-        in result.metrics
-        for result in results
-    )
+    assert all("total_return" in result.metrics for result in results)
 
 
-def test_run_parameter_grid_search_rejects_multiple_symbols(
-) -> None:
+def test_run_parameter_grid_search_rejects_multiple_symbols() -> None:
     first = _sample_market_frame(
         symbol="SPY",
     )
@@ -275,17 +245,14 @@ def test_run_parameter_grid_search_rejects_multiple_symbols(
         )
 
 
-def test_grid_search_results_to_frame_creates_ranked_table(
-) -> None:
+def test_grid_search_results_to_frame_creates_ranked_table() -> None:
     results = run_parameter_grid_search(
         _sample_market_frame(),
         _small_parameter_grid(),
         score_metric="total_return",
     )
 
-    frame = grid_search_results_to_frame(
-        results
-    )
+    frame = grid_search_results_to_frame(results)
 
     assert frame["rank"].tolist() == [
         1,
@@ -310,13 +277,10 @@ def test_grid_search_results_to_frame_creates_ranked_table(
         "max_drawdown",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_walk_forward_optimization_selects_best_training_result(
-) -> None:
+def test_walk_forward_optimization_selects_best_training_result() -> None:
     frame = _sample_market_frame(
         periods=100,
     )
@@ -340,41 +304,25 @@ def test_walk_forward_optimization_selects_best_training_result(
         step_size=20,
     )
 
-    first_training_results = (
-        run_parameter_grid_search(
-            splits[0].in_sample,
-            grid,
-            score_metric="total_return",
-        )
+    first_training_results = run_parameter_grid_search(
+        splits[0].in_sample,
+        grid,
+        score_metric="total_return",
     )
 
     expected = first_training_results[0]
     first_window = result.windows[0]
 
-    assert first_window.selected_parameters == (
-        expected.parameters
-    )
+    assert first_window.selected_parameters == (expected.parameters)
 
-    assert (
-        first_window.selected_score
-        == pytest.approx(
-            expected.score
-        )
-    )
+    assert first_window.selected_score == pytest.approx(expected.score)
 
-    assert (
-        first_window.in_sample_metrics
-        == expected.metrics
-    )
+    assert first_window.in_sample_metrics == expected.metrics
 
-    assert (
-        "total_return"
-        in first_window.out_of_sample_metrics
-    )
+    assert "total_return" in first_window.out_of_sample_metrics
 
 
-def test_walk_forward_optimization_reports_window_metadata(
-) -> None:
+def test_walk_forward_optimization_reports_window_metadata() -> None:
     result = run_walk_forward_optimization(
         _sample_market_frame(
             periods=100,
@@ -397,10 +345,7 @@ def test_walk_forward_optimization_reports_window_metadata(
     assert result.compounding_enabled is True
     assert len(result.windows) > 0
 
-    window_numbers = [
-        window.window_number
-        for window in result.windows
-    ]
+    window_numbers = [window.window_number for window in result.windows]
 
     assert window_numbers == list(
         range(
@@ -410,13 +355,10 @@ def test_walk_forward_optimization_reports_window_metadata(
     )
 
     assert "window_count" in result.summary
-    assert "positive_window_count" in (
-        result.summary
-    )
+    assert "positive_window_count" in (result.summary)
 
 
-def test_walk_forward_optimization_detects_overlapping_windows(
-) -> None:
+def test_walk_forward_optimization_detects_overlapping_windows() -> None:
     result = run_walk_forward_optimization(
         _sample_market_frame(
             periods=90,
@@ -447,10 +389,7 @@ def test_walk_forward_optimization_rejects_invalid_minimum_trades(
 ) -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "minimum_completed_trades deve "
-            "essere un intero non negativo"
-        ),
+        match=("minimum_completed_trades deve essere un intero non negativo"),
     ):
         run_walk_forward_optimization(
             _sample_market_frame(),
@@ -458,19 +397,14 @@ def test_walk_forward_optimization_rejects_invalid_minimum_trades(
             train_size=40,
             test_size=20,
             score_metric="total_return",
-            minimum_completed_trades=(
-                minimum_completed_trades
-            ),
+            minimum_completed_trades=(minimum_completed_trades),
         )
 
 
-def test_walk_forward_optimization_rejects_candidates_below_trade_limit(
-) -> None:
+def test_walk_forward_optimization_rejects_candidates_below_trade_limit() -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "Nessuna combinazione soddisfa"
-        ),
+        match=("Nessuna combinazione soddisfa"),
     ):
         run_walk_forward_optimization(
             _sample_market_frame(),
@@ -482,8 +416,7 @@ def test_walk_forward_optimization_rejects_candidates_below_trade_limit(
         )
 
 
-def test_walk_forward_optimization_serializers(
-) -> None:
+def test_walk_forward_optimization_serializers() -> None:
     result = run_walk_forward_optimization(
         _sample_market_frame(
             periods=100,
@@ -496,17 +429,11 @@ def test_walk_forward_optimization_serializers(
         minimum_completed_trades=0,
     )
 
-    report = walk_forward_optimization_to_dict(
-        result
-    )
+    report = walk_forward_optimization_to_dict(result)
 
     assert report["symbol"] == "TEST"
-    assert report["score_metric"] == (
-        "total_return"
-    )
-    assert report["window_count"] == len(
-        result.windows
-    )
+    assert report["score_metric"] == ("total_return")
+    assert report["window_count"] == len(result.windows)
     assert report["windows_overlap"] is False
     assert report["compounding_enabled"] is True
 
@@ -516,25 +443,17 @@ def test_walk_forward_optimization_serializers(
         windows,
         list,
     )
-    assert len(windows) == len(
-        result.windows
-    )
+    assert len(windows) == len(result.windows)
 
     first_window = windows[0]
 
-    assert "selected_parameters" in (
-        first_window
-    )
+    assert "selected_parameters" in (first_window)
     assert "in_sample" in first_window
     assert "out_of_sample" in first_window
 
-    frame = walk_forward_optimization_to_frame(
-        result
-    )
+    frame = walk_forward_optimization_to_frame(result)
 
-    assert len(frame) == len(
-        result.windows
-    )
+    assert len(frame) == len(result.windows)
 
     expected_columns = {
         "symbol",
@@ -560,9 +479,7 @@ def test_walk_forward_optimization_serializers(
         "out_of_sample_max_drawdown",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
 def _install_deterministic_robust_scoring_mocks(
@@ -579,9 +496,7 @@ def _install_deterministic_robust_scoring_mocks(
         parameters: object,
     ) -> pd.DataFrame:
         result = frame.copy()
-        result["candidate_fast_ema_period"] = (
-            parameters.fast_ema_period
-        )
+        result["candidate_fast_ema_period"] = parameters.fast_ema_period
         return result
 
     def fake_run_long_only_backtest(
@@ -590,18 +505,12 @@ def _install_deterministic_robust_scoring_mocks(
         initial_capital: float,
         cost_per_side: float,
     ) -> SimpleNamespace:
-        fast_ema_period = int(
-            frame[
-                "candidate_fast_ema_period"
-            ].iloc[0]
-        )
+        fast_ema_period = int(frame["candidate_fast_ema_period"].iloc[0])
 
         if fast_ema_period == 3:
             metrics = {
                 "initial_capital": initial_capital,
-                "final_equity": (
-                    initial_capital * 1.20
-                ),
+                "final_equity": (initial_capital * 1.20),
                 "total_return": 0.20,
                 "benchmark_total_return": 0.30,
                 "cagr": 0.20,
@@ -622,9 +531,7 @@ def _install_deterministic_robust_scoring_mocks(
         else:
             metrics = {
                 "initial_capital": initial_capital,
-                "final_equity": (
-                    initial_capital * 1.50
-                ),
+                "final_equity": (initial_capital * 1.50),
                 "total_return": 0.50,
                 "benchmark_total_return": 0.30,
                 "cagr": 0.50,
@@ -643,9 +550,7 @@ def _install_deterministic_robust_scoring_mocks(
                 "cost_per_side": cost_per_side,
             }
 
-        return SimpleNamespace(
-            metrics=metrics
-        )
+        return SimpleNamespace(metrics=metrics)
 
     monkeypatch.setattr(
         optimization_module,
@@ -667,9 +572,7 @@ def _install_deterministic_robust_scoring_mocks(
 def test_parameter_grid_search_robust_score_changes_ranking(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     frame = _sample_market_frame()
 
@@ -685,43 +588,20 @@ def test_parameter_grid_search_robust_score_changes_ranking(
         score_metric="robust_score",
     )
 
-    assert (
-        sharpe_results[0]
-        .parameters
-        .fast_ema_period
-        == 3
-    )
+    assert sharpe_results[0].parameters.fast_ema_period == 3
 
-    assert (
-        robust_results[0]
-        .parameters
-        .fast_ema_period
-        == 4
-    )
+    assert robust_results[0].parameters.fast_ema_period == 4
 
-    assert robust_results[0].score_metric == (
-        "robust_score"
-    )
+    assert robust_results[0].score_metric == ("robust_score")
     assert robust_results[0].robust_score is not None
-    assert robust_results[0].score == pytest.approx(
-        0.95
-    )
-    assert (
-        robust_results[0]
-        .robust_score
-        .excess_return
-        == pytest.approx(
-            0.20
-        )
-    )
+    assert robust_results[0].score == pytest.approx(0.95)
+    assert robust_results[0].robust_score.excess_return == pytest.approx(0.20)
 
 
 def test_parameter_grid_search_uses_custom_robust_score_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     config = RobustScoreConfig(
         sharpe_weight=10.0,
@@ -738,19 +618,10 @@ def test_parameter_grid_search_uses_custom_robust_score_config(
         robust_score_config=config,
     )
 
-    assert (
-        results[0]
-        .parameters
-        .fast_ema_period
-        == 3
-    )
-    assert results[0].score == pytest.approx(
-        10.0
-    )
+    assert results[0].parameters.fast_ema_period == 3
+    assert results[0].score == pytest.approx(10.0)
 
-    frame = grid_search_results_to_frame(
-        results
-    )
+    frame = grid_search_results_to_frame(results)
 
     expected_columns = {
         "robust_score",
@@ -761,36 +632,26 @@ def test_parameter_grid_search_uses_custom_robust_score_config(
         "robust_trade_shortfall",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_parameter_grid_search_rejects_robust_config_with_other_metric(
-) -> None:
+def test_parameter_grid_search_rejects_robust_config_with_other_metric() -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "robust_score_config può essere "
-            "usato solo"
-        ),
+        match=("robust_score_config può essere usato solo"),
     ):
         run_parameter_grid_search(
             _sample_market_frame(),
             _small_parameter_grid(),
             score_metric="total_return",
-            robust_score_config=(
-                RobustScoreConfig()
-            ),
+            robust_score_config=(RobustScoreConfig()),
         )
 
 
 def test_walk_forward_optimization_propagates_robust_score(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     config = RobustScoreConfig(
         target_completed_trades=20,
@@ -815,22 +676,11 @@ def test_walk_forward_optimization_propagates_robust_score(
 
     first_window = result.windows[0]
 
-    assert (
-        first_window
-        .selected_parameters
-        .fast_ema_period
-        == 4
-    )
+    assert first_window.selected_parameters.fast_ema_period == 4
     assert first_window.robust_score is not None
-    assert first_window.selected_score == (
-        pytest.approx(
-            first_window.robust_score.score
-        )
-    )
+    assert first_window.selected_score == (pytest.approx(first_window.robust_score.score))
 
-    report = walk_forward_optimization_to_dict(
-        result
-    )
+    report = walk_forward_optimization_to_dict(result)
 
     assert report["robust_score_config"] == {
         "sharpe_weight": 1.0,
@@ -846,16 +696,9 @@ def test_walk_forward_optimization_propagates_robust_score(
         report_windows,
         list,
     )
-    assert (
-        report_windows[0][
-            "selected_robust_score"
-        ]
-        is not None
-    )
+    assert report_windows[0]["selected_robust_score"] is not None
 
-    frame = walk_forward_optimization_to_frame(
-        result
-    )
+    frame = walk_forward_optimization_to_frame(result)
 
     expected_columns = {
         "selected_robust_score",
@@ -863,7 +706,4 @@ def test_walk_forward_optimization_propagates_robust_score(
         "selected_robust_trade_shortfall",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
-
+    assert expected_columns.issubset(frame.columns)

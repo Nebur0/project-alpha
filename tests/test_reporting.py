@@ -24,9 +24,7 @@ def test_save_batch_summary_csv(
         },
     }
 
-    output_path = (
-        tmp_path / "batch_metrics.csv"
-    )
+    output_path = tmp_path / "batch_metrics.csv"
 
     returned_path = save_batch_summary_csv(
         results,
@@ -36,9 +34,7 @@ def test_save_batch_summary_csv(
     assert returned_path == output_path
     assert output_path.exists()
 
-    frame = pd.read_csv(
-        output_path
-    )
+    frame = pd.read_csv(output_path)
 
     assert frame["symbol"].tolist() == [
         "SPY",
@@ -59,9 +55,7 @@ def test_save_batch_summary_csv(
 def test_save_batch_summary_csv_rejects_empty_results(
     tmp_path: Path,
 ) -> None:
-    output_path = (
-        tmp_path / "batch_metrics.csv"
-    )
+    output_path = tmp_path / "batch_metrics.csv"
 
     with pytest.raises(
         ValueError,
@@ -91,57 +85,30 @@ def test_summarize_walk_forward_metrics() -> None:
         },
     ]
 
-    summary = (
-        summarize_walk_forward_metrics(
-            results
-        )
-    )
+    summary = summarize_walk_forward_metrics(results)
 
     assert summary["window_count"] == 2
 
-    assert (
-        summary["positive_window_count"]
-        == 1
-    )
+    assert summary["positive_window_count"] == 1
 
-    assert summary[
-        "positive_window_rate"
-    ] == pytest.approx(0.50)
+    assert summary["positive_window_rate"] == pytest.approx(0.50)
 
-    assert summary[
-        "compounded_total_return"
-    ] == pytest.approx(0.045)
+    assert summary["compounded_total_return"] == pytest.approx(0.045)
 
-    assert summary[
-        "compounded_benchmark_total_return"
-    ] == pytest.approx(0.071)
+    assert summary["compounded_benchmark_total_return"] == pytest.approx(0.071)
 
-    assert summary[
-        "compounded_excess_return"
-    ] == pytest.approx(-0.026)
+    assert summary["compounded_excess_return"] == pytest.approx(-0.026)
 
-    assert (
-        summary[
-            "valid_sharpe_window_count"
-        ]
-        == 2
-    )
+    assert summary["valid_sharpe_window_count"] == 2
 
-    assert summary[
-        "mean_window_annualized_sharpe"
-    ] == pytest.approx(0.80)
+    assert summary["mean_window_annualized_sharpe"] == pytest.approx(0.80)
 
-    assert summary[
-        "worst_max_drawdown"
-    ] == pytest.approx(-0.12)
+    assert summary["worst_max_drawdown"] == pytest.approx(-0.12)
 
-    assert summary[
-        "total_completed_trades"
-    ] == 5
+    assert summary["total_completed_trades"] == 5
 
 
-def test_summarize_walk_forward_metrics_can_disable_compounding(
-) -> None:
+def test_summarize_walk_forward_metrics_can_disable_compounding() -> None:
     results = [
         {
             "total_return": 0.10,
@@ -152,35 +119,19 @@ def test_summarize_walk_forward_metrics_can_disable_compounding(
         }
     ]
 
-    summary = (
-        summarize_walk_forward_metrics(
-            results,
-            allow_compounding=False,
-        )
+    summary = summarize_walk_forward_metrics(
+        results,
+        allow_compounding=False,
     )
 
-    assert (
-        summary["compounded_total_return"]
-        is None
-    )
+    assert summary["compounded_total_return"] is None
 
-    assert (
-        summary[
-            "compounded_benchmark_total_return"
-        ]
-        is None
-    )
+    assert summary["compounded_benchmark_total_return"] is None
 
-    assert (
-        summary[
-            "compounded_excess_return"
-        ]
-        is None
-    )
+    assert summary["compounded_excess_return"] is None
 
 
-def test_summarize_walk_forward_metrics_ignores_non_finite_sharpes(
-) -> None:
+def test_summarize_walk_forward_metrics_ignores_non_finite_sharpes() -> None:
     results = [
         {
             "total_return": 0.10,
@@ -205,28 +156,16 @@ def test_summarize_walk_forward_metrics_ignores_non_finite_sharpes(
         },
     ]
 
-    summary = (
-        summarize_walk_forward_metrics(
-            results
-        )
-    )
+    summary = summarize_walk_forward_metrics(results)
 
     assert summary["window_count"] == 3
 
-    assert (
-        summary[
-            "valid_sharpe_window_count"
-        ]
-        == 1
-    )
+    assert summary["valid_sharpe_window_count"] == 1
 
-    assert summary[
-        "mean_window_annualized_sharpe"
-    ] == pytest.approx(0.80)
+    assert summary["mean_window_annualized_sharpe"] == pytest.approx(0.80)
 
 
-def test_summarize_walk_forward_metrics_returns_none_when_all_sharpes_invalid(
-) -> None:
+def test_summarize_walk_forward_metrics_returns_none_when_all_sharpes_invalid() -> None:
     results = [
         {
             "total_return": 0.02,
@@ -244,29 +183,14 @@ def test_summarize_walk_forward_metrics_returns_none_when_all_sharpes_invalid(
         },
     ]
 
-    summary = (
-        summarize_walk_forward_metrics(
-            results
-        )
-    )
+    summary = summarize_walk_forward_metrics(results)
 
-    assert (
-        summary[
-            "valid_sharpe_window_count"
-        ]
-        == 0
-    )
+    assert summary["valid_sharpe_window_count"] == 0
 
-    assert (
-        summary[
-            "mean_window_annualized_sharpe"
-        ]
-        is None
-    )
+    assert summary["mean_window_annualized_sharpe"] is None
 
 
-def test_sanitize_metric_values_replaces_non_finite_values(
-) -> None:
+def test_sanitize_metric_values_replaces_non_finite_values() -> None:
     metrics = {
         "total_return": 0.10,
         "annualized_sharpe": float("nan"),
@@ -275,21 +199,16 @@ def test_sanitize_metric_values_replaces_non_finite_values(
         "average_win": None,
     }
 
-    sanitized = sanitize_metric_values(
-        metrics
-    )
+    sanitized = sanitize_metric_values(metrics)
 
-    assert sanitized["total_return"] == pytest.approx(
-        0.10
-    )
+    assert sanitized["total_return"] == pytest.approx(0.10)
     assert sanitized["annualized_sharpe"] is None
     assert sanitized["profit_factor"] is None
     assert sanitized["completed_trades"] == 3
     assert sanitized["average_win"] is None
 
 
-def test_summarize_walk_forward_metrics_rejects_empty_results(
-) -> None:
+def test_summarize_walk_forward_metrics_rejects_empty_results() -> None:
     with pytest.raises(
         ValueError,
         match="Nessun risultato out-of-sample",
@@ -297,8 +216,7 @@ def test_summarize_walk_forward_metrics_rejects_empty_results(
         summarize_walk_forward_metrics([])
 
 
-def test_summarize_walk_forward_metrics_rejects_invalid_metric(
-) -> None:
+def test_summarize_walk_forward_metrics_rejects_invalid_metric() -> None:
     results = [
         {
             "total_return": 0.10,
@@ -313,6 +231,4 @@ def test_summarize_walk_forward_metrics_rejects_invalid_metric(
         ValueError,
         match="intero non negativo",
     ):
-        summarize_walk_forward_metrics(
-            results
-        )
+        summarize_walk_forward_metrics(results)

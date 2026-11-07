@@ -435,12 +435,16 @@ def run_research(
     if config.registry is not None:
         previous = read_registry(config.registry)
         previous_count, _ = registry_trials(previous, data_hash)
-        sharpes = pd.to_numeric(
-            previous.loc[previous["data_sha256"] == data_hash, "daily_sharpe"]
-            if not previous.empty
-            else pd.Series(dtype=float),
-            errors="coerce",
-        ).dropna().tolist()
+        sharpes = (
+            pd.to_numeric(
+                previous.loc[previous["data_sha256"] == data_hash, "daily_sharpe"]
+                if not previous.empty
+                else pd.Series(dtype=float),
+                errors="coerce",
+            )
+            .dropna()
+            .tolist()
+        )
 
         if daily_sharpe is not None:
             sharpes.append(daily_sharpe)

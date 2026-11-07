@@ -183,9 +183,7 @@ def test_backtest_and_save_without_trades_writes_valid_json(
     # Nessuna posizione: Sharpe non definito.
     assert math.isnan(result.metrics["annualized_sharpe"])
 
-    metrics = json.loads(
-        (tmp_path / "reports" / "FLAT_metrics.json").read_text()
-    )
+    metrics = json.loads((tmp_path / "reports" / "FLAT_metrics.json").read_text())
     assert metrics["annualized_sharpe"] is None
     assert metrics["completed_trades"] == 0
     assert metrics["total_return"] == pytest.approx(0.0)
@@ -224,9 +222,7 @@ def test_cli_batch_backtest_survives_symbol_without_trades(
 
     cli.main()
 
-    report = json.loads(
-        (tmp_path / "reports" / "batch_metrics.json").read_text()
-    )
+    report = json.loads((tmp_path / "reports" / "batch_metrics.json").read_text())
     assert set(report) == {"LONG", "FLAT"}
     assert report["FLAT"]["annualized_sharpe"] is None
     assert report["LONG"]["annualized_sharpe"] is not None
@@ -246,8 +242,7 @@ def test_generate_strategy_parameters_skips_invalid_combinations() -> None:
 
     combinations = generate_strategy_parameters(grid)
     pairs = {
-        (parameters.fast_ema_period, parameters.slow_ema_period)
-        for parameters in combinations
+        (parameters.fast_ema_period, parameters.slow_ema_period) for parameters in combinations
     }
 
     # (30, 30) viola fast < slow e viene scartata.

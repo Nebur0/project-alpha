@@ -22,12 +22,7 @@ def _sample_symbol_frame(
 ) -> pd.DataFrame:
     index = np.arange(periods)
 
-    close = (
-        100.0
-        + offset
-        + index * 0.30
-        + np.sin(index / 3.0) * 2.0
-    )
+    close = 100.0 + offset + index * 0.30 + np.sin(index / 3.0) * 2.0
 
     return pd.DataFrame(
         {
@@ -42,10 +37,7 @@ def _sample_symbol_frame(
             "high": close + 1.00,
             "low": close - 1.00,
             "close": close,
-            "volume": (
-                1_000.0
-                + (index % 10) * 100.0
-            ),
+            "volume": (1_000.0 + (index % 10) * 100.0),
         }
     )
 
@@ -117,9 +109,7 @@ def _install_deterministic_robust_scoring_mocks(
     ) -> pd.DataFrame:
         result = frame.copy()
 
-        result["candidate_fast_ema_period"] = (
-            parameters.fast_ema_period
-        )
+        result["candidate_fast_ema_period"] = parameters.fast_ema_period
 
         return result
 
@@ -129,18 +119,12 @@ def _install_deterministic_robust_scoring_mocks(
         initial_capital: float,
         cost_per_side: float,
     ) -> SimpleNamespace:
-        fast_ema_period = int(
-            frame[
-                "candidate_fast_ema_period"
-            ].iloc[0]
-        )
+        fast_ema_period = int(frame["candidate_fast_ema_period"].iloc[0])
 
         if fast_ema_period == 3:
             metrics = {
                 "initial_capital": initial_capital,
-                "final_equity": (
-                    initial_capital * 1.20
-                ),
+                "final_equity": (initial_capital * 1.20),
                 "total_return": 0.20,
                 "benchmark_total_return": 0.30,
                 "cagr": 0.20,
@@ -161,9 +145,7 @@ def _install_deterministic_robust_scoring_mocks(
         else:
             metrics = {
                 "initial_capital": initial_capital,
-                "final_equity": (
-                    initial_capital * 1.50
-                ),
+                "final_equity": (initial_capital * 1.50),
                 "total_return": 0.50,
                 "benchmark_total_return": 0.30,
                 "cagr": 0.50,
@@ -182,9 +164,7 @@ def _install_deterministic_robust_scoring_mocks(
                 "cost_per_side": cost_per_side,
             }
 
-        return SimpleNamespace(
-            metrics=metrics
-        )
+        return SimpleNamespace(metrics=metrics)
 
     monkeypatch.setattr(
         optimization_module,
@@ -203,8 +183,7 @@ def _install_deterministic_robust_scoring_mocks(
     )
 
 
-def test_batch_walk_forward_optimization_runs_multiple_symbols(
-) -> None:
+def test_batch_walk_forward_optimization_runs_multiple_symbols() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -223,9 +202,7 @@ def test_batch_walk_forward_optimization_runs_multiple_symbols(
         "SPY",
         "QQQ",
     )
-    assert result.score_metric == (
-        "total_return"
-    )
+    assert result.score_metric == ("total_return")
     assert result.train_size == 40
     assert result.test_size == 20
     assert result.step_size == 20
@@ -235,18 +212,11 @@ def test_batch_walk_forward_optimization_runs_multiple_symbols(
         "SPY",
         "QQQ",
     }
-    assert (
-        result.results["SPY"].symbol
-        == "SPY"
-    )
-    assert (
-        result.results["QQQ"].symbol
-        == "QQQ"
-    )
+    assert result.results["SPY"].symbol == "SPY"
+    assert result.results["QQQ"].symbol == "QQQ"
 
 
-def test_batch_walk_forward_optimization_normalizes_symbols(
-) -> None:
+def test_batch_walk_forward_optimization_normalizes_symbols() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -267,8 +237,7 @@ def test_batch_walk_forward_optimization_normalizes_symbols(
     )
 
 
-def test_batch_walk_forward_optimization_uses_default_step_size(
-) -> None:
+def test_batch_walk_forward_optimization_uses_default_step_size() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -284,8 +253,7 @@ def test_batch_walk_forward_optimization_uses_default_step_size(
     assert result.step_size == 20
 
 
-def test_batch_walk_forward_optimization_rejects_empty_frame(
-) -> None:
+def test_batch_walk_forward_optimization_rejects_empty_frame() -> None:
     with pytest.raises(
         ValueError,
         match="dataset batch è vuoto",
@@ -301,8 +269,7 @@ def test_batch_walk_forward_optimization_rejects_empty_frame(
         )
 
 
-def test_batch_walk_forward_optimization_requires_symbol_column(
-) -> None:
+def test_batch_walk_forward_optimization_requires_symbol_column() -> None:
     frame = pd.DataFrame(
         {
             "timestamp": pd.date_range(
@@ -328,8 +295,7 @@ def test_batch_walk_forward_optimization_requires_symbol_column(
         )
 
 
-def test_batch_walk_forward_optimization_rejects_empty_symbols(
-) -> None:
+def test_batch_walk_forward_optimization_rejects_empty_symbols() -> None:
     with pytest.raises(
         ValueError,
         match="almeno un simbolo",
@@ -343,8 +309,7 @@ def test_batch_walk_forward_optimization_rejects_empty_symbols(
         )
 
 
-def test_batch_walk_forward_optimization_rejects_missing_symbols(
-) -> None:
+def test_batch_walk_forward_optimization_rejects_missing_symbols() -> None:
     with pytest.raises(
         ValueError,
         match="Simboli non trovati",
@@ -361,8 +326,7 @@ def test_batch_walk_forward_optimization_rejects_missing_symbols(
         )
 
 
-def test_batch_walk_forward_optimization_to_dict(
-) -> None:
+def test_batch_walk_forward_optimization_to_dict() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -377,11 +341,7 @@ def test_batch_walk_forward_optimization_to_dict(
         minimum_completed_trades=0,
     )
 
-    report = (
-        batch_walk_forward_optimization_to_dict(
-            result
-        )
-    )
+    report = batch_walk_forward_optimization_to_dict(result)
 
     assert report["symbols"] == [
         "SPY",
@@ -403,16 +363,12 @@ def test_batch_walk_forward_optimization_to_dict(
         "SPY",
         "QQQ",
     }
-    assert (
-        results["SPY"]["symbol"]
-        == "SPY"
-    )
+    assert results["SPY"]["symbol"] == "SPY"
     assert "summary" in results["SPY"]
     assert "windows" in results["SPY"]
 
 
-def test_batch_walk_forward_optimization_to_frame(
-) -> None:
+def test_batch_walk_forward_optimization_to_frame() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -427,16 +383,10 @@ def test_batch_walk_forward_optimization_to_frame(
         minimum_completed_trades=0,
     )
 
-    frame = (
-        batch_walk_forward_optimization_to_frame(
-            result
-        )
-    )
+    frame = batch_walk_forward_optimization_to_frame(result)
 
     assert not frame.empty
-    assert set(
-        frame["symbol"].unique()
-    ) == {
+    assert set(frame["symbol"].unique()) == {
         "SPY",
         "QQQ",
     }
@@ -452,13 +402,10 @@ def test_batch_walk_forward_optimization_to_frame(
         "out_of_sample_total_return",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
-def test_batch_walk_forward_comparison_to_frame(
-) -> None:
+def test_batch_walk_forward_comparison_to_frame() -> None:
     result = run_batch_walk_forward_optimization(
         _sample_batch_frame(),
         [
@@ -473,11 +420,7 @@ def test_batch_walk_forward_comparison_to_frame(
         minimum_completed_trades=0,
     )
 
-    frame = (
-        batch_walk_forward_comparison_to_frame(
-            result
-        )
-    )
+    frame = batch_walk_forward_comparison_to_frame(result)
 
     assert frame["symbol"].tolist() == [
         "SPY",
@@ -501,17 +444,13 @@ def test_batch_walk_forward_comparison_to_frame(
         "total_completed_trades",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
 
 def test_batch_walk_forward_optimization_supports_robust_scoring(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     config = RobustScoreConfig(
         sharpe_weight=1.5,
@@ -542,32 +481,19 @@ def test_batch_walk_forward_optimization_supports_robust_scoring(
     for symbol in result.symbols:
         symbol_result = result.results[symbol]
 
-        assert (
-            symbol_result.score_metric
-            == "robust_score"
-        )
-        assert (
-            symbol_result.robust_score_config
-            == config
-        )
+        assert symbol_result.score_metric == "robust_score"
+        assert symbol_result.robust_score_config == config
         assert len(symbol_result.windows) > 0
 
         for window in symbol_result.windows:
             assert window.robust_score is not None
-            assert (
-                window.selected_score
-                == pytest.approx(
-                    window.robust_score.score
-                )
-            )
+            assert window.selected_score == pytest.approx(window.robust_score.score)
 
 
 def test_batch_walk_forward_optimization_robust_config_is_serialized(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     config = RobustScoreConfig(
         sharpe_weight=1.5,
@@ -591,11 +517,7 @@ def test_batch_walk_forward_optimization_robust_config_is_serialized(
         robust_score_config=config,
     )
 
-    report = (
-        batch_walk_forward_optimization_to_dict(
-            result
-        )
-    )
+    report = batch_walk_forward_optimization_to_dict(result)
 
     assert report["robust_score_config"] == {
         "sharpe_weight": 1.5,
@@ -609,9 +531,7 @@ def test_batch_walk_forward_optimization_robust_config_is_serialized(
 def test_batch_walk_forward_comparison_includes_robust_config_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _install_deterministic_robust_scoring_mocks(
-        monkeypatch
-    )
+    _install_deterministic_robust_scoring_mocks(monkeypatch)
 
     config = RobustScoreConfig(
         sharpe_weight=1.5,
@@ -636,11 +556,7 @@ def test_batch_walk_forward_comparison_includes_robust_config_columns(
         robust_score_config=config,
     )
 
-    frame = (
-        batch_walk_forward_comparison_to_frame(
-            result
-        )
-    )
+    frame = batch_walk_forward_comparison_to_frame(result)
 
     expected_columns = {
         "robust_sharpe_weight",
@@ -650,12 +566,8 @@ def test_batch_walk_forward_comparison_includes_robust_config_columns(
         "robust_target_completed_trades",
     }
 
-    assert expected_columns.issubset(
-        frame.columns
-    )
+    assert expected_columns.issubset(frame.columns)
 
-    assert set(
-        frame["robust_target_completed_trades"]
-    ) == {
+    assert set(frame["robust_target_completed_trades"]) == {
         5,
     }

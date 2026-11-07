@@ -31,9 +31,7 @@ def test_batch_validate_parser_reads_arguments() -> None:
     )
 
     assert args.command == "batch-validate"
-    assert args.input == Path(
-        "data/processed/features.csv"
-    )
+    assert args.input == Path("data/processed/features.csv")
     assert args.symbols == [
         "SPY",
         "QQQ",
@@ -44,12 +42,8 @@ def test_batch_validate_parser_reads_arguments() -> None:
         1,
         1,
     )
-    assert args.initial_capital == pytest.approx(
-        15_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.002
-    )
+    assert args.initial_capital == pytest.approx(15_000.0)
+    assert args.cost_per_side == pytest.approx(0.002)
 
 
 def test_batch_validate_requires_symbols() -> None:
@@ -89,19 +83,13 @@ def test_walk_forward_parser_reads_arguments() -> None:
     )
 
     assert args.command == "walk-forward"
-    assert args.input == Path(
-        "data/processed/features.csv"
-    )
+    assert args.input == Path("data/processed/features.csv")
     assert args.symbol == "SPY"
     assert args.train_size == 1000
     assert args.test_size == 252
     assert args.step_size == 126
-    assert args.initial_capital == pytest.approx(
-        20_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.0015
-    )
+    assert args.initial_capital == pytest.approx(20_000.0)
+    assert args.cost_per_side == pytest.approx(0.0015)
 
 
 def test_walk_forward_requires_window_sizes() -> None:
@@ -143,9 +131,7 @@ def test_batch_walk_forward_parser_reads_arguments() -> None:
     )
 
     assert args.command == "batch-walk-forward"
-    assert args.input == Path(
-        "data/processed/features.csv"
-    )
+    assert args.input == Path("data/processed/features.csv")
     assert args.symbols == [
         "SPY",
         "QQQ",
@@ -154,12 +140,8 @@ def test_batch_walk_forward_parser_reads_arguments() -> None:
     assert args.train_size == 1000
     assert args.test_size == 252
     assert args.step_size == 126
-    assert args.initial_capital == pytest.approx(
-        25_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.002
-    )
+    assert args.initial_capital == pytest.approx(25_000.0)
+    assert args.cost_per_side == pytest.approx(0.002)
 
 
 def test_batch_walk_forward_requires_arguments() -> None:
@@ -219,22 +201,14 @@ def test_analyze_parser_reads_custom_strategy_parameters() -> None:
     )
 
     assert args.command == "analyze"
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
-    assert args.output == Path(
-        "data/processed/custom.csv"
-    )
+    assert args.input == Path("data/raw/bars.csv")
+    assert args.output == Path("data/processed/custom.csv")
     assert args.fast_ema_period == 10
     assert args.slow_ema_period == 30
     assert args.trend_ema_period == 100
     assert args.rsi_period == 7
-    assert args.rsi_lower == pytest.approx(
-        40.0
-    )
-    assert args.rsi_upper == pytest.approx(
-        80.0
-    )
+    assert args.rsi_lower == pytest.approx(40.0)
+    assert args.rsi_upper == pytest.approx(80.0)
     assert args.atr_period == 10
     assert args.volume_period == 15
     assert args.breakout_period == 25
@@ -258,12 +232,8 @@ def test_run_parser_uses_default_strategy_parameters() -> None:
     assert args.slow_ema_period == 50
     assert args.trend_ema_period == 200
     assert args.rsi_period == 14
-    assert args.rsi_lower == pytest.approx(
-        50.0
-    )
-    assert args.rsi_upper == pytest.approx(
-        70.0
-    )
+    assert args.rsi_lower == pytest.approx(50.0)
+    assert args.rsi_upper == pytest.approx(70.0)
     assert args.atr_period == 14
     assert args.volume_period == 20
     assert args.breakout_period == 20
@@ -318,9 +288,7 @@ def test_grid_search_parser_reads_arguments() -> None:
     )
 
     assert args.command == "grid-search"
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbol == "SPY"
     assert args.fast_ema_periods == [
         10,
@@ -364,12 +332,8 @@ def test_grid_search_parser_reads_arguments() -> None:
     ]
     assert args.score_metric == "total_return"
     assert args.top == 5
-    assert args.initial_capital == pytest.approx(
-        15_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.002
-    )
+    assert args.initial_capital == pytest.approx(15_000.0)
+    assert args.cost_per_side == pytest.approx(0.002)
 
 
 def test_grid_search_parser_uses_defaults() -> None:
@@ -384,9 +348,7 @@ def test_grid_search_parser_uses_defaults() -> None:
     )
 
     assert args.command == "grid-search"
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbol == "SPY"
     assert args.fast_ema_periods == [
         20,
@@ -419,17 +381,10 @@ def test_grid_search_parser_uses_defaults() -> None:
     assert args.breakout_periods == [
         20,
     ]
-    assert (
-        args.score_metric
-        == "annualized_sharpe"
-    )
+    assert args.score_metric == "annualized_sharpe"
     assert args.top == 10
-    assert args.initial_capital == pytest.approx(
-        10_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.001
-    )
+    assert args.initial_capital == pytest.approx(10_000.0)
+    assert args.cost_per_side == pytest.approx(0.001)
 
 
 def test_grid_search_requires_symbol() -> None:
@@ -497,12 +452,8 @@ def test_optimize_walk_forward_parser_reads_arguments() -> None:
         ]
     )
 
-    assert args.command == (
-        "optimize-walk-forward"
-    )
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.command == ("optimize-walk-forward")
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbol == "SPY"
     assert args.train_size == 1000
     assert args.test_size == 252
@@ -549,12 +500,8 @@ def test_optimize_walk_forward_parser_reads_arguments() -> None:
     ]
     assert args.score_metric == "total_return"
     assert args.minimum_completed_trades == 5
-    assert args.initial_capital == pytest.approx(
-        25_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.002
-    )
+    assert args.initial_capital == pytest.approx(25_000.0)
+    assert args.cost_per_side == pytest.approx(0.002)
 
 
 def test_optimize_walk_forward_parser_uses_defaults() -> None:
@@ -572,12 +519,8 @@ def test_optimize_walk_forward_parser_uses_defaults() -> None:
         ]
     )
 
-    assert args.command == (
-        "optimize-walk-forward"
-    )
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.command == ("optimize-walk-forward")
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbol == "SPY"
     assert args.train_size == 1000
     assert args.test_size == 252
@@ -613,17 +556,10 @@ def test_optimize_walk_forward_parser_uses_defaults() -> None:
     assert args.breakout_periods == [
         20,
     ]
-    assert (
-        args.score_metric
-        == "annualized_sharpe"
-    )
+    assert args.score_metric == "annualized_sharpe"
     assert args.minimum_completed_trades == 1
-    assert args.initial_capital == pytest.approx(
-        10_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.001
-    )
+    assert args.initial_capital == pytest.approx(10_000.0)
+    assert args.cost_per_side == pytest.approx(0.001)
 
 
 def test_optimize_walk_forward_requires_arguments() -> None:
@@ -708,12 +644,8 @@ def test_batch_optimize_walk_forward_parser_reads_arguments() -> None:
         ]
     )
 
-    assert args.command == (
-        "batch-optimize-walk-forward"
-    )
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.command == ("batch-optimize-walk-forward")
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbols == [
         "SPY",
         "QQQ",
@@ -766,12 +698,8 @@ def test_batch_optimize_walk_forward_parser_reads_arguments() -> None:
     ]
     assert args.score_metric == "total_return"
     assert args.minimum_completed_trades == 5
-    assert args.initial_capital == pytest.approx(
-        25_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.002
-    )
+    assert args.initial_capital == pytest.approx(25_000.0)
+    assert args.cost_per_side == pytest.approx(0.002)
 
 
 def test_batch_optimize_walk_forward_parser_uses_defaults() -> None:
@@ -790,12 +718,8 @@ def test_batch_optimize_walk_forward_parser_uses_defaults() -> None:
         ]
     )
 
-    assert args.command == (
-        "batch-optimize-walk-forward"
-    )
-    assert args.input == Path(
-        "data/raw/bars.csv"
-    )
+    assert args.command == ("batch-optimize-walk-forward")
+    assert args.input == Path("data/raw/bars.csv")
     assert args.symbols == [
         "SPY",
         "QQQ",
@@ -834,17 +758,10 @@ def test_batch_optimize_walk_forward_parser_uses_defaults() -> None:
     assert args.breakout_periods == [
         20,
     ]
-    assert (
-        args.score_metric
-        == "annualized_sharpe"
-    )
+    assert args.score_metric == "annualized_sharpe"
     assert args.minimum_completed_trades == 1
-    assert args.initial_capital == pytest.approx(
-        10_000.0
-    )
-    assert args.cost_per_side == pytest.approx(
-        0.001
-    )
+    assert args.initial_capital == pytest.approx(10_000.0)
+    assert args.cost_per_side == pytest.approx(0.001)
 
 
 def test_batch_optimize_walk_forward_requires_arguments() -> None:
@@ -881,8 +798,7 @@ def test_batch_optimize_walk_forward_requires_arguments() -> None:
         )
 
 
-def test_grid_search_parser_reads_robust_scoring_arguments(
-) -> None:
+def test_grid_search_parser_reads_robust_scoring_arguments() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
@@ -906,35 +822,14 @@ def test_grid_search_parser_reads_robust_scoring_arguments(
     )
 
     assert args.score_metric == "robust_score"
-    assert args.robust_sharpe_weight == pytest.approx(
-        1.5
-    )
-    assert (
-        args.robust_excess_return_weight
-        == pytest.approx(
-            2.0
-        )
-    )
-    assert (
-        args.robust_drawdown_weight
-        == pytest.approx(
-            0.75
-        )
-    )
-    assert (
-        args.robust_trade_shortfall_weight
-        == pytest.approx(
-            0.25
-        )
-    )
-    assert (
-        args.robust_target_completed_trades
-        == 30
-    )
+    assert args.robust_sharpe_weight == pytest.approx(1.5)
+    assert args.robust_excess_return_weight == pytest.approx(2.0)
+    assert args.robust_drawdown_weight == pytest.approx(0.75)
+    assert args.robust_trade_shortfall_weight == pytest.approx(0.25)
+    assert args.robust_target_completed_trades == 30
 
 
-def test_optimize_walk_forward_parser_supports_robust_scoring(
-) -> None:
+def test_optimize_walk_forward_parser_supports_robust_scoring() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
@@ -952,35 +847,14 @@ def test_optimize_walk_forward_parser_supports_robust_scoring(
     )
 
     assert args.score_metric == "robust_score"
-    assert args.robust_sharpe_weight == pytest.approx(
-        1.0
-    )
-    assert (
-        args.robust_excess_return_weight
-        == pytest.approx(
-            1.0
-        )
-    )
-    assert (
-        args.robust_drawdown_weight
-        == pytest.approx(
-            1.0
-        )
-    )
-    assert (
-        args.robust_trade_shortfall_weight
-        == pytest.approx(
-            0.5
-        )
-    )
-    assert (
-        args.robust_target_completed_trades
-        == 20
-    )
+    assert args.robust_sharpe_weight == pytest.approx(1.0)
+    assert args.robust_excess_return_weight == pytest.approx(1.0)
+    assert args.robust_drawdown_weight == pytest.approx(1.0)
+    assert args.robust_trade_shortfall_weight == pytest.approx(0.5)
+    assert args.robust_target_completed_trades == 20
 
 
-def test_batch_optimize_walk_forward_parser_supports_robust_scoring(
-) -> None:
+def test_batch_optimize_walk_forward_parser_supports_robust_scoring() -> None:
     parser = build_parser()
 
     args = parser.parse_args(
@@ -1001,14 +875,10 @@ def test_batch_optimize_walk_forward_parser_supports_robust_scoring(
     )
 
     assert args.score_metric == "robust_score"
-    assert (
-        args.robust_target_completed_trades
-        == 40
-    )
+    assert args.robust_target_completed_trades == 40
 
 
-def test_robust_score_config_from_args_builds_only_for_robust_metric(
-) -> None:
+def test_robust_score_config_from_args_builds_only_for_robust_metric() -> None:
     parser = build_parser()
 
     robust_args = parser.parse_args(
@@ -1031,32 +901,13 @@ def test_robust_score_config_from_args_builds_only_for_robust_metric(
         ]
     )
 
-    config = _robust_score_config_from_args(
-        robust_args
-    )
+    config = _robust_score_config_from_args(robust_args)
 
     assert config is not None
-    assert config.sharpe_weight == pytest.approx(
-        1.25
-    )
-    assert (
-        config.excess_return_weight
-        == pytest.approx(
-            1.75
-        )
-    )
-    assert (
-        config.drawdown_weight
-        == pytest.approx(
-            0.50
-        )
-    )
-    assert (
-        config.trade_shortfall_weight
-        == pytest.approx(
-            0.10
-        )
-    )
+    assert config.sharpe_weight == pytest.approx(1.25)
+    assert config.excess_return_weight == pytest.approx(1.75)
+    assert config.drawdown_weight == pytest.approx(0.50)
+    assert config.trade_shortfall_weight == pytest.approx(0.10)
     assert config.target_completed_trades == 35
 
     standard_args = parser.parse_args(
@@ -1069,10 +920,4 @@ def test_robust_score_config_from_args_builds_only_for_robust_metric(
         ]
     )
 
-    assert (
-        _robust_score_config_from_args(
-            standard_args
-        )
-        is None
-    )
-
+    assert _robust_score_config_from_args(standard_args) is None
