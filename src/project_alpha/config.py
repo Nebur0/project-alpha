@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
@@ -42,8 +42,9 @@ class StrategyParameters:
 
 @dataclass(frozen=True)
 class Settings:
-    alpaca_api_key: str
-    alpaca_api_secret: str
+    # repr=False: le chiavi non compaiono mai in log, traceback o print.
+    alpaca_api_key: str = field(repr=False)
+    alpaca_api_secret: str = field(repr=False)
     alpaca_data_base_url: str = "https://data.alpaca.markets"
 
     @classmethod

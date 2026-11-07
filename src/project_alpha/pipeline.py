@@ -50,6 +50,7 @@ def fetch_and_save(
     start: date,
     end: date | None = None,
     output: Path = Path("data/raw/bars.csv"),
+    feed: str | None = None,
 ) -> pd.DataFrame:
     ensure_directories()
 
@@ -60,6 +61,7 @@ def fetch_and_save(
         symbols,
         start,
         end,
+        feed=feed,
     )
 
     write_csv_atomic(
