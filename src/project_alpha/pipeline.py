@@ -8,6 +8,7 @@ import pandas as pd
 
 from project_alpha.backtest import (
     BacktestResult,
+    ExecutionConfig,
     run_long_only_backtest,
 )
 from project_alpha.config import (
@@ -116,6 +117,7 @@ def backtest_and_save(
     symbol: str,
     initial_capital: float,
     cost_per_side: float,
+    execution: ExecutionConfig | None = None,
 ) -> BacktestResult:
     ensure_directories()
 
@@ -141,6 +143,7 @@ def backtest_and_save(
         selected,
         initial_capital=initial_capital,
         cost_per_side=cost_per_side,
+        execution=execution,
     )
 
     equity_path = (

@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from project_alpha.backtest import run_long_only_backtest
+from project_alpha.backtest import (
+    EXECUTION_MODES,
+    ExecutionConfig,
+    run_long_only_backtest,
+)
 from project_alpha.batch_optimization import (
     batch_walk_forward_comparison_to_frame,
     batch_walk_forward_optimization_to_dict,
@@ -304,6 +308,56 @@ def _robust_score_config_from_args(
             args.robust_target_completed_trades
         ),
     )
+
+
+EXECUTION_COMMANDS = (
+    "backtest",
+    "batch-backtest",
+    "run",
+    "grid-search",
+    "optimize-walk-forward",
+    "batch-optimize-walk-forward",
+)
+
+
+def _add_execution_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument(
+        "--execution-mode",
+        choices=list(EXECUTION_MODES),
+        default="close",
+        help=(
+            "Quando eseguire il segnale calcolato alla chiusura: "
+            "'close' (stessa chiusura, default storico) o "
+            "'next_open' (apertura del giorno dopo)."
+        ),
+    )
+    parser.add_argument(
+        "--execution-delay-days",
+        type=int,
+        default=0,
+        help="Giorni di ritardo aggiuntivi prima dell'esecuzione.",
+    )
+    parser.add_argument(
+        "--cash-rate",
+        type=float,
+        default=0.0,
+        help="Rendimento annuo della quota in cash (es. 0.03 = 3%%).",
+    )
+
+
+def _execution_from_args(
+    args: argparse.Namespace,
+) -> ExecutionConfig | None:
+    """None quando le opzioni sono quelle di default (comportamento storico)."""
+    execution = ExecutionConfig(
+        mode=getattr(args, "execution_mode", "close"),
+        delay_days=getattr(args, "execution_delay_days", 0),
+        cash_rate_annual=getattr(args, "cash_rate", 0.0),
+    )
+
+    return None if execution.is_default else execution
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -775,11 +829,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_strategy_arguments(run)
 
+    for command_name in EXECUTION_COMMANDS:
+        _add_execution_arguments(
+            commands.choices[command_name]
+        )
+
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    execution = _execution_from_args(args)
 
     if args.command == "fetch":
         frame = fetch_and_save(
@@ -812,6 +872,7 @@ def main() -> None:
             args.symbol,
             args.initial_capital,
             args.cost_per_side,
+            execution,
         )
 
         print(
@@ -834,6 +895,7 @@ def main() -> None:
                 normalized_symbol,
                 args.initial_capital,
                 args.cost_per_side,
+                execution,
             )
 
             results[normalized_symbol] = result.metrics
@@ -1526,6 +1588,7 @@ def main() -> None:
             robust_score_config=(
                 robust_score_config
             ),
+            execution=execution,
         )
 
         result_frame = (
@@ -1679,6 +1742,7 @@ def main() -> None:
             no_candidate_policy=(
                 args.no_candidate_policy
             ),
+            execution=execution,
         )
 
         report = (
@@ -1782,6 +1846,7 @@ def main() -> None:
                 no_candidate_policy=(
                     args.no_candidate_policy
                 ),
+                execution=execution,
             )
         )
 
@@ -1897,6 +1962,7 @@ def main() -> None:
             symbol,
             args.initial_capital,
             args.cost_per_side,
+            execution,
         )
 
         print(

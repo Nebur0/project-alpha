@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from project_alpha.backtest import (
+    ExecutionConfig,
     run_long_only_backtest,
 )
 from project_alpha.batch_optimization import (
@@ -123,6 +124,7 @@ def reconstruct_walk_forward_oos_curve(
     *,
     initial_capital: float = 10_000.0,
     cost_per_side: float = 0.001,
+    execution: ExecutionConfig | None = None,
 ) -> pd.DataFrame:
     if result.windows_overlap:
         raise ValueError(
@@ -180,10 +182,17 @@ def reconstruct_walk_forward_oos_curve(
                 )
             )
 
+        # Le selezioni dei parametri restano quelle del walk-forward
+        # (congelate): qui cambia solo come vengono eseguite.
         backtest = run_long_only_backtest(
             positioned,
             initial_capital=initial_capital,
             cost_per_side=cost_per_side,
+            execution=(
+                execution
+                if execution is not None
+                else result.execution
+            ),
         )
 
         curve = backtest.equity_curve.copy()
@@ -255,6 +264,7 @@ def run_walk_forward_portfolio_backtest(
     weights: Mapping[str, float] | None = None,
     initial_capital: float = 10_000.0,
     cost_per_side: float = 0.001,
+    execution: ExecutionConfig | None = None,
 ) -> WalkForwardPortfolioResult:
     if not batch_result.symbols:
         raise ValueError(
@@ -280,6 +290,7 @@ def run_walk_forward_portfolio_backtest(
                 batch_result.results[symbol],
                 initial_capital=initial_capital,
                 cost_per_side=cost_per_side,
+                execution=execution,
             )
         )
 

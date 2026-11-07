@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 
 import pandas as pd
 
+from project_alpha.backtest import ExecutionConfig
 from project_alpha.optimization import (
     GridValue,
     WalkForwardOptimizationResult,
@@ -91,6 +92,7 @@ def run_batch_walk_forward_optimization(
         RobustScoreConfig | None
     ) = None,
     no_candidate_policy: str = "raise",
+    execution: ExecutionConfig | None = None,
 ) -> BatchWalkForwardOptimizationResult:
     _validate_batch_frame(frame)
 
@@ -146,6 +148,7 @@ def run_batch_walk_forward_optimization(
                 robust_score_config
             ),
             no_candidate_policy=no_candidate_policy,
+            execution=execution,
         )
 
         results[symbol] = result
