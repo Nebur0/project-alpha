@@ -51,11 +51,18 @@ class WalkForwardOptimizationWindow:
     train_end: pd.Timestamp
     test_start: pd.Timestamp
     test_end: pd.Timestamp
-    selected_parameters: StrategyParameters
-    selected_score: float
+    selected_parameters: StrategyParameters | None
+    selected_score: float | None
     in_sample_metrics: dict[str, MetricValue]
     out_of_sample_metrics: dict[str, MetricValue]
     robust_score: RobustScoreResult | None = None
+    # Valorizzato quando nessun candidato ha superato i requisiti
+    # in-sample e la finestra OOS è stata tenuta flat (cash).
+    flat_reason: str | None = None
+
+    @property
+    def is_flat(self) -> bool:
+        return self.selected_parameters is None
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,41 @@ class WalkForwardOptimizationResult:
         ...,
     ]
     summary: dict[str, MetricValue]
+    no_candidate_policy: str = "raise"
+
+    @property
+    def flat_window_count(self) -> int:
+        return sum(
+            1
+            for window in self.windows
+            if window.is_flat
+        )
+
+
+INVALID_COMBINATION_POLICIES = (
+    "skip",
+    "raise",
+)
+
+# Cosa fare in una finestra walk-forward quando nessuna combinazione
+# soddisfa i requisiti minimi in-sample:
+# - "raise": interrompe l'intera ottimizzazione (comportamento storico);
+# - "flat": la finestra OOS resta in cash e viene marcata come flat.
+NO_CANDIDATE_POLICIES = (
+    "raise",
+    "flat",
+)
+
+
+@dataclass(frozen=True)
+class ParameterGridInspection:
+    valid: tuple[StrategyParameters, ...]
+    invalid_count: int
+    invalid_reasons: tuple[str, ...]
+
+    @property
+    def total_count(self) -> int:
+        return len(self.valid) + self.invalid_count
 
 
 def generate_strategy_parameters(
@@ -81,7 +123,46 @@ def generate_strategy_parameters(
         str,
         Sequence[GridValue],
     ],
+    *,
+    on_invalid: str = "skip",
 ) -> list[StrategyParameters]:
+    """Genera le combinazioni valide della griglia.
+
+    Con ``on_invalid="skip"`` (default) le combinazioni che violano i
+    vincoli di ``StrategyParameters`` (es. ``fast >= slow``) vengono
+    scartate; se nessuna è valida viene sollevato ``ValueError``.
+    Con ``on_invalid="raise"`` la prima combinazione invalida interrompe
+    la generazione (comportamento precedente).
+    """
+    if on_invalid not in INVALID_COMBINATION_POLICIES:
+        raise ValueError(
+            "on_invalid deve essere uno tra "
+            f"{list(INVALID_COMBINATION_POLICIES)}."
+        )
+
+    inspection = inspect_parameter_grid(
+        grid,
+        raise_on_invalid=(on_invalid == "raise"),
+    )
+
+    if not inspection.valid:
+        raise ValueError(
+            "Nessuna combinazione valida nella griglia "
+            f"({inspection.invalid_count} scartate). "
+            f"Primo motivo: {inspection.invalid_reasons[0]}"
+        )
+
+    return list(inspection.valid)
+
+
+def inspect_parameter_grid(
+    grid: Mapping[
+        str,
+        Sequence[GridValue],
+    ],
+    *,
+    raise_on_invalid: bool = False,
+) -> ParameterGridInspection:
     if not grid:
         raise ValueError(
             "La griglia dei parametri è vuota."
@@ -130,6 +211,7 @@ def generate_strategy_parameters(
     combinations: list[
         StrategyParameters
     ] = []
+    invalid_reasons: list[str] = []
 
     for values in product(
         *parameter_values
@@ -148,13 +230,23 @@ def generate_strategy_parameters(
             )
         )
 
-        combinations.append(
-            StrategyParameters(
-                **candidate_values
+        try:
+            combinations.append(
+                StrategyParameters(
+                    **candidate_values
+                )
             )
-        )
+        except ValueError as exc:
+            if raise_on_invalid:
+                raise
 
-    return combinations
+            invalid_reasons.append(str(exc))
+
+    return ParameterGridInspection(
+        valid=tuple(combinations),
+        invalid_count=len(invalid_reasons),
+        invalid_reasons=tuple(invalid_reasons),
+    )
 
 
 def _metric_as_float(
@@ -561,6 +653,24 @@ def _prepare_out_of_sample_frame(
     )
 
 
+def prepare_flat_out_of_sample_frame(
+    out_of_sample: pd.DataFrame,
+) -> pd.DataFrame:
+    """Finestra OOS senza posizione: la strategia resta in cash."""
+    if out_of_sample.empty:
+        raise ValueError(
+            "La finestra out-of-sample "
+            "preparata è vuota."
+        )
+
+    flat = out_of_sample.copy()
+    flat["entry_signal"] = False
+    flat["exit_signal"] = False
+    flat["target_position"] = 0
+
+    return flat
+
+
 def run_walk_forward_optimization(
     frame: pd.DataFrame,
     grid: Mapping[
@@ -580,10 +690,17 @@ def run_walk_forward_optimization(
     robust_score_config: (
         RobustScoreConfig | None
     ) = None,
+    no_candidate_policy: str = "raise",
 ) -> WalkForwardOptimizationResult:
     symbol = _validate_single_symbol_frame(
         frame
     )
+
+    if no_candidate_policy not in NO_CANDIDATE_POLICIES:
+        raise ValueError(
+            "no_candidate_policy deve essere uno tra "
+            f"{list(NO_CANDIDATE_POLICIES)}."
+        )
 
     _validate_backtest_arguments(
         initial_capital,
@@ -657,22 +774,39 @@ def run_walk_forward_optimization(
             )
         )
 
-        selected_result = (
-            _select_best_training_result(
-                training_results,
-                minimum_completed_trades=(
-                    minimum_completed_trades
-                ),
-            )
-        )
+        selected_result: GridSearchResult | None
+        flat_reason: str | None = None
 
-        positioned_out_of_sample = (
-            _prepare_out_of_sample_frame(
-                split.in_sample,
-                split.out_of_sample,
-                selected_result.parameters,
+        try:
+            selected_result = (
+                _select_best_training_result(
+                    training_results,
+                    minimum_completed_trades=(
+                        minimum_completed_trades
+                    ),
+                )
             )
-        )
+        except ValueError as exc:
+            if no_candidate_policy == "raise":
+                raise
+
+            selected_result = None
+            flat_reason = str(exc)
+
+        if selected_result is None:
+            positioned_out_of_sample = (
+                prepare_flat_out_of_sample_frame(
+                    split.out_of_sample
+                )
+            )
+        else:
+            positioned_out_of_sample = (
+                _prepare_out_of_sample_frame(
+                    split.in_sample,
+                    split.out_of_sample,
+                    selected_result.parameters,
+                )
+            )
 
         out_of_sample_result = (
             run_long_only_backtest(
@@ -715,19 +849,28 @@ def run_walk_forward_optimization(
                 ),
                 selected_parameters=(
                     selected_result.parameters
+                    if selected_result is not None
+                    else None
                 ),
                 selected_score=(
                     selected_result.score
+                    if selected_result is not None
+                    else None
                 ),
                 in_sample_metrics=(
                     selected_result.metrics
+                    if selected_result is not None
+                    else {}
                 ),
                 out_of_sample_metrics=(
                     sanitized_out_of_sample_metrics
                 ),
                 robust_score=(
                     selected_result.robust_score
+                    if selected_result is not None
+                    else None
                 ),
+                flat_reason=flat_reason,
             )
         )
 
@@ -756,7 +899,20 @@ def run_walk_forward_optimization(
         ),
         windows=tuple(windows),
         summary=summary,
+        no_candidate_policy=no_candidate_policy,
     )
+
+
+def _parameters_as_dict(
+    parameters: StrategyParameters | None,
+) -> dict[str, GridValue | None]:
+    if parameters is None:
+        return {
+            field.name: None
+            for field in fields(StrategyParameters)
+        }
+
+    return asdict(parameters)
 
 
 def walk_forward_optimization_to_dict(
@@ -786,9 +942,14 @@ def walk_forward_optimization_to_dict(
                     window.test_end
                     .isoformat()
                 ),
-                "selected_parameters": asdict(
-                    window.selected_parameters
+                "selected_parameters": (
+                    asdict(window.selected_parameters)
+                    if window.selected_parameters
+                    is not None
+                    else None
                 ),
+                "is_flat": window.is_flat,
+                "flat_reason": window.flat_reason,
                 "selected_score": (
                     window.selected_score
                 ),
@@ -825,6 +986,12 @@ def walk_forward_optimization_to_dict(
         "window_count": len(
             result.windows
         ),
+        "no_candidate_policy": (
+            result.no_candidate_policy
+        ),
+        "flat_window_count": (
+            result.flat_window_count
+        ),
         "windows_overlap": (
             result.windows_overlap
         ),
@@ -860,9 +1027,10 @@ def walk_forward_optimization_to_frame(
                 "test_end": (
                     window.test_end
                 ),
-                **asdict(
+                **_parameters_as_dict(
                     window.selected_parameters
                 ),
+                "is_flat": window.is_flat,
                 "score_metric": (
                     result.score_metric
                 ),

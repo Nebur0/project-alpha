@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
@@ -16,6 +15,10 @@ from project_alpha.batch_optimization import (
     run_batch_walk_forward_optimization,
 )
 from project_alpha.config import StrategyParameters
+from project_alpha.io_utils import (
+    dumps_json,
+    write_text_atomic,
+)
 from project_alpha.optimization import (
     grid_search_results_to_frame,
     run_parameter_grid_search,
@@ -638,6 +641,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     optimize_walk_forward.add_argument(
+        "--no-candidate-policy",
+        choices=["raise", "flat"],
+        default="raise",
+        help=(
+            "Se nessuna combinazione supera i requisiti "
+            "in-sample: 'raise' interrompe, 'flat' tiene "
+            "la finestra OOS in cash."
+        ),
+    )
+    optimize_walk_forward.add_argument(
         "--initial-capital",
         type=float,
         default=10_000.0,
@@ -705,6 +718,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Numero minimo di trade completati "
             "richiesto nella finestra in-sample."
+        ),
+    )
+    batch_optimize_walk_forward.add_argument(
+        "--no-candidate-policy",
+        choices=["raise", "flat"],
+        default="raise",
+        help=(
+            "Se nessuna combinazione supera i requisiti "
+            "in-sample: 'raise' interrompe, 'flat' tiene "
+            "la finestra OOS in cash."
         ),
     )
     batch_optimize_walk_forward.add_argument(
@@ -792,7 +815,7 @@ def main() -> None:
         )
 
         print(
-            json.dumps(
+            dumps_json(
                 result.metrics,
                 indent=2,
                 allow_nan=False,
@@ -823,15 +846,15 @@ def main() -> None:
             exist_ok=True,
         )
 
-        report_content = json.dumps(
+        report_content = dumps_json(
             results,
             indent=2,
             allow_nan=False,
         )
 
-        report_path.write_text(
+        write_text_atomic(
+            report_path,
             report_content,
-            encoding="utf-8",
         )
 
         csv_report_path = save_batch_summary_csv(
@@ -904,15 +927,15 @@ def main() -> None:
             exist_ok=True,
         )
 
-        report_content = json.dumps(
+        report_content = dumps_json(
             report,
             indent=2,
             allow_nan=False,
         )
 
-        report_path.write_text(
+        write_text_atomic(
+            report_path,
             report_content,
-            encoding="utf-8",
         )
 
         print(report_content)
@@ -1024,15 +1047,15 @@ def main() -> None:
             exist_ok=True,
         )
 
-        report_content = json.dumps(
+        report_content = dumps_json(
             results,
             indent=2,
             allow_nan=False,
         )
 
-        json_report_path.write_text(
+        write_text_atomic(
+            json_report_path,
             report_content,
-            encoding="utf-8",
         )
 
         pd.DataFrame(
@@ -1238,15 +1261,15 @@ def main() -> None:
             "results": results,
         }
 
-        report_content = json.dumps(
+        report_content = dumps_json(
             report,
             indent=2,
             allow_nan=False,
         )
 
-        json_report_path.write_text(
+        write_text_atomic(
+            json_report_path,
             report_content,
-            encoding="utf-8",
         )
 
         pd.DataFrame(
@@ -1427,15 +1450,15 @@ def main() -> None:
             exist_ok=True,
         )
 
-        report_content = json.dumps(
+        report_content = dumps_json(
             report,
             indent=2,
             allow_nan=False,
         )
 
-        json_report_path.write_text(
+        write_text_atomic(
+            json_report_path,
             report_content,
-            encoding="utf-8",
         )
 
         pd.DataFrame(
@@ -1572,13 +1595,13 @@ def main() -> None:
             exist_ok=True,
         )
 
-        json_report_path.write_text(
-            json.dumps(
+        write_text_atomic(
+            json_report_path,
+            dumps_json(
                 report,
                 indent=2,
                 allow_nan=False,
             ),
-            encoding="utf-8",
         )
 
         result_frame.to_csv(
@@ -1653,6 +1676,9 @@ def main() -> None:
             robust_score_config=(
                 robust_score_config
             ),
+            no_candidate_policy=(
+                args.no_candidate_policy
+            ),
         )
 
         report = (
@@ -1681,13 +1707,13 @@ def main() -> None:
             exist_ok=True,
         )
 
-        json_report_path.write_text(
-            json.dumps(
+        write_text_atomic(
+            json_report_path,
+            dumps_json(
                 report,
                 indent=2,
                 allow_nan=False,
             ),
-            encoding="utf-8",
         )
 
         result_frame.to_csv(
@@ -1696,7 +1722,7 @@ def main() -> None:
         )
 
         print(
-            json.dumps(
+            dumps_json(
                 report["summary"],
                 indent=2,
                 allow_nan=False,
@@ -1753,6 +1779,9 @@ def main() -> None:
                 robust_score_config=(
                     robust_score_config
                 ),
+                no_candidate_policy=(
+                    args.no_candidate_policy
+                ),
             )
         )
 
@@ -1792,13 +1821,13 @@ def main() -> None:
             exist_ok=True,
         )
 
-        json_report_path.write_text(
-            json.dumps(
+        write_text_atomic(
+            json_report_path,
+            dumps_json(
                 report,
                 indent=2,
                 allow_nan=False,
             ),
-            encoding="utf-8",
         )
 
         detailed_frame.to_csv(
@@ -1871,7 +1900,7 @@ def main() -> None:
         )
 
         print(
-            json.dumps(
+            dumps_json(
                 result.metrics,
                 indent=2,
                 allow_nan=False,

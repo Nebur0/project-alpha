@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -20,6 +19,10 @@ from project_alpha.data.alpaca import (
 )
 from project_alpha.indicators import (
     add_indicators,
+)
+from project_alpha.io_utils import (
+    write_csv_atomic,
+    write_json_atomic,
 )
 from project_alpha.strategy import (
     add_baseline_position,
@@ -60,9 +63,9 @@ def fetch_and_save(
         end,
     )
 
-    frame.to_csv(
+    write_csv_atomic(
+        frame,
         output,
-        index=False,
     )
 
     return frame
@@ -100,9 +103,9 @@ def analyze_and_save(
         parameters,
     )
 
-    enriched.to_csv(
+    write_csv_atomic(
+        enriched,
         output,
-        index=False,
     )
 
     return enriched
@@ -150,20 +153,17 @@ def backtest_and_save(
         / f"{symbol}_metrics.json"
     )
 
-    result.equity_curve.to_csv(
-        equity_path,
-        index=False,
+    # Le metriche vengono serializzate prima di scrivere qualsiasi
+    # file: metriche non finite (es. Sharpe senza trade) diventano
+    # null invece di lasciare un JSON troncato.
+    write_json_atomic(
+        metrics_path,
+        result.metrics,
     )
 
-    with metrics_path.open(
-        "w",
-        encoding="utf-8",
-    ) as handle:
-        json.dump(
-            result.metrics,
-            handle,
-            indent=2,
-            allow_nan=False,
-        )
+    write_csv_atomic(
+        result.equity_curve,
+        equity_path,
+    )
 
     return result

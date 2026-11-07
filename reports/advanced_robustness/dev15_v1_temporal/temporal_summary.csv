@@ -1,0 +1,2 @@
+cluster_count,total_symbol_windows,mean_cluster_strategy_return,median_cluster_strategy_return,mean_cluster_benchmark_return,median_cluster_benchmark_return,mean_cluster_excess_return,median_cluster_excess_return,positive_cluster_count,positive_cluster_rate,benchmark_beat_cluster_count,benchmark_beat_cluster_rate
+4,60,0.05648703847410911,0.05808096450121246,0.22774405599235698,0.3026445201611364,-0.17125701751824784,-0.24456355565992394,3,0.75,1,0.25
