@@ -1,0 +1,102 @@
+{
+  "run_id": "26cee9214d95",
+  "name": "etf_multiasset_v1",
+  "started_utc": "2026-11-07T15:18:51.832525+00:00",
+  "finished_utc": "2026-11-07T15:19:29.214810+00:00",
+  "config_file": "configs\\etf_multiasset_v1.toml",
+  "config": {
+    "data": "C:\\Users\\ruben\\OneDrive\\Desktop\\project-alpha-starter\\project-alpha-starter\\data\\raw\\bars_etf.csv",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "EFA",
+      "EEM",
+      "VNQ",
+      "TLT",
+      "IEF",
+      "LQD",
+      "GLD",
+      "DBC"
+    ],
+    "walk_forward": {
+      "train_size": 1000,
+      "test_size": 252,
+      "step_size": 252,
+      "score_metric": "robust_score",
+      "minimum_completed_trades": 1,
+      "no_candidate_policy": "flat",
+      "initial_capital": 10000.0,
+      "cost_per_side": 0.001
+    },
+    "grid": {
+      "fast_ema_period": [
+        10,
+        20,
+        25
+      ],
+      "slow_ema_period": [
+        30,
+        40,
+        50
+      ],
+      "trend_ema_period": [
+        100,
+        150
+      ]
+    },
+    "grid_size": 18,
+    "robust_score": null,
+    "execution": {
+      "mode": "next_open",
+      "delay_days": 0,
+      "cash_rate_annual": 0.0
+    },
+    "analysis": {
+      "costs_bps_per_side": [
+        0.0,
+        5.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "execution_stress": true,
+      "blend_defensive_weights": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "permutations": 5000,
+      "seed": 42,
+      "hac_lags": 10,
+      "vol_target_baselines": [
+        0.1,
+        0.06
+      ],
+      "vol_target_lookback_days": 63
+    }
+  },
+  "data": {
+    "path": "C:\\Users\\ruben\\OneDrive\\Desktop\\project-alpha-starter\\project-alpha-starter\\data\\raw\\bars_etf.csv",
+    "sha256": "b98e6490b77a6f47027be8ab1cec537bcd165619c5d838922f0fc366f5958b8b",
+    "rows": 30008,
+    "start": "2016-01-04T05:00:00+00:00",
+    "end": "2026-11-06T05:00:00+00:00",
+    "quality_ok": true,
+    "quality_issues": []
+  },
+  "git": {
+    "commit": "709a61658ed8e947077e640b3207650eab174335",
+    "dirty": false
+  },
+  "versions": {
+    "project_alpha": "0.1.0",
+    "python": "3.14.4",
+    "pandas": "3.0.3",
+    "numpy": "2.5.1"
+  },
+  "config_sha256": "97397ed2a8090a10c1706da0b9e77168e3ef525364d32467082a5b6015d3e979",
+  "trials_on_same_data": 1
+}

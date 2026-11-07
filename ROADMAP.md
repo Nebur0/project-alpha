@@ -44,8 +44,9 @@ valutazione standard.
 
 **Fasi successive, stato (novembre 2026):**
 
-- Fase 1: configurazione pronta (`configs/etf_multiasset_v1.toml`, PR #22),
-  servono i dati ETF scaricati in locale.
+- Fase 1: eseguita il 2026-11-07 (run `26cee9214d95`, report in
+  `reports/research/etf_multiasset_v1/`). Esito: V1 non supera il test
+  (vedi sotto); decisione del proprietario in attesa.
 - Fase 2: Risk Engine V2, portafoglio di policy con vol targeting e
   template IPS fatti (PR #21); i valori dell'IPS li decide il proprietario.
 - Fase 3: registro forward dei segnali fatto (PR #22); il paper trading con
@@ -58,6 +59,21 @@ e su ETF multi-asset.
 
 **Decisione:** V1 resta come overlay difensivo oppure viene archiviata.
 In entrambi i casi la piattaforma resta e diventa la base per altri motori.
+
+**Risultati (11 ETF, 2016 → 2026, esecuzione next_open, 6 finestre OOS):**
+
+| Portafoglio | CAGR | Sharpe |
+|---|---|---|
+| V1 (esposizione media 20,7%) | 0,52% | 0,18 |
+| Statico alla stessa esposizione | 1,88% | 0,71 |
+| Passivo equal-weight 100% | 8,68% | 0,71 (MaxDD −22,7%) |
+| Vol target 10% | 5,6% | 0,60 |
+
+- Alfa CAPM −0,33% (t −0,28); test di permutazione del timing p = 0,94.
+- V1 peggio dello statico in 4 finestre su 6; nel 2022 solo +0,4 punti.
+- Con esecuzione a close −0,13%, con un giorno di ritardo 0,09%.
+- Il vantaggio del vol targeting visto su DEV15 (Sharpe 1,04) non si
+  ripete sugli ETF (0,60, sotto il passivo): non è robusto.
 
 ## Fase 2 — Portafoglio di policy
 

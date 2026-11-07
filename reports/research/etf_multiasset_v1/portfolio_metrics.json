@@ -1,0 +1,17 @@
+{
+  "initial_capital": 10000.0,
+  "final_equity": 10316.320124789218,
+  "total_return": 0.03163201247892178,
+  "cagr": 0.005207283789516071,
+  "annualized_sharpe": 0.17767034553074554,
+  "annualized_volatility": 0.03211881174581812,
+  "max_drawdown": -0.05054802833040106,
+  "benchmark_final_equity": 16473.200681646435,
+  "benchmark_total_return": 0.6473200681646434,
+  "benchmark_cagr": 0.08680987523921657,
+  "benchmark_annualized_sharpe": 0.7081596654069581,
+  "benchmark_annualized_volatility": 0.12934222295116551,
+  "benchmark_max_drawdown": -0.22723695368713004,
+  "mean_gross_exposure": 0.2068302068302068,
+  "symbol_count": 11
+}
