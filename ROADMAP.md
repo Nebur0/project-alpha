@@ -53,6 +53,8 @@ valutazione standard.
 - Fase 3: registro forward dei segnali (PR #22) e paper trading del core su
   Alpaca paper, autorizzato dal proprietario il 2026-11-07
   (`scripts/daily_paper.sh`, registro `reports/paper/paper_log.csv`).
+- Fase 5 (anticipata in parte): dashboard locale in sola lettura
+  (`project-alpha dashboard`).
 
 ## Fase 1 — La verità su V1
 

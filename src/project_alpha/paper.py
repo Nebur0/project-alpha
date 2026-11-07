@@ -59,6 +59,8 @@ PAPER_LOG_COLUMNS = (
     "orders",
     "max_weight_error",
     "note",
+    "target_weights",
+    "current_weights",
 )
 
 
@@ -81,6 +83,9 @@ class PaperConfig:
     log: Path
     state: Path
     groups: Mapping[str, str] = field(default_factory=dict)
+    # Perdita massima dichiarata nell'IPS (solo informativa: la fanno rispettare
+    # risk.max_drawdown e stop_drawdown, che devono stare sotto).
+    ips_max_drawdown: float | None = None
 
     def __post_init__(self) -> None:
         if not isfinite(self.budget) or self.budget <= 0:
@@ -106,6 +111,9 @@ class PaperConfig:
                 "stop_drawdown deve essere almeno pari al drawdown della modalità "
                 "solo-riduzione del Risk Engine (prima si smette di aumentare, poi si esce)."
             )
+
+        if self.ips_max_drawdown is not None and self.stop_drawdown >= self.ips_max_drawdown:
+            raise ValueError("stop_drawdown deve essere inferiore alla perdita massima dell'IPS.")
 
         for name in ("drift_threshold", "exposure_threshold"):
             value = getattr(self, name)
@@ -207,6 +215,7 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         "log",
         "state",
         "stop_drawdown",
+        "ips_max_drawdown",
         "drift_threshold",
         "exposure_threshold",
         "weights",
@@ -254,6 +263,9 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         groups=groups,
         vol_target=vol_target,
         stop_drawdown=float(raw["stop_drawdown"]),
+        ips_max_drawdown=(
+            None if raw.get("ips_max_drawdown") is None else float(raw["ips_max_drawdown"])
+        ),
         drift_threshold=float(raw.get("drift_threshold", 0.03)),
         exposure_threshold=float(raw.get("exposure_threshold", 0.05)),
         risk=risk,
@@ -358,7 +370,8 @@ def _append_log(path: Path, row: Mapping[str, Any]) -> None:
     else:
         log = pd.DataFrame([row], columns=list(PAPER_LOG_COLUMNS))
 
-    write_csv_atomic(log[list(PAPER_LOG_COLUMNS)], path)
+    # reindex: un registro scritto da una versione precedente acquista le nuove colonne.
+    write_csv_atomic(log.reindex(columns=list(PAPER_LOG_COLUMNS)), path)
 
 
 def run_paper(
@@ -489,6 +502,8 @@ def run_paper(
             "orders": "" if result is None else dumps_json(_orders_summary(result)),
             "max_weight_error": None if result is None else result.max_weight_error,
             "note": note,
+            "target_weights": dumps_json({k: round(v, 6) for k, v in target_weights.items()}),
+            "current_weights": dumps_json({k: round(v, 6) for k, v in current.items()}),
         },
     )
 
