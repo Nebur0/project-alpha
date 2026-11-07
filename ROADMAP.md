@@ -42,6 +42,15 @@ Principi:
 **Uscita:** ogni risultato si rigenera con un comando ed è accompagnato dalla
 valutazione standard.
 
+**Fasi successive, stato (novembre 2026):**
+
+- Fase 1: configurazione pronta (`configs/etf_multiasset_v1.toml`, PR #22),
+  servono i dati ETF scaricati in locale.
+- Fase 2: Risk Engine V2, portafoglio di policy con vol targeting e
+  template IPS fatti (PR #21); i valori dell'IPS li decide il proprietario.
+- Fase 3: registro forward dei segnali fatto (PR #22); il paper trading con
+  ordini richiede l'ok esplicito del proprietario.
+
 ## Fase 1 — La verità su V1
 
 V1 congelata, rivalutata con esecuzione realistica, su più storia possibile
