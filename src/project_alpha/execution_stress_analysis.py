@@ -23,7 +23,6 @@ from project_alpha.portfolio_walk_forward import (
     run_walk_forward_portfolio_backtest,
 )
 
-
 DEFAULT_EXECUTION_SCENARIOS: tuple[tuple[str, ExecutionConfig], ...] = (
     ("close", ExecutionConfig(mode="close")),
     ("next_open", ExecutionConfig(mode="next_open")),
