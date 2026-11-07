@@ -48,6 +48,7 @@ Dati di mercato (Alpaca, daily OHLCV)
                                       broker simulato, adattatore Alpaca SOLO paper,
                                       ribilanciamento dietro il Risk Engine
   → Paper trading del core            paper.py (IPS → pesi target, stop di drawdown, registro)
+  → Dashboard locale                  dashboard/ (sola lettura, 127.0.0.1)
 ```
 
 Analisi di robustezza storiche (usate per i report in
@@ -141,6 +142,18 @@ passa dal Risk Engine V2; a −12% dal massimo vende tutto e si ferma finché
 non viene sbloccato a mano. Ogni esecuzione aggiunge una riga a
 `reports/paper/paper_log.csv` (da versionare). Pianificazione su Windows
 come per i segnali, con `scripts/daily_paper.sh`.
+
+### Dashboard (sola lettura)
+
+```bash
+project-alpha dashboard          # poi apri http://127.0.0.1:8050
+```
+
+Mostra equity e distanza dal massimo del conto paper con i limiti dell'IPS,
+allocazione target e attuale, ordini dell'ultima sera, registro dei segnali
+e risultati della ricerca. Si aggiorna da sola ogni minuto. Legge solo i
+file del repository (mai `.env`, mai il broker), ascolta solo su
+`127.0.0.1` e non ha pulsanti che inviano ordini.
 
 ### Fase 1: V1 congelata su ETF multi-asset
 

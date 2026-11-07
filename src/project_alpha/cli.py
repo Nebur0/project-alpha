@@ -810,6 +810,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resume.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
 
+    dashboard = commands.add_parser(
+        "dashboard",
+        help="Dashboard locale in sola lettura (http://127.0.0.1:8050).",
+    )
+    dashboard.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/paper_core_v1.toml"),
+        help="Configurazione paper da mostrare.",
+    )
+    dashboard.add_argument("--port", type=int, default=8050, help="Porta locale (default 8050).")
+
     for command_name in EXECUTION_COMMANDS:
         _add_execution_arguments(commands.choices[command_name])
 
@@ -1627,6 +1639,12 @@ def main() -> None:
 
         state = resume_paper(load_paper_config(args.config))
         print(dumps_json({"halted": state.halted, "peak_equity": state.peak_equity}, indent=2))
+        return
+
+    if args.command == "dashboard":
+        from project_alpha.dashboard.server import serve
+
+        serve(Path.cwd(), args.config, port=args.port)
         return
 
     if args.command == "run":

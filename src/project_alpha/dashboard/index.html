@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Alpha</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --border: #e2e0da;
+  --grid: #ecebe6;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --good-text: #006300;
+  --critical-text: #b02a2a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --border: #2f2f2c;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --good-text: #4cc94c;
+    --critical-text: #ef7b7b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211;
+  --surface-1: #1a1a19;
+  --border: #2f2f2c;
+  --grid: #262624;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e86;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --good-text: #4cc94c;
+  --critical-text: #ef7b7b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 18px 24px; border-bottom: 1px solid var(--border); background: var(--surface-1);
+}
+header h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+header .sub { color: var(--text-secondary); font-size: 13px; }
+header .spacer { flex: 1; }
+header button {
+  font: inherit; font-size: 13px; color: var(--text-secondary); background: none;
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+}
+main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+.card {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; min-width: 0;
+}
+.card h2 { font-size: 14px; margin: 0 0 2px; }
+.card .hint { color: var(--text-muted); font-size: 12.5px; margin: 0 0 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .label { color: var(--text-secondary); font-size: 12.5px; }
+.tile .value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-top: 2px; }
+.tile .foot { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+  border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--text-primary);
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--text-muted); font-size: 11px; }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: nowrap; display: none; z-index: 2;
+}
+.tooltip .muted { color: var(--text-secondary); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--grid); padding: 6px 8px; }
+td.num, th.num { text-align: right; }
+.table-wrap { overflow-x: auto; }
+.empty { color: var(--text-secondary); background: var(--surface-0); border: 1px dashed var(--border); border-radius: 8px; padding: 14px; }
+.empty code { font-size: 12.5px; }
+.pos { color: var(--good-text); }
+.neg { color: var(--critical-text); }
+details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5px; margin-top: 10px; }
+.banner { border-radius: 8px; padding: 10px 14px; border: 1px solid var(--critical); color: var(--text-primary); }
+.banner strong { color: var(--critical-text); }
+.err { color: var(--critical-text); }
+@media (max-width: 520px) { header { padding: 14px 16px; } .tile .value { font-size: 20px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Project Alpha</h1>
+  <span class="sub" id="subtitle">Caricamento…</span>
+  <span class="spacer"></span>
+  <span class="sub" id="updated"></span>
+  <button id="theme" type="button" aria-label="Cambia tema">Tema</button>
+</header>
+<main id="app"><div class="card">Caricamento dati…</div></main>
+<div class="tooltip" id="tip" role="status"></div>
+
+<script>
+"use strict";
+const $ = (sel) => document.querySelector(sel);
+const NF = (d) => new Intl.NumberFormat("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d });
+const money = (v) => v == null ? "—" : NF(2).format(v);
+const pct = (v, d = 1) => v == null ? "—" : NF(d).format(Math.abs(v) < 1e-12 ? 0 : v * 100) + "%";
+const num = (v, d = 2) => v == null ? "—" : NF(d).format(v);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const date = (s) => { if (!s) return "—"; const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" }); };
+const datetime = (s) => { if (!s) return "—"; const d = new Date(s); return isNaN(d) ? esc(s) : d.toLocaleString("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); };
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------- tema ----------
+(() => {
+  let saved = null;
+  try { saved = localStorage.getItem("pa-theme"); } catch (e) {}
+  if (saved) document.documentElement.dataset.theme = saved;
+  $("#theme").addEventListener("click", () => {
+    const dark = document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("pa-theme", next); } catch (e) {}
+    if (window.__data) render(window.__data);
+  });
+})();
+
+// ---------- tooltip ----------
+const tip = $("#tip");
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  const left = Math.min(window.scrollX + document.documentElement.clientWidth - w - 8, x + 14);
+  tip.style.left = Math.max(8, left) + "px";
+  tip.style.top = Math.max(8, y - h - 10) + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+// ---------- grafico a linea (una serie, crosshair) ----------
+function niceTicks(min, max, count) {
+  const span = max - min || Math.abs(max) || 1;
+  const step0 = span / count, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+  const ticks = [];
+  for (let v = Math.floor(min / step) * step; v <= max + step * 1e-9; v += step) ticks.push(+v.toFixed(10));
+  return ticks;
+}
+
+function lineChart(el, points, opts) {
+  // points: [{x: Date, y: number, label: string}]
+  const W = 640, H = opts.height || 220, m = { t: 12, r: opts.right || 16, b: 26, l: 56 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const ys = points.map((p) => p.y).concat(opts.refs ? opts.refs.map((r) => r.y) : []);
+  let yMin = Math.min(...ys), yMax = Math.max(...ys);
+  if (opts.yMax != null) yMax = Math.max(yMax, opts.yMax);
+  if (yMin === yMax) { yMin -= Math.abs(yMin) * 0.02 || 1; yMax += Math.abs(yMax) * 0.02 || 1; }
+  const ticks = niceTicks(yMin, yMax, 4);
+  yMin = Math.min(yMin, ticks[0]); yMax = Math.max(yMax, ticks[ticks.length - 1]);
+  const xs = points.map((p) => +p.x);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs) === xMin ? xMin + 1 : Math.max(...xs);
+  const X = (v) => m.l + ((+v - xMin) / (xMax - xMin)) * iw;
+  const Y = (v) => m.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria)}">`;
+  for (const t of ticks) {
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="${cssVar("--grid")}" stroke-width="1"/>`;
+    s += `<text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${esc(opts.fmtY(t))}</text>`;
+  }
+  const first = points[0], last = points[points.length - 1];
+  s += `<text x="${m.l}" y="${H - 6}">${esc(date(first.x))}</text>`;
+  if (points.length > 1) s += `<text x="${W - m.r}" y="${H - 6}" text-anchor="end">${esc(date(last.x))}</text>`;
+  for (const r of opts.refs || []) {
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(r.y)}" y2="${Y(r.y)}" stroke="${cssVar(r.color)}" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    s += `<text x="${W - m.r + 6}" y="${Y(r.y) + 4}" style="fill:${cssVar("--text-secondary")}">${esc(r.label)}</text>`;
+  }
+  const path = points.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join("");
+  s += `<path d="${path}" fill="none" stroke="${cssVar("--series-1")}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<circle cx="${X(last.x)}" cy="${Y(last.y)}" r="4" fill="${cssVar("--series-1")}" stroke="${cssVar("--surface-1")}" stroke-width="2"/>`;
+  s += `<line class="cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="${cssVar("--text-muted")}" stroke-width="1" visibility="hidden"/>`;
+  s += `<circle class="hover" r="5" fill="${cssVar("--series-1")}" stroke="${cssVar("--surface-1")}" stroke-width="2" visibility="hidden"/>`;
+  s += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/>`;
+  s += `</svg>`;
+  el.innerHTML = s;
+
+  const svg = el.querySelector("svg"), cross = svg.querySelector(".cross"), dot = svg.querySelector(".hover");
+  const move = (ev) => {
+    const box = svg.getBoundingClientRect();
+    const px = ((ev.clientX - box.left) / box.width) * W;
+    let best = 0;
+    for (let i = 1; i < points.length; i++) if (Math.abs(X(points[i].x) - px) < Math.abs(X(points[best].x) - px)) best = i;
+    const p = points[best];
+    cross.setAttribute("x1", X(p.x)); cross.setAttribute("x2", X(p.x)); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", X(p.x)); dot.setAttribute("cy", Y(p.y)); dot.setAttribute("visibility", "visible");
+    showTip(p.label, ev.pageX, ev.pageY);
+  };
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+// ---------- barre orizzontali: target vs attuale ----------
+function allocationChart(el, rows, max) {
+  const rowH = 30, W = 640, m = { l: 56, r: 64, t: 4 }, iw = W - m.l - m.r, H = m.t + rows.length * rowH + 4;
+  const bw = 9, X = (v) => (v / max) * iw;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pesi target e attuali per ETF">`;
+  rows.forEach((r, i) => {
+    const y = m.t + i * rowH;
+    s += `<text x="${m.l - 10}" y="${y + 17}" text-anchor="end" style="fill:${cssVar("--text-secondary")}">${esc(r.symbol)}</text>`;
+    const bar = (v, dy, color) => v > 0
+      ? `<path d="M${m.l},${y + dy} h${Math.max(X(v) - 4, 0)} a4,4 0 0 1 4,4 v${bw - 8} a4,4 0 0 1 -4,4 h${-Math.max(X(v) - 4, 0)} z" fill="${cssVar(color)}"/>`
+      : "";
+    s += bar(r.target, 5, "--series-1");
+    s += bar(r.current, 5 + bw + 2, "--series-2");
+    s += `<text x="${W - 4}" y="${y + 17}" text-anchor="end" style="fill:${cssVar("--text-primary")}">${esc(pct(r.target))}</text>`;
+    s += `<rect class="hit" data-i="${i}" x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>`;
+  });
+  s += `</svg>`;
+  el.innerHTML = s;
+  el.querySelectorAll(".hit").forEach((h) => {
+    h.addEventListener("pointermove", (ev) => {
+      const r = rows[+h.dataset.i];
+      showTip(`<strong>${esc(r.symbol)}</strong> · ${esc(r.group || "")}<br>Target ${pct(r.target)}<br><span class="muted">Attuale ${r.current == null ? "—" : pct(r.current)}</span>`, ev.pageX, ev.pageY);
+    });
+    h.addEventListener("pointerleave", hideTip);
+  });
+}
+
+// ---------- sezioni ----------
+const STATUS_TEXT = {
+  EXECUTED: "Ordini eseguiti", SUBMITTED: "Ordini in coda per l'apertura", DRY_RUN: "Prova (nessun ordine)",
+  WITHIN_BANDS: "In banda, nessun ordine", NOTHING_TO_DO: "Niente da fare", PENDING_ORDERS: "Ordini ancora aperti",
+  HALTED: "Fermo dopo lo stop", REJECTED_BY_RISK: "Bloccato dal Risk Engine", PARTIAL: "Esecuzione parziale",
+};
+
+const SCENARIO_TEXT = {
+  strategy: "V1", passive_100: "Passivo al 100%", passive_static_same_exposure: "Passivo alla stessa esposizione di V1",
+  passive_vol_target_10: "Passivo, vol target 10%", passive_vol_target_6: "Passivo, vol target 6%",
+  half_passive_half_strategy: "Metà passivo, metà V1",
+};
+
+function riskPill(p, ips) {
+  if (!p.available) return `<span class="pill"><span class="dot" style="background:var(--text-muted)"></span>Non avviato</span>`;
+  const dd = p.last.drawdown ?? 0, L = ips.limits;
+  if (p.state.halted || p.last.halted) return `<span class="pill"><span class="dot" style="background:var(--critical)"></span>⛔ Fermo (stop)</span>`;
+  if (dd <= L.reduce_only_drawdown) return `<span class="pill"><span class="dot" style="background:var(--serious)"></span>▼ Solo riduzioni</span>`;
+  if (dd <= L.reduce_only_drawdown / 2) return `<span class="pill"><span class="dot" style="background:var(--warning)"></span>⚠ Attenzione</span>`;
+  return `<span class="pill"><span class="dot" style="background:var(--good)"></span>✓ Normale</span>`;
+}
+
+function emptyPaper() {
+  return `<div class="empty">Il paper trading non è ancora partito: nessuna riga in <code>reports/paper/paper_log.csv</code>.<br>
+  Prova senza ordini: <code>scripts/daily_paper.sh --dry-run</code> · poi in automatico: <code>scripts/daily_paper.sh</code></div>`;
+}
+
+function render(d) {
+  window.__data = d;
+  const app = $("#app");
+  if (d.error) { app.innerHTML = `<div class="card err">Errore nel leggere i dati: ${esc(d.error)}</div>`; return; }
+  const p = d.paper, ips = d.ips, L = ips.limits, last = p.last;
+  $("#subtitle").textContent = `${ips.name} · budget ${money(ips.budget)}`;
+  $("#updated").textContent = "Aggiornato " + datetime(d.generated_at);
+
+  let h = "";
+  if (p.state.halted) {
+    h += `<div class="banner"><strong>⛔ Sistema fermo.</strong> ${esc(p.state.halt_reason || "Stop di drawdown.")}
+      Per ripartire, dopo averci pensato: <code>project-alpha paper-resume --config configs/paper_core_v1.toml</code></div>`;
+  }
+
+  // tiles
+  const peak = last ? last.peak_equity : null;
+  h += `<section class="tiles" aria-label="Riepilogo">
+    <div class="tile"><div class="label">Equity del conto paper</div><div class="value">${last ? money(last.equity) : "—"}</div>
+      <div class="foot">${last && last.daily_return != null ? `<span class="${last.daily_return >= 0 ? "pos" : "neg"}">${last.daily_return >= 0 ? "▲" : "▼"} ${pct(last.daily_return, 2)}</span> dall'ultima esecuzione` : "&nbsp;"}</div></div>
+    <div class="tile"><div class="label">Distanza dal massimo</div><div class="value">${last ? pct(last.drawdown) : "—"}</div>
+      <div class="foot">massimo ${money(peak)} · stop a ${pct(L.stop_drawdown, 0)}</div></div>
+    <div class="tile"><div class="label">Investito</div><div class="value">${last ? pct(last.current_exposure, 0) : "—"}</div>
+      <div class="foot">target ${last ? pct(last.target_exposure, 0) : "—"} · vol target ${pct(ips.vol_target, 0)}</div></div>
+    <div class="tile"><div class="label">Rischio</div><div class="value" style="font-size:16px;margin-top:8px">${riskPill(p, ips)}</div>
+      <div class="foot">${last ? esc(STATUS_TEXT[last.status] || last.status) : "&nbsp;"}</div></div>
+    <div class="tile"><div class="label">Ultima esecuzione</div><div class="value" style="font-size:17px;margin-top:6px">${last ? datetime(last.run_timestamp_utc) : "—"}</div>
+      <div class="foot">${p.available ? `${p.submitted_runs} con ordini · ${p.runs} totali` : "nessuna"}</div></div>
+  </section>`;
+
+  // grafici
+  h += `<section class="grid2">
+    <div class="card"><h2>Equity del conto paper</h2><p class="hint">Valore del conto a ogni esecuzione serale.</p><div class="chart" id="c-equity"></div></div>
+    <div class="card"><h2>Distanza dal massimo</h2><p class="hint">Linee: solo riduzioni ${pct(L.reduce_only_drawdown, 0)}, stop ${pct(L.stop_drawdown, 0)}, limite IPS ${pct(L.ips_max_drawdown, 0)}.</p><div class="chart" id="c-dd"></div></div>
+  </section>`;
+
+  // allocazione + ordini
+  h += `<section class="grid2">
+    <div class="card"><h2>Allocazione</h2><p class="hint">Target di oggi (core × vol target) e pesi attuali sul conto.</p>
+      <div class="legend"><span><i style="background:var(--series-1)"></i>Target</span><span><i style="background:var(--series-2)"></i>Attuale</span></div>
+      <div class="chart" id="c-alloc"></div></div>
+    <div class="card"><h2>Ordini dell'ultima esecuzione</h2><p class="hint">Inviati la sera, eseguiti all'apertura successiva.</p><div id="orders"></div></div>
+  </section>`;
+
+  // segnali + ricerca
+  h += `<section class="grid2">
+    <div class="card"><h2>Registro forward dei segnali (V1)</h2><p class="hint">Solo registrazione, nessun ordine.</p><div id="signals"></div></div>
+    <div class="card"><h2>Ricerca</h2><p class="hint">Ultimo run per configurazione, dal registro delle prove.</p><div id="research"></div></div>
+  </section>`;
+
+  app.innerHTML = h;
+
+  // equity / drawdown
+  const hist = (p.history || []).filter((r) => r.equity != null).map((r) => ({ ...r, x: new Date(r.run) }));
+  if (hist.length) {
+    lineChart($("#c-equity"), hist.map((r) => ({ x: r.x, y: r.equity,
+      label: `<strong>${money(r.equity)}</strong><br><span class="muted">${datetime(r.run)} · ${esc(STATUS_TEXT[r.status] || r.status)}</span>` })),
+      { aria: "Equity del conto paper nel tempo", fmtY: (v) => NF(0).format(v) });
+    const refs = [
+      { y: L.reduce_only_drawdown, label: pct(L.reduce_only_drawdown, 0), color: "--warning" },
+      { y: L.stop_drawdown, label: pct(L.stop_drawdown, 0), color: "--serious" },
+    ];
+    if (L.ips_max_drawdown != null) refs.push({ y: L.ips_max_drawdown, label: pct(L.ips_max_drawdown, 0), color: "--critical" });
+    lineChart($("#c-dd"), hist.map((r) => ({ x: r.x, y: r.drawdown ?? 0,
+      label: `<strong>${pct(r.drawdown)}</strong> dal massimo<br><span class="muted">${datetime(r.run)}</span>` })),
+      { aria: "Distanza dal massimo nel tempo", fmtY: (v) => pct(v, 0), refs, yMax: 0, right: 44 });
+  } else {
+    $("#c-equity").innerHTML = emptyPaper();
+    $("#c-dd").innerHTML = `<div class="empty">Comparirà dopo la prima esecuzione.</div>`;
+  }
+
+  // allocazione
+  const tw = (last && last.target_weights) || null, cw = (last && last.current_weights) || {};
+  const symbols = Object.keys(ips.weights);
+  const rows = symbols.map((s) => ({ symbol: s, group: ips.groups[s],
+    target: tw ? (tw[s] || 0) : ips.weights[s], current: last ? (cw[s] || 0) : null }));
+  const maxW = Math.max(0.05, ...rows.map((r) => Math.max(r.target, r.current || 0)));
+  allocationChart($("#c-alloc"), rows, maxW * 1.05);
+  if (p.state.halted) $("#c-alloc").insertAdjacentHTML("beforeend", `<p class="hint" style="margin-top:8px">Sistema fermo: target tutto in cash.</p>`);
+  if (!tw) $("#c-alloc").insertAdjacentHTML("beforeend", `<p class="hint" style="margin-top:8px">Prima dell'avvio: pesi del core al 100%, senza vol target.</p>`);
+
+  // ordini
+  const orders = (last && last.orders) || [];
+  $("#orders").innerHTML = !p.available ? emptyPaper() : !orders.length
+    ? `<div class="empty">Nessun ordine: ${esc(STATUS_TEXT[last.status] || last.status)}.${last.note ? " " + esc(last.note) : ""}${last.risk_violations ? `<br>Risk Engine: ${esc(last.risk_violations)}` : ""}</div>`
+    : `<div class="table-wrap"><table><thead><tr><th>ETF</th><th>Lato</th><th class="num">Quantità</th><th class="num">Prezzo rif.</th><th class="num">Controvalore</th><th>Esito</th></tr></thead><tbody>${
+      orders.map((o) => `<tr><td>${esc(o.symbol)}</td><td>${o.side === "BUY" ? "Acquisto" : "Vendita"}</td><td class="num">${num(o.quantity, 4)}</td>
+        <td class="num">${money(o.reference_price)}</td><td class="num">${money(o.quantity * o.reference_price)}</td>
+        <td>${esc(o.status == null ? "prova" : o.status === "FILLED" ? "eseguito" : o.status === "SUBMITTED" ? "in coda" : "rifiutato" + (o.reason ? ": " + o.reason : ""))}</td></tr>`).join("")
+    }</tbody></table></div>`;
+
+  // segnali
+  const sg = d.signals;
+  $("#signals").innerHTML = !sg.available
+    ? `<div class="empty">Ancora nessun segnale registrato (<code>scripts/daily_signals.sh</code>).</div>`
+    : `<p class="hint">${sg.days} giorni registrati · ultimo ${date(sg.last_date)} · ${sg.long_count} titoli long</p>
+      <div class="table-wrap"><table><thead><tr><th>Titolo</th><th class="num">Chiusura</th><th>Posizione</th><th class="num">Peso</th></tr></thead><tbody>${
+      sg.rows.map((r) => `<tr><td>${esc(r.symbol)}</td><td class="num">${money(r.close)}</td><td>${r.target_position > 0 ? "Long" : "Flat"}</td><td class="num">${pct(r.target_weight)}</td></tr>`).join("")
+    }</tbody></table></div>`;
+
+  // ricerca
+  const rs = d.research;
+  $("#research").innerHTML = !rs.available ? `<div class="empty">Nessun run nel registro delle prove.</div>`
+    : `<p class="hint">${rs.trials} prove registrate</p><div class="table-wrap"><table><thead><tr><th>Configurazione</th><th class="num">CAGR</th><th class="num">Sharpe</th><th class="num">Max DD</th><th class="num">vs statico</th><th class="num">p</th></tr></thead><tbody>${
+      rs.runs.map((r) => `<tr><td>${esc(r.name)}<br><span class="hint">${esc(r.execution_mode)} · ${date(r.timestamp_utc)}</span></td>
+        <td class="num">${pct(r.cagr, 2)}</td><td class="num">${num(r.annualized_sharpe)}</td><td class="num">${pct(r.max_drawdown)}</td>
+        <td class="num ${r.cagr_vs_static_exposure >= 0 ? "pos" : "neg"}">${r.cagr_vs_static_exposure >= 0 ? "+" : ""}${pct(r.cagr_vs_static_exposure, 2)}</td>
+        <td class="num">${num(r.permutation_p_value)}</td></tr>`).join("")
+    }</tbody></table></div>
+    <details><summary>Confronto con i portafogli passivi</summary>${Object.entries(rs.baselines).map(([name, rows]) => `
+      <p class="hint" style="margin:10px 0 4px">${esc(name)}</p><div class="table-wrap"><table><thead><tr><th>Portafoglio</th><th class="num">CAGR</th><th class="num">Sharpe</th><th class="num">Max DD</th></tr></thead><tbody>${
+      rows.map((b) => `<tr><td>${esc(SCENARIO_TEXT[b.scenario] || b.scenario || "")}</td><td class="num">${pct(b.cagr, 2)}</td><td class="num">${num(b.annualized_sharpe)}</td><td class="num">${pct(b.max_drawdown)}</td></tr>`).join("")
+    }</tbody></table></div>`).join("")}</details>`;
+}
+
+async function load() {
+  try {
+    const res = await fetch("/api/overview", { cache: "no-store" });
+    render(await res.json());
+  } catch (e) {
+    $("#app").innerHTML = `<div class="card err">Dashboard non raggiungibile: il server è ancora acceso? (${esc(e.message)})</div>`;
+  }
+}
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

@@ -27,6 +27,9 @@ project-alpha = "project_alpha.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"project_alpha.dashboard" = ["*.html"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

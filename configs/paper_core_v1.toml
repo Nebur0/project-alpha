@@ -20,6 +20,7 @@ budget = 10000.0
 # -12% → tutto in cash e stop fino allo sblocco manuale (margine di 3 punti
 #        per i gap di apertura).
 stop_drawdown = 0.12
+ips_max_drawdown = 0.15
 
 # Bande di ribilanciamento: si opera solo se un peso si scosta di almeno
 # 3 punti o l'esposizione totale di almeno 5 punti.
