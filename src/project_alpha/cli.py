@@ -829,6 +829,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_strategy_arguments(run)
 
+    research = commands.add_parser(
+        "research",
+        help=(
+            "Esegue la pipeline di ricerca completa da un file TOML "
+            "(walk-forward, portafoglio, valutazione, stress, blend)."
+        ),
+    )
+    research.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="File di configurazione TOML (es. configs/dev15_v1.toml).",
+    )
+
     for command_name in EXECUTION_COMMANDS:
         _add_execution_arguments(
             commands.choices[command_name]
@@ -1925,6 +1939,28 @@ def main() -> None:
         print(
             "Report CSV comparativo salvato in "
             f"{comparison_csv_report_path}"
+        )
+        return
+
+    if args.command == "research":
+        from project_alpha.research import (
+            load_research_config,
+            run_research,
+        )
+
+        config = load_research_config(args.config)
+        outcome = run_research(config)
+        summary = outcome.summary
+
+        print(
+            dumps_json(
+                {
+                    "run_id": outcome.run_id,
+                    "output_dir": str(outcome.output_dir),
+                    "summary": summary,
+                },
+                indent=2,
+            )
         )
         return
 
