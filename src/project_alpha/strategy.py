@@ -112,6 +112,7 @@ def add_baseline_position(
         for enter_now, exit_now in zip(
             entry.fillna(False),
             exit_signal.fillna(False),
+            strict=True,
         ):
             did_enter = False
             did_exit = False

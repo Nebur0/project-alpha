@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from math import isfinite, sqrt
 from numbers import Real
-from typing import Iterable
 
 import pandas as pd
-
 
 REGIME_UP_LOW_VOL = "UP_LOW_VOL"
 REGIME_UP_HIGH_VOL = "UP_HIGH_VOL"
@@ -505,7 +504,7 @@ def summarize_regime_results(
         benchmark_beat_count = int(
             (excess_returns > 0.0).sum()
         )
-        window_count = int(len(group))
+        window_count = len(group)
 
         sharpe_values = pd.to_numeric(
             group["annualized_sharpe"],

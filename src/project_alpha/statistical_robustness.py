@@ -9,7 +9,6 @@ from typing import Final
 
 import pandas as pd
 
-
 DEFAULT_METRICS: Final[tuple[str, ...]] = (
     "mean_strategy_total_return",
     "mean_excess_return",

@@ -20,7 +20,6 @@ from project_alpha.reporting import sanitize_metric_values
 from project_alpha.scoring import RobustScoreConfig
 from project_alpha.validation import generate_walk_forward_splits
 
-
 MetricValue = float | int | None
 
 EXACT_RETURN_TOLERANCE = 1e-12

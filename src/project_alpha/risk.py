@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 
 
-class RiskDecisionStatus(str, Enum):
+class RiskDecisionStatus(StrEnum):
     ALLOW = "ALLOW"
     REJECT = "REJECT"
 

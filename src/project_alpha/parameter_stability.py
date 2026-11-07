@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from math import isfinite, log
 from numbers import Real
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
-
 
 PARAMETER_COLUMNS = (
     "fast_ema_period",
@@ -149,10 +148,7 @@ def _validate_frame(
     ):
         normalized_windows.append(
             _required_positive_int(
-                getattr(
-                    row,
-                    "window_number",
-                ),
+                row.window_number,
                 name="window_number",
             )
         )

@@ -13,7 +13,6 @@ from project_alpha.portfolio_walk_forward import (
     run_walk_forward_portfolio_backtest,
 )
 
-
 DEFAULT_COSTS_PER_SIDE = (
     0.0000,
     0.0005,

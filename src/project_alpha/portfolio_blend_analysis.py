@@ -11,7 +11,6 @@ from project_alpha.portfolio_walk_forward import (
     WalkForwardPortfolioResult,
 )
 
-
 DEFAULT_DEFENSIVE_WEIGHTS = (
     0.00,
     0.25,

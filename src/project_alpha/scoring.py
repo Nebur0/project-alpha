@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
 from numbers import Real
-from typing import Mapping
-
 
 MetricValue = float | int | None
 

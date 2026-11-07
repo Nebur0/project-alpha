@@ -29,7 +29,6 @@ from project_alpha.validation import (
     generate_walk_forward_splits,
 )
 
-
 GridValue = int | float
 MetricValue = float | int | None
 

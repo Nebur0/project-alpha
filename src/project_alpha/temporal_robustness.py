@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from math import isfinite
 from numbers import Real
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -224,9 +224,7 @@ def analyze_temporal_clusters(
             ).sum()
         )
 
-        symbol_count = int(
-            len(group)
-        )
+        symbol_count = len(group)
 
         sharpe_values = pd.to_numeric(
             group[

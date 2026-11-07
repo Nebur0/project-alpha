@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 MetricValue = float | int | None
 
 

@@ -27,7 +27,6 @@ from project_alpha.validation import (
     generate_walk_forward_splits,
 )
 
-
 MetricValue = float | int | None
 
 

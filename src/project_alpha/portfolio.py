@@ -7,7 +7,6 @@ from math import sqrt
 import numpy as np
 import pandas as pd
 
-
 MetricValue = float | int | None
 
 
