@@ -1,0 +1,45 @@
+# Project Alpha — registro forward giornaliero di V1 (strategia congelata).
+# Stessi simboli, griglia, score ed esecuzione di configs/dev15_v1.toml, ma su
+# un file dati separato aggiornato ogni giorno: bars_dev15.csv resta il
+# dataset di ricerca congelato (riproducibilità dei report).
+# Uso:  scripts/daily_signals.sh   (oppure: project-alpha signals --config configs/signals_dev15_v1.toml)
+
+
+name = "dev15_v1"
+data = "data/raw/bars_live.csv"
+output_dir = "reports/research/dev15_v1_live"
+registry = ""
+symbols = [
+  "SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "JPM",
+  "XOM", "JNJ", "COST", "CAT", "NEE", "HD", "AMD",
+]
+
+[walk_forward]
+train_size = 1000
+test_size = 252
+step_size = 252
+score_metric = "robust_score"
+minimum_completed_trades = 1
+no_candidate_policy = "raise"
+initial_capital = 10000.0
+cost_per_side = 0.001
+
+[grid]
+fast_ema_period = [10, 20, 25]
+slow_ema_period = [30, 40, 50]
+trend_ema_period = [100, 150]
+
+# Esecuzione usata per selezione e valutazione. "close" riproduce i report
+# storici; lo stress dell'esecuzione confronta comunque tutte le modalità.
+[execution]
+mode = "close"
+delay_days = 0
+cash_rate_annual = 0.0
+
+[analysis]
+costs_bps_per_side = [0.0, 5.0, 10.0, 20.0, 30.0]
+execution_stress = true
+blend_defensive_weights = [0.0, 0.25, 0.5, 0.75, 1.0]
+permutations = 5000
+seed = 42
+hac_lags = 10

@@ -97,16 +97,25 @@ finisce anche nel `manifest.json` di ogni ricerca.
 ### Registro forward dei segnali (nessun ordine)
 
 ```bash
-project-alpha fetch --symbols SPY QQQ AAPL MSFT NVDA AMZN GOOGL JPM XOM JNJ COST CAT NEE HD AMD \
-  --start 2018-01-01 --output data/raw/bars_dev15.csv
-project-alpha signals --config configs/dev15_v1.toml
+scripts/daily_signals.sh
 ```
 
-Calcola il target di domani per ogni simbolo con i parametri che la
-prossima finestra walk-forward sceglierebbe, lo fa passare dal Risk Engine
-V2 e aggiunge le righe a `reports/signals/signal_log.csv` (idempotente:
-rilanciarlo lo stesso giorno non duplica). Rifiuta dati non allineati tra
-simboli e segnala dati vecchi. Va eseguito ogni giorno dopo la chiusura.
+Ogni sera, dopo la chiusura USA: scarica i dati aggiornati in
+`data/raw/bars_live.csv` (il dataset di ricerca `bars_dev15.csv` resta
+congelato), ne controlla la qualità e aggiunge a
+`reports/signals/signal_log.csv` il target di domani per ogni simbolo, con
+i parametri che la prossima finestra walk-forward sceglierebbe e la
+decisione del Risk Engine V2. Idempotente: rilanciarlo lo stesso giorno non
+duplica. Nessun ordine viene inviato.
+
+Per eseguirlo in automatico su Windows (Utilità di pianificazione →
+Crea attività di base → ogni giorno, lun–ven, ore 23:00):
+
+- Programma: `C:\Program Files\Git\bin\bash.exe`
+- Argomenti: `-lc "<percorso del repo>/scripts/daily_signals.sh"`
+
+Il registro va versionato (`git add reports/signals/signal_log.csv`): è la
+prova in avanti della strategia.
 
 ### Fase 1: V1 congelata su ETF multi-asset
 
