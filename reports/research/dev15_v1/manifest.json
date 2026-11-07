@@ -1,8 +1,8 @@
 {
-  "run_id": "d747914f56f0",
+  "run_id": "f3cabec9aa81",
   "name": "dev15_v1",
-  "started_utc": "2026-11-07T14:08:21.748897+00:00",
-  "finished_utc": "2026-11-07T14:08:54.251630+00:00",
+  "started_utc": "2026-11-07T14:21:17.363353+00:00",
+  "finished_utc": "2026-11-07T14:21:46.226126+00:00",
   "config_file": "configs/dev15_v1.toml",
   "config": {
     "data": "/home/claude/project-alpha/data/raw/bars_dev15.csv",
@@ -74,7 +74,12 @@
       ],
       "permutations": 5000,
       "seed": 42,
-      "hac_lags": 10
+      "hac_lags": 10,
+      "vol_target_baselines": [
+        0.1,
+        0.06
+      ],
+      "vol_target_lookback_days": 63
     }
   },
   "data": {
@@ -85,7 +90,7 @@
     "end": "2026-08-28T04:00:00+00:00"
   },
   "git": {
-    "commit": "555b4bd4bd181a2c1c16e33bfb0c05a611b40048",
+    "commit": "8f439014f1645d5967a921f48c095b578bc73a34",
     "dirty": false
   },
   "versions": {
@@ -94,5 +99,6 @@
     "pandas": "3.0.5",
     "numpy": "2.5.3"
   },
+  "config_sha256": "6b0f5bab038c81d66419f7b5a3afedabd4182e3f0c8bcc981105c9fa77988d04",
   "trials_on_same_data": 1
 }

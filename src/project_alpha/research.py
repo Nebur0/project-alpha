@@ -17,6 +17,7 @@ stessi dati, così il Deflated Sharpe Ratio tiene conto della ricerca fatta.
 from __future__ import annotations
 
 import hashlib
+import json
 import platform
 import subprocess
 import tomllib
@@ -31,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from project_alpha import __version__
+from project_alpha.allocation import VolTargetConfig, volatility_target_exposure
 from project_alpha.backtest import ExecutionConfig
 from project_alpha.batch_optimization import (
     batch_walk_forward_comparison_to_frame,
@@ -44,6 +46,7 @@ from project_alpha.evaluation import (
     TRADING_DAYS,
     deflated_sharpe_ratio,
     evaluate_walk_forward_portfolio,
+    performance_summary,
 )
 from project_alpha.execution_stress_analysis import (
     DEFAULT_EXECUTION_SCENARIOS,
@@ -68,6 +71,7 @@ REGISTRY_COLUMNS = (
     "git_commit",
     "git_dirty",
     "data_sha256",
+    "config_sha256",
     "symbol_count",
     "grid_size",
     "score_metric",
@@ -109,6 +113,9 @@ class AnalysisSettings:
     permutations: int = 5_000
     seed: int = 42
     hac_lags: int = 10
+    # Baseline passive con volatility targeting (volatilità annue obiettivo).
+    vol_target_baselines: tuple[float, ...] = (0.10, 0.06)
+    vol_target_lookback_days: int = 63
 
 
 @dataclass(frozen=True)
@@ -201,7 +208,7 @@ def load_research_config(
     execution = _build(ExecutionConfig, raw.get("execution", {}), "execution")
 
     analysis_raw = dict(raw.get("analysis", {}))
-    for key in ("costs_bps_per_side", "blend_defensive_weights"):
+    for key in ("costs_bps_per_side", "blend_defensive_weights", "vol_target_baselines"):
         if key in analysis_raw:
             analysis_raw[key] = tuple(float(value) for value in analysis_raw[key])
     analysis = _build(AnalysisSettings, analysis_raw, "analysis")
@@ -287,30 +294,151 @@ def append_to_registry(
     registry = read_registry(path)
     entry = pd.DataFrame([{column: row.get(column) for column in REGISTRY_COLUMNS}])
     updated = entry if registry.empty else pd.concat([registry, entry], ignore_index=True)
+    extra = [column for column in updated.columns if column not in REGISTRY_COLUMNS]
+    updated = updated.reindex(columns=[*REGISTRY_COLUMNS, *extra])
     write_csv_atomic(updated, path)
     return updated
+
+
+def config_fingerprint(config: ResearchConfig) -> str:
+    """Hash di ciò che definisce una prova (universo, walk-forward, griglia, score, esecuzione).
+
+    Nome, cartelle di output e impostazioni delle analisi non cambiano la
+    prova: rieseguire la stessa configurazione non conta come prova nuova.
+    """
+    payload = {
+        "symbols": sorted(config.symbols),
+        "walk_forward": asdict(config.walk_forward),
+        "grid": {key: sorted(set(values)) for key, values in sorted(config.grid.items())},
+        "robust_score": asdict(config.robust_score) if config.robust_score else None,
+        "execution": asdict(config.execution),
+    }
+    encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _distinct_trials(same_data: pd.DataFrame) -> pd.DataFrame:
+    """Una riga per configurazione distinta (l'ultima esecuzione di ciascuna)."""
+    if "config_sha256" not in same_data.columns:
+        return same_data
+
+    keyed = same_data.copy()
+    keyed["_trial_key"] = keyed["config_sha256"].fillna(keyed["run_id"]).astype(str)
+    return keyed.drop_duplicates("_trial_key", keep="last")
 
 
 def registry_trials(
     registry: pd.DataFrame,
     data_sha256: str,
 ) -> tuple[int, float | None]:
-    """Numero di prove sugli stessi dati e dispersione dei loro Sharpe giornalieri."""
+    """Configurazioni distinte provate sugli stessi dati e dispersione dei loro Sharpe."""
     if registry.empty:
         return 0, None
 
-    same_data = registry.loc[registry["data_sha256"] == data_sha256]
-    sharpes = pd.to_numeric(same_data["daily_sharpe"], errors="coerce").dropna()
+    distinct = _distinct_trials(registry.loc[registry["data_sha256"] == data_sha256])
+    sharpes = pd.to_numeric(distinct["daily_sharpe"], errors="coerce").dropna()
 
     if len(sharpes) < 2:
-        return len(same_data), None
+        return len(distinct), None
 
-    return len(same_data), float(sharpes.std(ddof=1))
+    return len(distinct), float(sharpes.std(ddof=1))
+
+
+def trial_statistics(
+    registry: pd.DataFrame,
+    *,
+    data_sha256: str,
+    config_sha256: str,
+    daily_sharpe: float | None,
+) -> tuple[int, float | None]:
+    """Prove distinte includendo l'esecuzione corrente (che sostituisce una sua ripetizione)."""
+    current = pd.DataFrame(
+        [
+            {
+                "run_id": "current",
+                "data_sha256": data_sha256,
+                "config_sha256": config_sha256,
+                "daily_sharpe": daily_sharpe,
+            }
+        ]
+    )
+    combined = current if registry.empty else pd.concat([registry, current], ignore_index=True)
+    return registry_trials(combined, data_sha256)
 
 
 # --------------------------------------------------------------------------
 # Esecuzione
 # --------------------------------------------------------------------------
+
+
+def policy_baselines(
+    frame: pd.DataFrame,
+    symbols: Sequence[str],
+    portfolio,
+    *,
+    vol_targets: Sequence[float] = (0.10, 0.06),
+    lookback_days: int = 63,
+    cost_per_side: float = 0.001,
+) -> pd.DataFrame:
+    """Confronta la strategia con alternative passive semplici, sullo stesso periodo.
+
+    - passivo equal-weight al 100%;
+    - passivo statico alla stessa esposizione media della strategia;
+    - passivo con volatility targeting (volatilità stimata sull'intera
+      storia disponibile, fino al giorno precedente: nessun look-ahead);
+    - metà passivo e metà strategia.
+    """
+    curve = portfolio.portfolio.equity_curve
+    timestamps = pd.to_datetime(curve["timestamp"], utc=True)
+    passive = curve["benchmark_return"].to_numpy(dtype=float)
+    strategy = curve["portfolio_return"].to_numpy(dtype=float)
+    exposure = curve["gross_exposure"].to_numpy(dtype=float)
+    mean_exposure = float(exposure.mean())
+
+    closes = frame.pivot_table(index="timestamp", columns="symbol", values="close")
+    closes.index = pd.to_datetime(closes.index, utc=True)
+    closes = closes[[symbol for symbol in symbols]]
+    full_passive = closes.pct_change().mean(axis=1).fillna(0.0)
+
+    rows: list[dict[str, Any]] = []
+
+    def add(name: str, returns: np.ndarray, market_exposure: np.ndarray) -> None:
+        rows.append(
+            {
+                "scenario": name,
+                **performance_summary(returns),
+                "mean_market_exposure": float(np.mean(market_exposure)),
+            }
+        )
+
+    add("strategy", strategy, exposure)
+    add("passive_100", passive, np.ones_like(passive))
+    add(
+        "passive_static_same_exposure",
+        mean_exposure * passive,
+        np.full_like(passive, mean_exposure),
+    )
+
+    for target in vol_targets:
+        target_exposure = volatility_target_exposure(
+            full_passive,
+            VolTargetConfig(target_volatility=float(target), lookback_days=lookback_days),
+        )
+        applied = target_exposure.reindex(timestamps).to_numpy(dtype=float)
+
+        if np.isnan(applied).any():
+            raise ValueError("Date del portafoglio assenti nei dati per il vol targeting.")
+
+        turnover = np.abs(np.diff(applied, prepend=applied[0]))
+        add(
+            f"passive_vol_target_{round(float(target) * 100)}",
+            applied * passive - turnover * cost_per_side,
+            applied,
+        )
+
+    add("half_passive_half_strategy", 0.5 * passive + 0.5 * strategy, 0.5 + 0.5 * exposure)
+
+    return pd.DataFrame(rows)
 
 
 @dataclass(frozen=True)
@@ -423,6 +551,16 @@ def run_research(
             output / "blend_leave_one_window_out.csv",
         )
 
+    baselines = policy_baselines(
+        frame,
+        list(config.symbols),
+        portfolio,
+        vol_targets=analysis.vol_target_baselines,
+        lookback_days=analysis.vol_target_lookback_days,
+        cost_per_side=wf.cost_per_side,
+    )
+    write_csv_atomic(baselines, output / "policy_baselines.csv")
+
     strategy_returns = portfolio.portfolio.equity_curve["portfolio_return"].to_numpy(dtype=float)
     returns_std = strategy_returns.std(ddof=1)
     daily_sharpe = float(strategy_returns.mean() / returns_std) if returns_std > 0 else None
@@ -432,25 +570,15 @@ def run_research(
     trials_std: float | None = None
     deflated: float | None = evaluation.probabilistic_sharpe
 
+    config_hash = config_fingerprint(config)
+
     if config.registry is not None:
-        previous = read_registry(config.registry)
-        previous_count, _ = registry_trials(previous, data_hash)
-        sharpes = (
-            pd.to_numeric(
-                previous.loc[previous["data_sha256"] == data_hash, "daily_sharpe"]
-                if not previous.empty
-                else pd.Series(dtype=float),
-                errors="coerce",
-            )
-            .dropna()
-            .tolist()
+        trials, trials_std = trial_statistics(
+            read_registry(config.registry),
+            data_sha256=data_hash,
+            config_sha256=config_hash,
+            daily_sharpe=daily_sharpe,
         )
-
-        if daily_sharpe is not None:
-            sharpes.append(daily_sharpe)
-
-        trials = previous_count + 1
-        trials_std = float(np.std(sharpes, ddof=1)) if len(sharpes) >= 2 else None
 
         if trials > 1:
             deflated = (
@@ -506,6 +634,7 @@ def run_research(
             "pandas": pd.__version__,
             "numpy": np.__version__,
         },
+        "config_sha256": config_hash,
         "trials_on_same_data": trials,
     }
     write_json_atomic(output / "manifest.json", manifest)
@@ -521,6 +650,7 @@ def run_research(
                 "git_commit": git["commit"],
                 "git_dirty": git["dirty"],
                 "data_sha256": data_hash,
+                "config_sha256": config_hash,
                 "symbol_count": len(config.symbols),
                 "grid_size": _grid_size(config.grid),
                 "score_metric": wf.score_metric,

@@ -1,0 +1,57 @@
+# Project Alpha — Fase 1: V1 CONGELATA su un universo nuovo di ETF multi-asset.
+#
+# Scopo: verificare su dati mai usati per progettare V1 (asset class diverse)
+# se l'overlay difensivo aggiunge qualcosa rispetto alle baseline passive.
+# Griglia, score e minimo di trade sono IDENTICI a configs/dev15_v1.toml:
+# non modificarli guardando i risultati. Cambiano solo due scelte di
+# realismo decise prima di vedere i dati: esecuzione all'apertura del giorno
+# dopo e finestre senza candidati tenute in cash.
+#
+# 1) Scaricare i dati (in locale, con chiavi Alpaca paper nel .env):
+#    project-alpha fetch --symbols SPY QQQ IWM EFA EEM VNQ TLT IEF LQD GLD DBC \
+#      --start 2016-01-01 --output data/raw/bars_etf.csv
+# 2) Eseguire:
+#    project-alpha research --config configs/etf_multiasset_v1.toml
+
+name = "etf_multiasset_v1"
+data = "data/raw/bars_etf.csv"
+output_dir = "reports/research/etf_multiasset_v1"
+registry = "reports/research/experiment_registry.csv"
+symbols = [
+  "SPY", "QQQ", "IWM",          # azioni USA
+  "EFA", "EEM",                 # azioni internazionali ed emergenti
+  "VNQ",                        # immobiliare
+  "TLT", "IEF", "LQD",          # obbligazioni
+  "GLD", "DBC",                 # oro e materie prime
+]
+
+[walk_forward]
+train_size = 1000
+test_size = 252
+step_size = 252
+score_metric = "robust_score"
+minimum_completed_trades = 1
+# Su ETF poco "trendy" una finestra può non avere candidati: resta in cash.
+no_candidate_policy = "flat"
+initial_capital = 10000.0
+cost_per_side = 0.001
+
+[grid]
+fast_ema_period = [10, 20, 25]
+slow_ema_period = [30, 40, 50]
+trend_ema_period = [100, 150]
+
+[execution]
+mode = "next_open"
+delay_days = 0
+cash_rate_annual = 0.0
+
+[analysis]
+costs_bps_per_side = [0.0, 5.0, 10.0, 20.0, 30.0]
+execution_stress = true
+blend_defensive_weights = [0.0, 0.25, 0.5, 0.75, 1.0]
+permutations = 5000
+seed = 42
+hac_lags = 10
+vol_target_baselines = [0.10, 0.06]
+vol_target_lookback_days = 63

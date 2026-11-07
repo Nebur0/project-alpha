@@ -750,6 +750,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="File di configurazione TOML (es. configs/dev15_v1.toml).",
     )
 
+    signals = commands.add_parser(
+        "signals",
+        help=(
+            "Calcola i segnali sull'ultima barra e li aggiunge al registro forward (nessun ordine)."
+        ),
+    )
+    signals.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="Configurazione TOML della strategia congelata.",
+    )
+    signals.add_argument(
+        "--log",
+        type=Path,
+        default=Path("reports/signals/signal_log.csv"),
+        help="Registro forward dei segnali (CSV, append-only).",
+    )
+
     for command_name in EXECUTION_COMMANDS:
         _add_execution_arguments(commands.choices[command_name])
 
@@ -1490,6 +1509,37 @@ def main() -> None:
                     "run_id": outcome.run_id,
                     "output_dir": str(outcome.output_dir),
                     "summary": summary,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    if args.command == "signals":
+        from project_alpha.research import load_research_config
+        from project_alpha.risk_engine import RiskPolicyV2
+        from project_alpha.signals import record_forward_signals
+
+        config = load_research_config(args.config)
+        # Nel registro il portafoglio si costruisce da zero: il limite di
+        # turnover per ribilanciamento non ha senso sul primo giorno.
+        snapshot = record_forward_signals(
+            config,
+            log_path=args.log,
+            policy=RiskPolicyV2(max_turnover=None),
+        )
+        active = snapshot.rows.loc[snapshot.rows["target_position"] > 0, "symbol"].tolist()
+
+        print(
+            dumps_json(
+                {
+                    "data_timestamp": snapshot.data_timestamp.isoformat(),
+                    "appended": snapshot.appended,
+                    "risk_allowed": snapshot.risk_allowed,
+                    "risk_mode": snapshot.risk_mode,
+                    "risk_violations": list(snapshot.risk_violations),
+                    "long_symbols": active,
+                    "log": str(args.log),
                 },
                 indent=2,
             )

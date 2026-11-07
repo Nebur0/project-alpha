@@ -81,6 +81,32 @@ valutazione (`evaluation.json`), stress di costi ed esecuzione, blend e un
 Ogni esecuzione aggiunge una riga a `reports/research/experiment_registry.csv`:
 il numero di prove sugli stessi dati entra nel Deflated Sharpe Ratio.
 
+### Registro forward dei segnali (nessun ordine)
+
+```bash
+project-alpha fetch --symbols SPY QQQ AAPL MSFT NVDA AMZN GOOGL JPM XOM JNJ COST CAT NEE HD AMD \
+  --start 2018-01-01 --output data/raw/bars_dev15.csv
+project-alpha signals --config configs/dev15_v1.toml
+```
+
+Calcola il target di domani per ogni simbolo con i parametri che la
+prossima finestra walk-forward sceglierebbe, lo fa passare dal Risk Engine
+V2 e aggiunge le righe a `reports/signals/signal_log.csv` (idempotente:
+rilanciarlo lo stesso giorno non duplica). Rifiuta dati non allineati tra
+simboli e segnala dati vecchi. Va eseguito ogni giorno dopo la chiusura.
+
+### Fase 1: V1 congelata su ETF multi-asset
+
+```bash
+project-alpha fetch --symbols SPY QQQ IWM EFA EEM VNQ TLT IEF LQD GLD DBC \
+  --start 2016-01-01 --output data/raw/bars_etf.csv
+project-alpha research --config configs/etf_multiasset_v1.toml
+```
+
+`policy_baselines.csv` confronta la strategia con il passivo al 100%, il
+passivo statico alla stessa esposizione e il passivo con volatility
+targeting (10% e 6%).
+
 ### Comandi singoli
 
 ```bash

@@ -11,6 +11,7 @@ import pytest
 from project_alpha import cli
 from project_alpha.research import (
     REGISTRY_COLUMNS,
+    config_fingerprint,
     file_sha256,
     load_research_config,
     read_registry,
@@ -137,6 +138,7 @@ def test_run_research_writes_outputs_manifest_and_registry(workspace: Path) -> N
         "cost_stress.csv",
         "execution_stress.csv",
         "blend_overall.csv",
+        "policy_baselines.csv",
         "manifest.json",
     ]:
         assert (output / name).exists(), name
@@ -154,20 +156,58 @@ def test_run_research_writes_outputs_manifest_and_registry(workspace: Path) -> N
     assert registry["run_id"].tolist() == [result.run_id]
     assert result.summary["trials"] == 1
 
+    baselines = pd.read_csv(output / "policy_baselines.csv")
+    assert baselines["scenario"].tolist() == [
+        "strategy",
+        "passive_100",
+        "passive_static_same_exposure",
+        "passive_vol_target_10",
+        "passive_vol_target_6",
+        "half_passive_half_strategy",
+    ]
 
-def test_registry_counts_trials_on_same_data(workspace: Path) -> None:
+
+def test_registry_counts_distinct_configurations(workspace: Path) -> None:
     config = load_research_config(workspace / "research.toml", base_dir=workspace)
 
     run_research(config, repo_dir=workspace)
-    second = run_research(config, repo_dir=workspace)
+    repeat = run_research(config, repo_dir=workspace)
+
+    # Rieseguire la stessa configurazione non è una prova nuova.
+    assert repeat.summary["trials"] == 1
+
+    variant_path = workspace / "variant.toml"
+    variant_path.write_text(
+        CONFIG.replace("fast_ema_period = [3, 4]", "fast_ema_period = [2, 3]"),
+        encoding="utf-8",
+    )
+    variant = run_research(
+        load_research_config(variant_path, base_dir=workspace),
+        repo_dir=workspace,
+    )
 
     registry = read_registry(workspace / "reports" / "research" / "experiment_registry.csv")
-    assert len(registry) == 2
-    assert second.summary["trials"] == 2
+    assert len(registry) == 3
+    assert registry["config_sha256"].nunique() == 2
+    assert variant.summary["trials"] == 2
 
     trials, _ = registry_trials(registry, file_sha256(workspace / "data" / "bars.csv"))
     assert trials == 2
     assert registry_trials(registry, "altro-hash") == (0, None)
+
+
+def test_config_fingerprint_ignores_name_and_outputs(workspace: Path) -> None:
+    base = load_research_config(workspace / "research.toml", base_dir=workspace)
+    renamed_path = workspace / "renamed.toml"
+    renamed_path.write_text(
+        CONFIG.replace('name = "test_run"', 'name = "altro"').replace(
+            "reports/research/test_run", "reports/research/altro"
+        ),
+        encoding="utf-8",
+    )
+    renamed = load_research_config(renamed_path, base_dir=workspace)
+
+    assert config_fingerprint(base) == config_fingerprint(renamed)
 
 
 def test_run_research_rejects_missing_symbols(workspace: Path) -> None:
