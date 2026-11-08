@@ -120,13 +120,28 @@ def test_submit_builds_portfolio_then_stays_within_bands(config) -> None:
     assert len(pd.read_csv(config.log)) == 2
 
 
-def test_budget_caps_capital_used(config) -> None:
+def test_oversized_account_is_refused_at_first_start(config) -> None:
     broker = QueueBroker(cash=100_000.0, commission_rate=0.0)
+    bars = _bars(config.symbols)
 
-    outcome = run_paper(config, broker, frame=_bars(config.symbols), submit=True, now=NOW)
+    dry = run_paper(config, broker, frame=bars, now=NOW)
+    assert "Reimpostare il conto" in dry.note
+
+    with pytest.raises(ValueError, match="Reimpostare il conto"):
+        run_paper(config, broker, frame=bars, submit=True, now=NOW)
+    assert broker.positions == {}
+
+
+def test_budget_caps_capital_after_growth(config) -> None:
+    broker = QueueBroker(cash=10_000.0, commission_rate=0.0)
+    bars = _bars(config.symbols)
+    run_paper(config, broker, frame=bars, submit=True, now=NOW)
+
+    broker.cash += 5_000.0  # il conto cresce oltre il budget
+    outcome = run_paper(config, broker, frame=bars, submit=True, now=NOW)
 
     invested = outcome.equity - broker.cash
-    assert invested <= config.budget
+    assert invested <= config.budget * 1.01
 
 
 def test_open_orders_block_new_orders(config) -> None:

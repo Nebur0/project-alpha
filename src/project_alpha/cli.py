@@ -1627,7 +1627,10 @@ def main() -> None:
 
         config = load_paper_config(args.config)
         broker = AlpacaPaperBroker(Settings.from_env())
-        outcome = run_paper(config, broker, submit=args.submit)
+        try:
+            outcome = run_paper(config, broker, submit=args.submit)
+        except ValueError as exc:
+            raise SystemExit(f"Paper trading fermato: {exc}") from exc
         print(dumps_json(outcome.summary(), indent=2))
 
         if outcome.status in {"PARTIAL", "REJECTED_BY_RISK"}:

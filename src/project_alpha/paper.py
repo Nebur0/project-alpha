@@ -38,6 +38,9 @@ from project_alpha.execution.orders import OrderPlanSettings
 from project_alpha.io_utils import dumps_json, write_csv_atomic, write_json_atomic
 from project_alpha.risk_engine import RiskPolicyV2
 
+# Margine ammesso tra equity del conto e budget al primo avvio.
+BUDGET_TOLERANCE = 0.10
+
 PAPER_LOG_COLUMNS = (
     "run_timestamp_utc",
     "strategy",
@@ -404,6 +407,17 @@ def run_paper(
     daily_return = equity / state.last_equity - 1.0 if state.last_equity else 0.0
     halted = state.halted
     note = ""
+
+    # Primo avvio su un conto molto più grande del budget: calo dal massimo e
+    # stop sarebbero misurati sul conto intero e non proteggerebbero il budget.
+    if state.last_equity is None and equity > config.budget * (1 + BUDGET_TOLERANCE):
+        note = (
+            f"Il conto vale {equity:,.0f} ma il budget è {config.budget:,.0f}: "
+            "drawdown e stop verrebbero misurati sul conto intero. Reimpostare il "
+            f"conto paper a {config.budget:,.0f} dal sito Alpaca prima di inviare ordini."
+        )
+        if submit:
+            raise ValueError(note)
 
     if not halted and drawdown <= -config.stop_drawdown:
         halted = True

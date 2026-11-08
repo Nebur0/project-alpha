@@ -334,7 +334,11 @@ function render(d) {
   app.innerHTML = h;
 
   // equity / drawdown
-  const hist = (p.history || []).filter((r) => r.equity != null).map((r) => ({ ...r, x: new Date(r.run) }));
+  // Con esecuzioni reali sul conto paper si mostrano solo quelle (le prove possono
+  // precedere il reset del conto e falserebbero la curva).
+  const all = (p.history || []).filter((r) => r.equity != null);
+  const real = all.filter((r) => r.mode === "SUBMIT");
+  const hist = (real.length ? real : all).map((r) => ({ ...r, x: new Date(r.run) }));
   if (hist.length) {
     lineChart($("#c-equity"), hist.map((r) => ({ x: r.x, y: r.equity,
       label: `<strong>${money(r.equity)}</strong><br><span class="muted">${datetime(r.run)} · ${esc(STATUS_TEXT[r.status] || r.status)}</span>` })),
