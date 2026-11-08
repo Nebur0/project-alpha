@@ -143,6 +143,10 @@ non viene sbloccato a mano. Ogni esecuzione aggiunge una riga a
 `reports/paper/paper_log.csv` (da versionare). Pianificazione su Windows
 come per i segnali, con `scripts/daily_paper.sh`.
 
+Su Windows, senza terminale: doppio clic su `Prova_paper.bat` (aggiorna
+l'installazione e fa la prova senza ordini) e su `Dashboard.bat` (apre la
+dashboard nel browser).
+
 ### Dashboard (sola lettura)
 
 ```bash
