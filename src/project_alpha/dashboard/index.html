@@ -114,6 +114,8 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
 .banner { border-radius: 8px; padding: 10px 14px; border: 1px solid var(--critical); color: var(--text-primary); }
 .banner strong { color: var(--critical-text); }
 .err { color: var(--critical-text); }
+.alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.alerts li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 @media (max-width: 520px) { header { padding: 14px 16px; } .tile .value { font-size: 20px; } }
 </style>
 </head>
@@ -295,6 +297,17 @@ function render(d) {
     h += `<div class="banner"><strong>⛔ Sistema fermo.</strong> ${esc(p.state.halt_reason || "Stop di drawdown.")}
       Per ripartire, dopo averci pensato: <code>project-alpha paper-resume --config configs/paper_core_v1.toml</code></div>`;
   }
+
+  // avvisi dell'assistente di monitoraggio (sola lettura)
+  const mon = d.monitor || { alerts: [] };
+  const ICON = { critical: "⛔", warning: "⚠", info: "ℹ" };
+  const COLOR = { critical: "--critical", warning: "--warning", info: "--text-muted" };
+  const LABEL = { critical: "Intervenire", warning: "Da guardare", info: "Da sapere" };
+  const visible = mon.alerts.filter((a) => a.code !== "HALTED" || !p.state.halted);
+  h += `<section class="card" aria-label="Avvisi"><h2>Avvisi</h2>
+    <p class="hint">Controlli automatici di ogni sera, in sola lettura.${mon.tracking ? ` Conto ${pct(mon.tracking.actual, 2)} contro modello ${pct(mon.tracking.expected, 2)} negli ultimi ${mon.tracking.intervals} intervalli.` : ""}</p>
+    ${visible.length ? `<ul class="alerts">${visible.map((a) => `<li><span class="pill"><span class="dot" style="background:var(${COLOR[a.severity]})"></span>${ICON[a.severity]} ${LABEL[a.severity]}</span> ${esc(a.message)}</li>`).join("")}</ul>`
+      : `<p style="margin:0">✓ Nessun avviso: tutto regolare.</p>`}</section>`;
 
   // tiles
   const peak = last ? last.peak_equity : null;

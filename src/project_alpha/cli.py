@@ -804,6 +804,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Invia davvero gli ordini al conto paper (default: solo prova).",
     )
 
+    report = commands.add_parser(
+        "paper-report",
+        help="Controlli serali e riepilogo in italiano del paper trading (sola lettura).",
+    )
+    report.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
+    report.add_argument(
+        "--output",
+        type=Path,
+        default=Path("reports/paper/daily_report.md"),
+        help="File del riepilogo (Markdown).",
+    )
+
     resume = commands.add_parser(
         "paper-resume",
         help="Sblocca il paper trading dopo uno stop di drawdown (decisione manuale).",
@@ -1635,6 +1647,18 @@ def main() -> None:
 
         if outcome.status in {"PARTIAL", "REJECTED_BY_RISK"}:
             raise SystemExit(1)
+        return
+
+    if args.command == "paper-report":
+        from project_alpha.monitor import check_paper, load_inputs, render_report
+        from project_alpha.paper import load_paper_config
+
+        config = load_paper_config(args.config)
+        log, state, bars = load_inputs(config)
+        result = check_paper(config, log, state, bars=bars)
+        text = render_report(config, result)
+        write_text_atomic(args.output, text)
+        print(text)
         return
 
     if args.command == "paper-resume":

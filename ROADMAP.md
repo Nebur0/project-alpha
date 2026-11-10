@@ -29,7 +29,7 @@ Principi:
   dal caso** (permutazioni p ≈ 0,18; alfa CAPM t ≈ 1,3). La protezione nei
   ribassi viene soprattutto dall'esposizione bassa.
 
-## Fase 0 — Fondamenta affidabili *(in corso)*
+## Fase 0 — Fondamenta affidabili *(completata)*
 
 | # | Blocco | Stato |
 |---|---|---|
@@ -54,7 +54,9 @@ valutazione standard.
   Alpaca paper, autorizzato dal proprietario il 2026-11-07
   (`scripts/daily_paper.sh`, registro `reports/paper/paper_log.csv`).
 - Fase 5 (anticipata in parte): dashboard locale in sola lettura
-  (`project-alpha dashboard`).
+  (`project-alpha dashboard`) e gradino 1 "copilot": assistente di
+  monitoraggio deterministico con avvisi e riepilogo serale in italiano
+  (`project-alpha paper-report`, `src/project_alpha/monitor.py`).
 
 ## Fase 1 — La verità su V1
 

@@ -4,7 +4,8 @@
 # 1. scarica le barre aggiornate degli ETF del core in data/raw/bars_core.csv;
 # 2. controlla la qualità dei dati (si ferma se ci sono errori);
 # 3. ribilancia il conto Alpaca PAPER se i pesi sono fuori banda
-#    (gli ordini restano in coda e vengono eseguiti all'apertura successiva).
+#    (gli ordini restano in coda e vengono eseguiti all'apertura successiva);
+# 4. scrive il riepilogo con gli avvisi in reports/paper/daily_report.md.
 #
 # Uso (Git Bash):  scripts/daily_paper.sh           -> invia ordini al conto paper
 #                  scripts/daily_paper.sh --dry-run -> solo prova, nessun ordine
@@ -50,7 +51,15 @@ python -m project_alpha check-data \
   --input "$DATA" \
   --symbols "${SYMBOLS[@]}" > "$LOG_DIR/last_data_check.json"
 
+# Il riepilogo va scritto anche se il ribilanciamento fallisce: è lì che
+# l'assistente di monitoraggio segnala il problema.
+status=0
 python -m project_alpha paper-rebalance \
-  --config configs/paper_core_v1.toml $SUBMIT 2>&1 | tee -a "$RUN_LOG"
+  --config configs/paper_core_v1.toml $SUBMIT 2>&1 | tee -a "$RUN_LOG" || status=$?
 
-echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) completato" | tee -a "$RUN_LOG"
+python -m project_alpha paper-report \
+  --config configs/paper_core_v1.toml > /dev/null 2>&1 || true
+echo "Riepilogo: $LOG_DIR/daily_report.md" | tee -a "$RUN_LOG"
+
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) completato (esito $status)" | tee -a "$RUN_LOG"
+exit "$status"

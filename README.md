@@ -143,7 +143,10 @@ li controlla, calcola i pesi target e, se il portafoglio è fuori banda,
 invia ordini a mercato che vengono eseguiti all'apertura successiva. Tutto
 passa dal Risk Engine V2; a −12% dal massimo vende tutto e si ferma finché
 non viene sbloccato a mano. Ogni esecuzione aggiunge una riga a
-`reports/paper/paper_log.csv` (da versionare). Pianificazione su Windows
+`reports/paper/paper_log.csv` (da versionare). Subito dopo l'assistente di
+monitoraggio (sola lettura) controlla l'esecuzione e scrive il riepilogo con
+gli avvisi in `reports/paper/daily_report.md`
+(`project-alpha paper-report --config configs/paper_core_v1.toml`). Pianificazione su Windows
 come per i segnali, con `scripts/daily_paper.sh`.
 
 Su Windows, senza terminale: doppio clic su `Prova_paper.bat` (aggiorna

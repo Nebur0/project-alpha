@@ -20,3 +20,4 @@ reports/signals/last_data_check.json
 reports/paper/state.json
 reports/paper/daily_runs.log
 reports/paper/last_data_check.json
+reports/paper/daily_report.md
