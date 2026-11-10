@@ -125,9 +125,12 @@ prova in avanti della strategia.
 ### Paper trading del core bilanciato (soldi finti)
 
 Portafoglio e limiti sono quelli dell'IPS (`docs/IPS.md`), in
-`configs/paper_core_v1.toml`. Serve un conto **paper** Alpaca (consigliato:
-reimpostarlo a 10.000 $) e le sue chiavi in `.env` (iniziano con `PK`;
-le chiavi del conto reale vengono rifiutate).
+`configs/paper_core_v1.toml`. Serve un conto **paper** Alpaca con le sue
+chiavi in `.env` (iniziano con `PK`; le chiavi del conto reale vengono
+rifiutate). Se il conto vale più del budget (es. 100.000 contro 10.000) il
+sistema lo gestisce come **sotto-conto virtuale**: investe il budget, misura
+guadagni, perdite, drawdown e stop solo su quello e non tocca il resto. Il
+conto paper va usato solo da Project Alpha.
 
 ```bash
 scripts/daily_paper.sh --dry-run   # prova: calcola e registra, nessun ordine

@@ -256,3 +256,13 @@ def test_queued_orders_are_reported_as_submitted() -> None:
 
     assert result.status == "SUBMITTED"
     assert len(result.reports) == len(result.orders) == 2
+
+
+def test_capital_limits_orders_to_the_managed_part_of_the_account() -> None:
+    broker = SimulatedBroker(cash=100_000.0, commission_rate=0.0)
+
+    result = _rebalance(broker, {"SPY": 0.4}, dry_run=False, capital=10_000.0)
+
+    assert result.status == "EXECUTED"
+    assert broker.positions == {"SPY": 7.0}  # 40% di 10.000 (meno il buffer), non di 100.000
+    assert result.weights_after["SPY"] == pytest.approx(0.35)

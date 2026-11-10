@@ -120,28 +120,41 @@ def test_submit_builds_portfolio_then_stays_within_bands(config) -> None:
     assert len(pd.read_csv(config.log)) == 2
 
 
-def test_oversized_account_is_refused_at_first_start(config) -> None:
+def test_large_account_is_managed_as_virtual_budget(config) -> None:
     broker = QueueBroker(cash=100_000.0, commission_rate=0.0)
     bars = _bars(config.symbols)
 
-    dry = run_paper(config, broker, frame=bars, now=NOW)
-    assert "Reimpostare il conto" in dry.note
+    first = run_paper(config, broker, frame=bars, submit=True, now=NOW)
 
-    with pytest.raises(ValueError, match="Reimpostare il conto"):
-        run_paper(config, broker, frame=bars, submit=True, now=NOW)
+    invested = 100_000.0 - broker.cash
+    assert first.status == "EXECUTED"
+    assert first.equity == pytest.approx(10_000.0)
+    assert "Sotto-conto virtuale" in first.note
+    assert invested <= config.budget
+    assert invested > 0.4 * config.budget
+
+    # Crollo del 30%: il calo si misura sui 10.000 gestiti, non sui 100.000.
+    crash = bars.copy()
+    crash.loc[crash["timestamp"] == crash["timestamp"].max(), "close"] *= 0.7
+    stopped = run_paper(config, broker, frame=crash, submit=True, now=NOW)
+
+    assert stopped.drawdown == pytest.approx(-0.3 * invested / 10_000.0, rel=1e-3)
+    assert stopped.halted
     assert broker.positions == {}
+    assert broker.cash > 95_000.0
 
 
-def test_budget_caps_capital_after_growth(config) -> None:
+def test_managed_capital_follows_gains(config) -> None:
     broker = QueueBroker(cash=10_000.0, commission_rate=0.0)
     bars = _bars(config.symbols)
     run_paper(config, broker, frame=bars, submit=True, now=NOW)
 
-    broker.cash += 5_000.0  # il conto cresce oltre il budget
-    outcome = run_paper(config, broker, frame=bars, submit=True, now=NOW)
+    rally = bars.copy()
+    rally.loc[rally["timestamp"] == rally["timestamp"].max(), "close"] *= 1.10
+    outcome = run_paper(config, broker, frame=rally, submit=True, now=NOW)
 
-    invested = outcome.equity - broker.cash
-    assert invested <= config.budget * 1.01
+    assert outcome.equity > 10_000.0  # i guadagni restano nel capitale gestito
+    assert outcome.drawdown == 0.0
 
 
 def test_open_orders_block_new_orders(config) -> None:
