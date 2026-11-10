@@ -104,6 +104,9 @@ Capitale minimo, chiavi con permessi minimi, niente leva/short/opzioni,
 stop automatici. Aumento a gradini (es. 1% → 5% → 25% del budget) solo se
 ogni gradino rispetta i criteri.
 
+Preparazione (broker, ETF UCITS, fiscalità, decisioni aperte D1–D5):
+`docs/FASE4.md`.
+
 ## Fase 5 — AI e autonomia
 
 Autonomia crescente, sempre dietro il Risk Engine deterministico:
