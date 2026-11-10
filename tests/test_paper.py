@@ -202,3 +202,17 @@ def test_stale_data_blocks_buying(config) -> None:
     assert outcome.status == "REJECTED_BY_RISK"
     assert "STALE_DATA" in outcome.rebalance.risk.violations
     assert broker.positions == {}
+
+
+def test_partial_bar_of_open_session_is_ignored(config) -> None:
+    bars = _bars(config.symbols)  # ultima barra: seduta del 2026-11-09
+    during = datetime(2026, 11, 9, 17, 15, tzinfo=UTC)  # 12:15 a New York
+    after = datetime(2026, 11, 9, 22, 30, tzinfo=UTC)  # 17:30 a New York
+
+    open_run = run_paper(config, QueueBroker(cash=10_000.0), frame=bars, now=during)
+    closed_run = run_paper(config, QueueBroker(cash=10_000.0), frame=bars, now=after)
+
+    assert open_run.targets.data_timestamp < closed_run.targets.data_timestamp
+    assert closed_run.targets.data_timestamp == bars["timestamp"].max()
+    assert "incompleta" in open_run.note
+    assert "incompleta" not in closed_run.note

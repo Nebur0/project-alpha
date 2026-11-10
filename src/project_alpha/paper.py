@@ -286,6 +286,26 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
 # ----------------------------------------------------------------------
 
 
+MARKET_TZ = "America/New_York"
+# Chiusura USA (16:00) più un margine perché la barra giornaliera sia definitiva.
+SESSION_FINAL_HOUR = 16
+SESSION_FINAL_MINUTE = 15
+
+
+def complete_sessions(frame: pd.DataFrame, now: datetime) -> tuple[pd.DataFrame, bool]:
+    """Toglie la barra della seduta in corso, se il programma gira a borsa aperta.
+
+    Durante la seduta Alpaca restituisce per oggi una barra parziale: usarla
+    come chiusura farebbe decidere su un prezzo provvisorio.
+    """
+    data = frame.copy()
+    stamps = pd.to_datetime(data["timestamp"], utc=True)
+    session = stamps.dt.tz_convert(MARKET_TZ).dt.normalize()
+    final = session + pd.Timedelta(hours=SESSION_FINAL_HOUR, minutes=SESSION_FINAL_MINUTE)
+    keep = final <= pd.Timestamp(now).tz_convert(MARKET_TZ)
+    return data.loc[keep.to_numpy()], bool((~keep).any())
+
+
 def core_targets(frame: pd.DataFrame, config: PaperConfig) -> CoreTargets:
     """Pesi target del core sull'ultima barra (nessuna informazione futura).
 
@@ -392,6 +412,7 @@ def run_paper(
     run_time = now or datetime.now(UTC)
     mode = "SUBMIT" if submit else "DRY_RUN"
     bars = frame if frame is not None else pd.read_csv(config.data)
+    bars, dropped_partial = complete_sessions(bars, run_time)
     targets = core_targets(bars, config)
     state = PaperState.load(config.state)
 
@@ -427,8 +448,11 @@ def run_paper(
     halted = state.halted
     note = ""
 
+    if dropped_partial:
+        note = "Seduta USA ancora aperta: ignorata la barra di oggi (incompleta). "
+
     if account_equity > equity * 1.01:
-        note = (
+        note += (
             f"Sotto-conto virtuale: gestiti {equity:,.0f} su un conto da "
             f"{account_equity:,.0f}; il resto non viene toccato."
         )
