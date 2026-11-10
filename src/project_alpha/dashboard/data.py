@@ -14,6 +14,7 @@ from typing import Any
 
 import pandas as pd
 
+from project_alpha.monitor import check_paper, load_inputs
 from project_alpha.paper import PaperConfig, PaperState, load_paper_config
 
 HISTORY_LIMIT = 2000
@@ -212,11 +213,14 @@ def overview(root: Path | str, config_path: Path | str) -> dict[str, Any]:
         config_file = repo / config_file
 
     config = load_paper_config(config_file, root=repo)
+    log, state, bars = load_inputs(config)
+    monitor = check_paper(config, log, state, bars=bars).to_dict()
 
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "ips": ips_section(config),
         "paper": paper_section(config),
+        "monitor": monitor,
         "signals": signals_section(repo / "reports" / "signals" / "signal_log.csv"),
         "research": research_section(repo),
     }
