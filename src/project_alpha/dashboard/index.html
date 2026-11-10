@@ -299,7 +299,7 @@ function render(d) {
   // tiles
   const peak = last ? last.peak_equity : null;
   h += `<section class="tiles" aria-label="Riepilogo">
-    <div class="tile"><div class="label">Equity del conto paper</div><div class="value">${last ? money(last.equity) : "—"}</div>
+    <div class="tile"><div class="label">Capitale gestito</div><div class="value">${last ? money(last.equity) : "—"}</div>
       <div class="foot">${last && last.daily_return != null ? `<span class="${last.daily_return >= 0 ? "pos" : "neg"}">${last.daily_return >= 0 ? "▲" : "▼"} ${pct(last.daily_return, 2)}</span> dall'ultima esecuzione` : "&nbsp;"}</div></div>
     <div class="tile"><div class="label">Distanza dal massimo</div><div class="value">${last ? pct(last.drawdown) : "—"}</div>
       <div class="foot">massimo ${money(peak)} · stop a ${pct(L.stop_drawdown, 0)}</div></div>
@@ -313,7 +313,7 @@ function render(d) {
 
   // grafici
   h += `<section class="grid2">
-    <div class="card"><h2>Equity del conto paper</h2><p class="hint">Valore del conto a ogni esecuzione serale.</p><div class="chart" id="c-equity"></div></div>
+    <div class="card"><h2>Capitale gestito</h2><p class="hint">Budget più guadagni e perdite del sistema, a ogni esecuzione serale.</p><div class="chart" id="c-equity"></div></div>
     <div class="card"><h2>Distanza dal massimo</h2><p class="hint">Linee: solo riduzioni ${pct(L.reduce_only_drawdown, 0)}, stop ${pct(L.stop_drawdown, 0)}, limite IPS ${pct(L.ips_max_drawdown, 0)}.</p><div class="chart" id="c-dd"></div></div>
   </section>`;
 
@@ -342,7 +342,7 @@ function render(d) {
   if (hist.length) {
     lineChart($("#c-equity"), hist.map((r) => ({ x: r.x, y: r.equity,
       label: `<strong>${money(r.equity)}</strong><br><span class="muted">${datetime(r.run)} · ${esc(STATUS_TEXT[r.status] || r.status)}</span>` })),
-      { aria: "Equity del conto paper nel tempo", fmtY: (v) => NF(0).format(v) });
+      { aria: "Capitale gestito nel tempo", fmtY: (v) => NF(0).format(v) });
     const refs = [
       { y: L.reduce_only_drawdown, label: pct(L.reduce_only_drawdown, 0), color: "--warning" },
       { y: L.stop_drawdown, label: pct(L.stop_drawdown, 0), color: "--serious" },

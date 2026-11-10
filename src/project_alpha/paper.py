@@ -38,9 +38,6 @@ from project_alpha.execution.orders import OrderPlanSettings
 from project_alpha.io_utils import dumps_json, write_csv_atomic, write_json_atomic
 from project_alpha.risk_engine import RiskPolicyV2
 
-# Margine ammesso tra equity del conto e budget al primo avvio.
-BUDGET_TOLERANCE = 0.10
-
 PAPER_LOG_COLUMNS = (
     "run_timestamp_utc",
     "strategy",
@@ -64,6 +61,7 @@ PAPER_LOG_COLUMNS = (
     "note",
     "target_weights",
     "current_weights",
+    "account_equity",
 )
 
 
@@ -130,8 +128,13 @@ class PaperConfig:
 
 @dataclass
 class PaperState:
+    # Valori del capitale gestito (sotto-conto virtuale), non del conto intero.
     peak_equity: float | None = None
     last_equity: float | None = None
+    # Equity del conto e capitale gestito al primo invio: il capitale gestito è
+    # capital_baseline + (equity del conto − account_baseline).
+    account_baseline: float | None = None
+    capital_baseline: float | None = None
     halted: bool = False
     halted_at: str | None = None
     halt_reason: str | None = None
@@ -397,10 +400,26 @@ def run_paper(
         prices = {**broker.market_prices(), **prices}
 
     account = broker.account(prices)
-    equity = account.equity
+    account_equity = account.equity
+
+    if account_equity <= 0:
+        raise ValueError("Equity del conto non positiva: nessuna operazione.")
+
+    # Sotto-conto virtuale: il sistema gestisce il budget più i propri guadagni
+    # e perdite, anche se il conto è più grande. Presuppone che il conto sia
+    # usato solo da Project Alpha (ogni variazione di valore è sua).
+    account_baseline = (
+        state.account_baseline if state.account_baseline is not None else account_equity
+    )
+    capital_baseline = (
+        state.capital_baseline
+        if state.capital_baseline is not None
+        else min(config.budget, account_baseline)
+    )
+    equity = capital_baseline + (account_equity - account_baseline)
 
     if equity <= 0:
-        raise ValueError("Equity del conto non positiva: nessuna operazione.")
+        raise ValueError("Capitale gestito non positivo: nessuna operazione.")
 
     peak = max(state.peak_equity or equity, equity)
     drawdown = equity / peak - 1.0
@@ -408,16 +427,11 @@ def run_paper(
     halted = state.halted
     note = ""
 
-    # Primo avvio su un conto molto più grande del budget: calo dal massimo e
-    # stop sarebbero misurati sul conto intero e non proteggerebbero il budget.
-    if state.last_equity is None and equity > config.budget * (1 + BUDGET_TOLERANCE):
+    if account_equity > equity * 1.01:
         note = (
-            f"Il conto vale {equity:,.0f} ma il budget è {config.budget:,.0f}: "
-            "drawdown e stop verrebbero misurati sul conto intero. Reimpostare il "
-            f"conto paper a {config.budget:,.0f} dal sito Alpaca prima di inviare ordini."
+            f"Sotto-conto virtuale: gestiti {equity:,.0f} su un conto da "
+            f"{account_equity:,.0f}; il resto non viene toccato."
         )
-        if submit:
-            raise ValueError(note)
 
     if not halted and drawdown <= -config.stop_drawdown:
         halted = True
@@ -426,9 +440,8 @@ def run_paper(
             "Tutto in cash; sblocco manuale con paper-resume."
         )
 
-    # Il core è dimensionato sul budget, non sull'intero conto.
-    scale = min(1.0, config.budget / equity)
-    target_weights = {} if halted else {s: w * scale for s, w in targets.weights.items()}
+    # Pesi relativi al capitale gestito.
+    target_weights = {} if halted else dict(targets.weights)
 
     current = {
         symbol: quantity * prices[symbol] / equity for symbol, quantity in account.positions.items()
@@ -465,10 +478,13 @@ def run_paper(
             policy=config.risk,
             settings=config.orders,
             dry_run=not submit,
+            capital=equity,
         )
         status = result.status
 
     if submit:
+        state.account_baseline = account_baseline
+        state.capital_baseline = capital_baseline
         state.peak_equity = peak
         state.last_equity = equity
         state.last_run_utc = run_time.isoformat()
@@ -518,6 +534,7 @@ def run_paper(
             "note": note,
             "target_weights": dumps_json({k: round(v, 6) for k, v in target_weights.items()}),
             "current_weights": dumps_json({k: round(v, 6) for k, v in current.items()}),
+            "account_equity": round(account_equity, 2),
         },
     )
 

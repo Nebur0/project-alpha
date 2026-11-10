@@ -12,7 +12,8 @@ data = "data/raw/bars_core.csv"
 log = "reports/paper/paper_log.csv"
 state = "reports/paper/state.json"
 
-# Capitale massimo gestito (valuta del conto). Conto paper consigliato: 10.000.
+# Capitale gestito (valuta del conto). Se il conto è più grande, il sistema
+# gestisce un sotto-conto virtuale: budget + i propri guadagni e perdite.
 budget = 10000.0
 
 # Limite dell'IPS: perdita massima 15% dal massimo. Il sistema agisce prima:

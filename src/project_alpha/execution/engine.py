@@ -60,20 +60,31 @@ def rebalance(
     policy: RiskPolicyV2 | None = None,
     settings: OrderPlanSettings | None = None,
     dry_run: bool = True,
+    capital: float | None = None,
 ) -> RebalanceResult:
     """Porta il conto verso ``target_weights`` se il Risk Engine lo consente.
 
     ``dry_run=True`` (default): calcola tutto ma non invia ordini.
+    ``capital``: capitale gestito quando è solo una parte del conto (sotto-conto
+    virtuale). Pesi, limiti di rischio e dimensione degli ordini sono allora
+    relativi a questo capitale; il resto del conto non viene toccato.
     """
     price_map = {symbol.upper(): float(price) for symbol, price in prices.items()}
     targets = {symbol.upper(): float(weight) for symbol, weight in target_weights.items()}
 
     before = broker.account(price_map)
-    weights_before = _weights(before.positions, price_map, before.equity)
+
+    if capital is not None and (not capital > 0):
+        raise ValueError("capital deve essere positivo.")
+
+    managed = before.equity if capital is None else min(capital, before.equity)
+    # Parte del conto fuori dalla gestione (costante durante il ribilanciamento).
+    outside = before.equity - managed
+    weights_before = _weights(before.positions, price_map, managed)
 
     state = PortfolioState(
-        equity=before.equity,
-        peak_equity=max(peak_equity, before.equity),
+        equity=managed,
+        peak_equity=max(peak_equity, managed),
         daily_return=daily_return,
         current_weights=weights_before,
         data_timestamp=data_timestamp,
@@ -96,7 +107,7 @@ def rebalance(
         targets,
         before.positions,
         price_map,
-        before.equity,
+        managed,
         strategy=strategy,
         as_of=pd.Timestamp(as_of).date().isoformat(),
         settings=settings,
@@ -124,7 +135,7 @@ def rebalance(
                 status = "SUBMITTED"
 
     after = broker.account(price_map)
-    weights_after = _weights(after.positions, price_map, after.equity)
+    weights_after = _weights(after.positions, price_map, after.equity - outside)
     symbols = set(targets) | set(weights_after)
     error = max(
         (abs(weights_after.get(symbol, 0.0) - targets.get(symbol, 0.0)) for symbol in symbols),
