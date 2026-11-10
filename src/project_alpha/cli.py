@@ -816,6 +816,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="File del riepilogo (Markdown).",
     )
 
+    notify = commands.add_parser(
+        "paper-notify",
+        help="Invia ai dispositivi iscritti la notifica dell'ultima esecuzione.",
+    )
+    notify.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
+
     resume = commands.add_parser(
         "paper-resume",
         help="Sblocca il paper trading dopo uno stop di drawdown (decisione manuale).",
@@ -1659,6 +1665,24 @@ def main() -> None:
         text = render_report(config, result)
         write_text_atomic(args.output, text)
         print(text)
+        return
+
+    if args.command == "paper-notify":
+        from project_alpha.notifications import notify_latest_run
+        from project_alpha.paper import load_paper_config
+
+        message, delivery = notify_latest_run(load_paper_config(args.config), Path.cwd())
+        print(
+            dumps_json(
+                {
+                    "message": message,
+                    "sent": delivery.sent,
+                    "removed": delivery.removed,
+                    "failed": list(delivery.failed),
+                },
+                indent=2,
+            )
+        )
         return
 
     if args.command == "paper-resume":
