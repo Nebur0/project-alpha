@@ -5,7 +5,8 @@
 # 2. controlla la qualità dei dati (si ferma se ci sono errori);
 # 3. ribilancia il conto Alpaca PAPER se i pesi sono fuori banda
 #    (gli ordini restano in coda e vengono eseguiti all'apertura successiva);
-# 4. scrive il riepilogo con gli avvisi in reports/paper/daily_report.md.
+# 4. scrive il riepilogo con gli avvisi in reports/paper/daily_report.md;
+# 5. manda la notifica ai dispositivi iscritti dalla web app.
 #
 # Uso (Git Bash):  scripts/daily_paper.sh           -> invia ordini al conto paper
 #                  scripts/daily_paper.sh --dry-run -> solo prova, nessun ordine
@@ -60,6 +61,10 @@ python -m project_alpha paper-rebalance \
 python -m project_alpha paper-report \
   --config configs/paper_core_v1.toml > /dev/null 2>&1 || true
 echo "Riepilogo: $LOG_DIR/daily_report.md" | tee -a "$RUN_LOG"
+
+# Notifica sul telefono (se almeno un dispositivo è iscritto dalla web app).
+python -m project_alpha paper-notify \
+  --config configs/paper_core_v1.toml >> "$RUN_LOG" 2>&1 || true
 
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) completato (esito $status)" | tee -a "$RUN_LOG"
 exit "$status"

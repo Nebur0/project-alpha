@@ -21,3 +21,6 @@ reports/paper/state.json
 reports/paper/daily_runs.log
 reports/paper/last_data_check.json
 reports/paper/daily_report.md
+
+# Notifiche push: chiave VAPID privata e iscrizioni dei dispositivi (locali)
+data/push/

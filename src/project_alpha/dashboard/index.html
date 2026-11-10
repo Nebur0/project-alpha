@@ -2,8 +2,15 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Project Alpha</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Alpha">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#10213a">
 <style>
 :root {
   color-scheme: light;
@@ -64,7 +71,15 @@ body {
 header {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 18px 24px; border-bottom: 1px solid var(--border); background: var(--surface-1);
+  padding-top: max(18px, env(safe-area-inset-top));
 }
+#push-wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 0; }
+.btn {
+  font: inherit; font-size: 13.5px; font-weight: 600; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-0); color: var(--text-primary);
+}
+.btn.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 header h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
 header .sub { color: var(--text-secondary); font-size: 13px; }
 header .spacer { flex: 1; }
@@ -127,6 +142,7 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
   <span class="sub" id="updated"></span>
   <button id="theme" type="button" aria-label="Cambia tema">Tema</button>
 </header>
+<div id="push-wrap"><section class="card" id="push" aria-label="Notifiche"><h2>Notifiche sul telefono</h2><p class="hint" id="push-status">Verifica in corso…</p><div class="btn-row" id="push-actions"></div></section></div>
 <main id="app"><div class="card">Caricamento dati…</div></main>
 <div class="tooltip" id="tip" role="status"></div>
 
@@ -423,6 +439,86 @@ async function load() {
 }
 load();
 setInterval(load, 60000);
+
+// ---------- web app e notifiche push ----------
+const pushState = { reg: null, sub: null, key: null, devices: 0 };
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+function b64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+  return data;
+}
+
+function pushUI(text, buttons) {
+  $("#push-status").innerHTML = text;
+  const row = $("#push-actions");
+  row.innerHTML = "";
+  for (const [label, fn, primary] of buttons) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn" + (primary ? " primary" : ""); b.textContent = label;
+    b.addEventListener("click", async () => {
+      b.disabled = true;
+      try { await fn(); } catch (e) { $("#push-status").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+      b.disabled = false;
+    });
+    row.appendChild(b);
+  }
+}
+
+async function refreshPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    if (isIOS && !standalone) {
+      pushUI("Su iPhone le notifiche funzionano solo dall'app: tocca <strong>Condividi</strong> → <strong>Aggiungi alla schermata Home</strong>, poi apri <strong>Alpha</strong> dall'icona.", []);
+    } else {
+      pushUI("Questo browser non supporta le notifiche push.", []);
+    }
+    return;
+  }
+  try {
+    pushState.reg = await navigator.serviceWorker.register("/sw.js");
+    const info = await (await fetch("/api/push/key", { cache: "no-store" })).json();
+    pushState.key = info.publicKey; pushState.devices = info.devices;
+    pushState.sub = await pushState.reg.pushManager.getSubscription();
+  } catch (e) {
+    pushUI(`Notifiche non disponibili: ${esc(e.message)}`, []);
+    return;
+  }
+  if (pushState.sub) {
+    pushUI(`✓ Attive su questo dispositivo · ${pushState.devices} dispositiv${pushState.devices === 1 ? "o" : "i"} iscritt${pushState.devices === 1 ? "o" : "i"}. Ogni sera arriva l'esito, subito gli avvisi gravi.`, [
+      ["Invia una prova", async () => {
+        const r = await postJSON("/api/push/test", {});
+        $("#push-status").textContent = r.sent ? `Prova inviata a ${r.sent} dispositiv${r.sent === 1 ? "o" : "i"}.` : `Nessun invio riuscito ${r.failed.length ? "(" + r.failed.join(", ") + ")" : ""}.`;
+      }, true],
+      ["Disattiva", async () => {
+        await postJSON("/api/push/unsubscribe", { endpoint: pushState.sub.endpoint });
+        await pushState.sub.unsubscribe();
+        await refreshPush();
+      }],
+    ]);
+  } else if (Notification.permission === "denied") {
+    pushUI("Notifiche bloccate: riattivale dalle Impostazioni del telefono (Notifiche → Alpha).", []);
+  } else {
+    pushUI("Ricevi sul telefono l'esito di ogni sera e gli avvisi del monitoraggio.", [
+      ["Attiva notifiche", async () => {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("Permesso non concesso.");
+        const sub = await pushState.reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(pushState.key) });
+        await postJSON("/api/push/subscribe", { subscription: sub.toJSON(), label: isIOS ? "iPhone" : navigator.platform || "dispositivo" });
+        await refreshPush();
+      }, true],
+    ]);
+  }
+}
+refreshPush();
 </script>
 </body>
 </html>

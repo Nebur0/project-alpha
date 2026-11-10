@@ -165,6 +165,12 @@ e risultati della ricerca. Si aggiorna da sola ogni minuto. Legge solo i
 file del repository (mai `.env`, mai il broker), ascolta solo su
 `127.0.0.1` e non ha pulsanti che inviano ordini.
 
+### Web app sull'iPhone con notifiche
+
+La dashboard si installa sull'iPhone come app (**Alpha**) e manda una
+notifica dopo ogni esecuzione serale; accesso privato tramite Tailscale.
+Guida passo passo: `docs/APP.md`.
+
 ### Fase 1: V1 congelata su ETF multi-asset
 
 ```bash

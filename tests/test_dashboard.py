@@ -104,7 +104,7 @@ def test_server_is_local_only_and_read_only(repo) -> None:
         post = urllib.request.Request(f"{base}/api/overview", data=b"{}", method="POST")
         with pytest.raises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(post)
-        assert error.value.code == 501
+        assert error.value.code == 404  # nessuna azione sui dati via POST
 
         with pytest.raises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(f"{base}/../.env")
