@@ -216,3 +216,40 @@ def test_partial_bar_of_open_session_is_ignored(config) -> None:
     assert closed_run.targets.data_timestamp == bars["timestamp"].max()
     assert "incompleta" in open_run.note
     assert "incompleta" not in closed_run.note
+
+
+def test_no_orders_while_us_market_is_open(config) -> None:
+    bars = _bars(config.symbols)  # ultima seduta completa: 2026-11-09
+    during = datetime(2026, 11, 10, 15, 0, tzinfo=UTC)  # martedì 10:00 a New York
+    broker = QueueBroker(cash=10_000.0)
+
+    outcome = run_paper(config, broker, frame=bars, submit=True, now=during)
+
+    assert outcome.status == "MARKET_OPEN"
+    assert broker.positions == {}
+    assert "23:00" in outcome.note
+    # La prova (dry-run) a borsa aperta resta possibile.
+    assert run_paper(config, broker, frame=bars, now=during).status == "DRY_RUN"
+
+
+def test_stop_liquidation_does_not_wait_for_the_close(config) -> None:
+    bars = _bars(config.symbols)
+    broker = QueueBroker(cash=10_000.0, commission_rate=0.0)
+    run_paper(config, broker, frame=bars, submit=True, now=NOW)
+    crash = bars.copy()
+    crash.loc[crash["timestamp"] == crash["timestamp"].max(), "close"] *= 0.8
+
+    during = datetime(2026, 11, 10, 15, 0, tzinfo=UTC)
+    outcome = run_paper(config, broker, frame=crash, submit=True, now=during)
+
+    assert outcome.halted and outcome.status == "EXECUTED"
+    assert broker.positions == {}
+
+
+def test_market_hours() -> None:
+    from project_alpha.paper import us_market_open
+
+    assert us_market_open(datetime(2026, 11, 10, 15, 0, tzinfo=UTC))  # 10:00 NY
+    assert not us_market_open(datetime(2026, 11, 10, 22, 0, tzinfo=UTC))  # 17:00 NY
+    assert not us_market_open(datetime(2026, 11, 10, 13, 0, tzinfo=UTC))  # 8:00 NY
+    assert not us_market_open(datetime(2026, 11, 14, 16, 0, tzinfo=UTC))  # sabato

@@ -322,6 +322,7 @@ STATUS_TEXT = {
     "HALTED": "fermo dopo lo stop",
     "REJECTED_BY_RISK": "bloccato dal Risk Engine",
     "PARTIAL": "esecuzione parziale",
+    "MARKET_OPEN": "borsa USA aperta, ordini rimandati alla sera",
 }
 ICONS = {"critical": "⛔", "warning": "⚠️", "info": "ℹ️"}
 
