@@ -29,6 +29,7 @@ STATUS_SHORT = {
     "HALTED": "Sistema fermo dopo lo stop",
     "REJECTED_BY_RISK": "Bloccato dal Risk Engine",
     "PARTIAL": "Esecuzione parziale",
+    "MARKET_OPEN": "Borsa aperta, ordini rimandati alla sera",
 }
 TITLES = {
     "critical": "⛔ Project Alpha: intervenire",

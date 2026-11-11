@@ -292,6 +292,15 @@ SESSION_FINAL_HOUR = 16
 SESSION_FINAL_MINUTE = 15
 
 
+def us_market_open(now: datetime) -> bool:
+    """Seduta USA in corso (lun–ven, 9:30–16:15 di New York; festività ignorate)."""
+    local = pd.Timestamp(now).tz_convert(MARKET_TZ)
+    if local.weekday() >= 5:
+        return False
+    minutes = local.hour * 60 + local.minute
+    return 9 * 60 + 30 <= minutes < SESSION_FINAL_HOUR * 60 + SESSION_FINAL_MINUTE
+
+
 def complete_sessions(frame: pd.DataFrame, now: datetime) -> tuple[pd.DataFrame, bool]:
     """Toglie la barra della seduta in corso, se il programma gira a borsa aperta.
 
@@ -479,7 +488,15 @@ def run_paper(
 
     result: RebalanceResult | None = None
 
-    if open_orders:
+    if submit and us_market_open(run_time) and not (halted and current):
+        # Esecuzione di recupero a borsa aperta: gli ordini a mercato verrebbero
+        # eseguiti subito a prezzi del momento. Si aspetta l'esecuzione serale.
+        # Eccezione: la liquidazione dopo lo stop non aspetta.
+        status = "MARKET_OPEN"
+        note = (note + " " if note else "") + (
+            "Borsa USA aperta: nessun ordine, se ne occupa l'esecuzione delle 23:00."
+        )
+    elif open_orders:
         status = "PENDING_ORDERS"
         note = note or f"{len(open_orders)} ordini ancora aperti: nessun nuovo ordine."
     elif halted and not current:
