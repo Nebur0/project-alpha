@@ -57,6 +57,9 @@ valutazione standard.
   2026-11-17): nessuna batte la strategia attuale in modo significativo; il
   portafoglio permanente è "promettente" (decisione aperta su paper in
   parallelo).
+- App con motore interno (`project-alpha app`): lavoro serale, recuperi,
+  sentinella e notizie senza attività di Windows; simulatore di accumulo in
+  dashboard; pacchetto Docker e guida per il cloud (`docs/CLOUD.md`).
 - Fase 5 (anticipata in parte): dashboard locale in sola lettura
   (`project-alpha dashboard`) e gradino 1 "copilot": assistente di
   monitoraggio deterministico con avvisi e riepilogo serale in italiano

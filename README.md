@@ -122,6 +122,21 @@ Crea attività di base → ogni giorno, lun–ven, ore 23:00):
 Il registro va versionato (`git add reports/signals/signal_log.csv`): è la
 prova in avanti della strategia.
 
+### L'app (dashboard + motore)
+
+```bash
+project-alpha app        # http://127.0.0.1:8050
+```
+
+Un solo processo tiene accesa la dashboard ed esegue da sé il **lavoro
+serale** dopo la chiusura USA (dati, controllo, tutte le strategie in
+`configs/paper_*.toml`, riepiloghi, notifica, notizie), i **recuperi** se il
+PC era spento (mai a borsa aperta) e ogni ora **notizie e sentinella**. Il
+lavoro serale è idempotente per seduta e protetto da un lucchetto: l'attività
+di Windows e l'app possono coesistere senza duplicare ordini. Su Windows
+parte all'accesso (`scripts/windows/app_server.bat`). Diario del motore:
+`reports/paper/engine.log`. Nel cloud: `docs/CLOUD.md`.
+
 ### Paper trading del core bilanciato (soldi finti)
 
 Portafoglio e limiti sono quelli dell'IPS (`docs/IPS.md`), in

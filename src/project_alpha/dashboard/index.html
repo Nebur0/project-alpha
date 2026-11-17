@@ -81,6 +81,12 @@ header {
 .btn.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 #news-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 48px; }
+#sim-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 16px; }
+#sim-chart { max-width: 760px; }
+.sim-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sim-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--text-secondary); }
+.sim-form input, .sim-form select { font: inherit; font-size: 14px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-0); color: var(--text-primary); }
 .news-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .tab { font: inherit; font-size: 13px; padding: 6px 12px; border: 0; background: var(--surface-0); color: var(--text-secondary); cursor: pointer; }
@@ -158,6 +164,19 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
 </header>
 <div id="push-wrap"><section class="card" id="push" aria-label="Notifiche"><h2>Notifiche sul telefono</h2><p class="hint" id="push-status">Verifica in corso…</p><div class="btn-row" id="push-actions"></div></section></div>
 <main id="app"><div class="card">Caricamento dati…</div></main>
+<div id="sim-wrap"><section class="card" id="sim" aria-label="Simulatore">
+  <h2>Simulatore di accumulo</h2>
+  <p class="hint" id="sim-hint">Quanto potrebbe valere il portafoglio versando ogni mese. Forchette ricavate ricombinando a caso i rendimenti mensili storici (dopo i costi): non sono promesse. Il periodo non contiene crisi come il 2008, quindi lo scenario cattivo potrebbe essere peggiore.</p>
+  <div class="sim-form">
+    <label>Strategia<select id="sim-strategy"></select></label>
+    <label>Capitale iniziale (€)<input id="sim-initial" type="number" min="0" step="500" value="10000"></label>
+    <label>Versamento mensile (€)<input id="sim-monthly" type="number" min="0" step="50" value="300"></label>
+    <label>Anni<input id="sim-years" type="number" min="1" max="40" step="1" value="10"></label>
+  </div>
+  <div class="tiles" id="sim-tiles" style="margin-top:12px"></div>
+  <div class="legend" style="margin-top:12px"><span><i style="background:var(--series-1)"></i>Scenario centrale</span><span><i style="background:var(--series-1);opacity:.25"></i>Forchetta 10–90%</span><span><i style="background:var(--text-muted)"></i>Totale versato</span></div>
+  <div class="chart" id="sim-chart"></div>
+</section></div>
 <div id="news-wrap"><section class="card" id="news" aria-label="Notizie">
   <h2>Notizie</h2>
   <p class="hint" id="news-hint">Solo informazione: il sistema non le usa per decidere.</p>
@@ -347,7 +366,7 @@ function render(d) {
   const LABEL = { critical: "Intervenire", warning: "Da guardare", info: "Da sapere" };
   const visible = mon.alerts.filter((a) => a.code !== "HALTED" || !p.state.halted);
   h += `<section class="card" aria-label="Avvisi"><h2>Avvisi</h2>
-    <p class="hint">Controlli automatici di ogni sera, in sola lettura.${mon.tracking ? ` Conto ${pct(mon.tracking.actual, 2)} contro modello ${pct(mon.tracking.expected, 2)} negli ultimi ${mon.tracking.intervals} intervalli.` : ""}</p>
+    <p class="hint">${d.engine && d.engine.available ? `Motore: ultimo lavoro serale sulla seduta del ${date(d.engine.session)} ${d.engine.ok ? "✓" : "⚠ con problemi"} (${datetime(d.engine.at)}). ` : ""}Controlli automatici di ogni sera, in sola lettura.${mon.tracking ? ` Conto ${pct(mon.tracking.actual, 2)} contro modello ${pct(mon.tracking.expected, 2)} negli ultimi ${mon.tracking.intervals} intervalli.` : ""}</p>
     ${visible.length ? `<ul class="alerts">${visible.map((a) => `<li><span class="pill"><span class="dot" style="background:var(${COLOR[a.severity]})"></span>${ICON[a.severity]} ${LABEL[a.severity]}</span> ${esc(a.message)}</li>`).join("")}</ul>`
       : `<p style="margin:0">✓ Nessun avviso: tutto regolare.</p>`}</section>`;
 
@@ -467,7 +486,7 @@ function render(d) {
 }
 
 const _render = render;
-render = function (d) { _render(d); try { renderNews(); } catch (e) {} };
+render = function (d) { _render(d); try { renderNews(); } catch (e) {} try { setupSimulator(d); } catch (e) {} };
 
 async function load() {
   try {
@@ -479,6 +498,82 @@ async function load() {
 }
 load();
 setInterval(load, 60000);
+
+// ---------- simulatore di accumulo ----------
+const simState = { ready: false, data: null };
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function percentile(sorted, q) { const i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i); return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo); }
+
+function runSimulation() {
+  const d = simState.data; if (!d) return;
+  const returns = d.monthly[$("#sim-strategy").value] || [];
+  const initial = Math.max(0, +$("#sim-initial").value || 0);
+  const monthly = Math.max(0, +$("#sim-monthly").value || 0);
+  const years = Math.min(40, Math.max(1, Math.round(+$("#sim-years").value || 1)));
+  const months = years * 12, paths = 2000, block = 12, n = returns.length;
+  const rand = mulberry32(20261117);
+  const byMonth = Array.from({ length: months + 1 }, () => new Float64Array(paths));
+  for (let p = 0; p < paths; p++) {
+    let value = initial, pos = 0, left = 0;
+    byMonth[0][p] = value;
+    for (let m = 1; m <= months; m++) {
+      if (left === 0) { pos = Math.floor(rand() * n); left = block; }
+      value = value * (1 + returns[pos % n]) + monthly;
+      pos++; left--;
+      byMonth[m][p] = value;
+    }
+  }
+  const bands = byMonth.map((arr) => { const s = Array.from(arr).sort((a, b) => a - b); return [percentile(s, 0.1), percentile(s, 0.5), percentile(s, 0.9)]; });
+  const final = bands[months], paid = initial + monthly * months;
+  const growth = returns.reduce((acc, r) => acc * (1 + r), 1), cagr = Math.pow(growth, 12 / n) - 1;
+  const lastArr = Array.from(byMonth[months]); const below = lastArr.filter((v) => v < paid).length / paths;
+  const perDay = final[1] * cagr / 365;
+  $("#sim-tiles").innerHTML = `
+    <div class="tile"><div class="label">Totale versato</div><div class="value">${NF(0).format(paid)} €</div><div class="foot">in ${years} anni</div></div>
+    <div class="tile"><div class="label">Scenario centrale</div><div class="value">${NF(0).format(final[1])} €</div><div class="foot">metà degli scenari sopra, metà sotto</div></div>
+    <div class="tile"><div class="label">Forchetta (10–90%)</div><div class="value" style="font-size:18px;margin-top:6px">${NF(0).format(final[0])} – ${NF(0).format(final[2])} €</div><div class="foot">${pct(below, 0)} degli scenari sotto il versato</div></div>
+    <div class="tile"><div class="label">A quel punto rende in media</div><div class="value">~${NF(0).format(perDay)} €/giorno</div><div class="foot">al ${pct(cagr, 1)} annuo storico; i singoli giorni oscillano molto</div></div>`;
+  // grafico a ventaglio
+  const el = $("#sim-chart"), W = 640, H = 220, m = { t: 10, r: 16, b: 26, l: 64 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const yMax = Math.max(bands[months][2], paid) * 1.05;
+  const X = (i) => m.l + (i / months) * iw, Y = (v) => m.t + (1 - v / yMax) * ih;
+  const ticks = niceTicks(0, yMax, 4);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Valore del portafoglio nel tempo: scenario centrale e forchetta">`;
+  for (const t of ticks) if (t <= yMax) svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="${cssVar("--grid")}"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${NF(0).format(t)}</text>`;
+  for (let yr = 0; yr <= years; yr += Math.max(1, Math.ceil(years / 8))) svg += `<text x="${X(yr * 12)}" y="${H - 6}" text-anchor="middle">${yr === 0 ? "oggi" : yr + "a"}</text>`;
+  const area = bands.map((b, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(b[2]).toFixed(1)}`).join("") + bands.slice().reverse().map((b, k) => `L${X(months - k).toFixed(1)},${Y(b[0]).toFixed(1)}`).join("") + "Z";
+  svg += `<path d="${area}" fill="${cssVar("--series-1")}" opacity="0.18"/>`;
+  svg += `<path d="${bands.map((b, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(initial + monthly * i).toFixed(1)}`).join("")}" fill="none" stroke="${cssVar("--text-muted")}" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  svg += `<path d="${bands.map((b, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(b[1]).toFixed(1)}`).join("")}" fill="none" stroke="${cssVar("--series-1")}" stroke-width="2"/>`;
+  svg += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+  el.innerHTML = svg;
+  const s2 = el.querySelector("svg");
+  s2.addEventListener("pointermove", (ev) => {
+    const box = s2.getBoundingClientRect(); const i = Math.max(0, Math.min(months, Math.round(((ev.clientX - box.left) / box.width * W - m.l) / iw * months)));
+    const b = bands[i];
+    showTip(`<strong>${(i / 12).toFixed(1).replace(".", ",")} anni</strong><br>Centrale ${NF(0).format(b[1])} €<br><span class="muted">10–90%: ${NF(0).format(b[0])} – ${NF(0).format(b[2])} € · versato ${NF(0).format(initial + monthly * i)} €</span>`, ev.pageX, ev.pageY);
+  });
+  s2.addEventListener("pointerleave", hideTip);
+}
+function setupSimulator(d) {
+  const sim = d.simulator;
+  if (!sim || !sim.available) { $("#sim-wrap").style.display = "none"; return; }
+  simState.data = sim;
+  if (!simState.ready) {
+    $("#sim-strategy").innerHTML = Object.keys(sim.monthly).map((k) => `<option>${esc(k)}</option>`).join("");
+    ["#sim-strategy", "#sim-initial", "#sim-monthly", "#sim-years"].forEach((id) => $(id).addEventListener("input", runSimulation));
+    $("#sim-hint").textContent += ` Dati: ${date(sim.start)} → ${date(sim.end)}.`;
+    simState.ready = true;
+    runSimulation();
+  }
+}
 
 // ---------- notizie ----------
 const newsState = { feed: "portfolio", q: "", items: [], stamp: null };

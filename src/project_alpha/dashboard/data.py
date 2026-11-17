@@ -236,6 +236,44 @@ def strategies_section(root: Path) -> list[dict[str, Any]]:
     return rows
 
 
+SIMULATOR_SOURCES = {
+    "Attuale (core bilanciato)": "R_attuale_vol_target",
+    "Portafoglio permanente": "C8_portafoglio_permanente",
+    "Core al 100% (più rischio)": "C1_core_100",
+}
+
+
+def simulator_section(root: Path) -> dict[str, Any]:
+    """Rendimenti mensili storici (torneo, dopo costi) per il simulatore di accumulo."""
+    path = root / "reports" / "lab" / "etf_torneo_v1" / "equity.csv"
+    if not path.exists():
+        return {"available": False}
+    equity = pd.read_csv(path, parse_dates=["data"]).set_index("data")
+    monthly = equity.resample("ME").last().pct_change().dropna()
+    series = {
+        label: [round(float(v), 6) for v in monthly[column]]
+        for label, column in SIMULATOR_SOURCES.items()
+        if column in monthly
+    }
+    return {
+        "available": bool(series),
+        "start": str(monthly.index.min().date()),
+        "end": str(monthly.index.max().date()),
+        "monthly": series,
+    }
+
+
+def engine_section(root: Path) -> dict[str, Any]:
+    """Stato del motore: ultimo lavoro serale."""
+    import json
+
+    marker = root / "reports" / "paper" / "last_daily.json"
+    if not marker.exists():
+        return {"available": False}
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    return {"available": True, **data}
+
+
 NEWS_DAYS = 7
 NEWS_MAX = 400
 
@@ -277,4 +315,6 @@ def overview(root: Path | str, config_path: Path | str) -> dict[str, Any]:
         "research": research_section(repo),
         "news": news_section(repo),
         "strategies": strategies_section(repo),
+        "simulator": simulator_section(repo),
+        "engine": engine_section(repo),
     }

@@ -1,5 +1,6 @@
 @echo off
-rem Project Alpha - avvia il server della web app in background (nessuna finestra).
+rem Project Alpha - avvia l'app in background: dashboard + motore (lavoro serale,
+rem recuperi, sentinella oraria, notizie). Nessuna finestra.
 rem Pensato per l'Utilita' di pianificazione: "All'accesso" dell'utente.
 setlocal
 cd /d "%~dp0\..\.."
@@ -12,4 +13,4 @@ if not defined PYW (
   exit /b 1
 )
 
-start "" "%PYW%" -m project_alpha dashboard --port 8050
+start "" "%PYW%" -m project_alpha app --port 8050
