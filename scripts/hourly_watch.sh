@@ -23,10 +23,5 @@ for candidate in ".venv" "../.venv"; do
   fi
 done
 
-LOG="reports/paper/hourly_watch.log"
 mkdir -p reports/paper
-{
-  echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  python -m project_alpha news-fetch --days 1
-  python -m project_alpha paper-watch --config configs/paper_core_v1.toml
-} >> "$LOG" 2>&1
+python -m project_alpha hourly-run >> reports/paper/hourly_watch.log 2>&1

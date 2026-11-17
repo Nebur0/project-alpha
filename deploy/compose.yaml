@@ -1,0 +1,15 @@
+# Avvio sul server:  docker compose -f deploy/compose.yaml up -d --build
+services:
+  alpha:
+    build: ..
+    restart: unless-stopped
+    network_mode: host          # l'app ascolta solo su 127.0.0.1 dell'host
+    env_file: ../.env           # ALPACA_API_KEY / ALPACA_API_SECRET (chiavi paper)
+    volumes:
+      - alpha-data:/app/data
+      - alpha-paper:/app/reports/paper
+      - alpha-permanente:/app/reports/paper_permanente
+volumes:
+  alpha-data:
+  alpha-paper:
+  alpha-permanente:

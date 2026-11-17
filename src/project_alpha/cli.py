@@ -816,6 +816,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="File del riepilogo (Markdown).",
     )
 
+    app = commands.add_parser(
+        "app",
+        help="Avvia l'app: dashboard + motore (lavoro serale, recuperi, sentinella, notizie).",
+    )
+    app.add_argument("--config", type=Path, default=Path("configs/paper_core_v1.toml"))
+    app.add_argument("--port", type=int, default=8050)
+
+    daily = commands.add_parser(
+        "daily-run",
+        help="Lavoro serale di tutte le strategie paper (idempotente per seduta).",
+    )
+    daily.add_argument("--dry-run", action="store_true", help="Calcola senza inviare ordini.")
+    daily.add_argument(
+        "--force", action="store_true", help="Riesegue anche se la seduta è già fatta."
+    )
+
+    commands.add_parser("hourly-run", help="Notizie e sentinella (sola lettura sul conto).")
+
     tournament = commands.add_parser(
         "strategy-lab",
         help="Torneo pre-registrato delle strategie di allocazione (docs/TORNEO.md).",
@@ -1701,6 +1719,27 @@ def main() -> None:
         text = render_report(config, result)
         write_text_atomic(args.output, text)
         print(text)
+        return
+
+    if args.command == "app":
+        from project_alpha.jobs import run_app
+
+        run_app(Path.cwd(), args.config, port=args.port)
+        return
+
+    if args.command == "daily-run":
+        from project_alpha.jobs import JobContext, daily_run
+
+        result = daily_run(JobContext(Path.cwd()), submit=not args.dry_run, force=args.force)
+        print(dumps_json(result, indent=2))
+        if result.get("status") in {"DATA_ERROR", "EXCEPTION", "PARTIAL"}:
+            raise SystemExit(1)
+        return
+
+    if args.command == "hourly-run":
+        from project_alpha.jobs import JobContext, hourly_run
+
+        print(dumps_json(hourly_run(JobContext(Path.cwd())), indent=2))
         return
 
     if args.command == "strategy-lab":

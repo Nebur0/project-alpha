@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # Project Alpha — paper trading giornaliero del core bilanciato (soldi finti).
 #
-# 1. scarica le barre aggiornate degli ETF del core in data/raw/bars_core.csv;
-# 2. controlla la qualità dei dati (si ferma se ci sono errori);
-# 3. ribilancia il conto Alpaca PAPER se i pesi sono fuori banda
-#    (gli ordini restano in coda e vengono eseguiti all'apertura successiva);
-# 4. scrive il riepilogo con gli avvisi in reports/paper/daily_report.md;
-# 5. manda la notifica ai dispositivi iscritti dalla web app.
+# Esegue il lavoro serale (project-alpha daily-run): dati, controllo,
+# strategie in paper trading, riepiloghi, notifica e notizie.
+# Di norma lo fa già l'app (project-alpha app) all'orario giusto; questo
+# script resta come riserva e per le prove manuali.
 #
 # Uso (Git Bash):  scripts/daily_paper.sh           -> invia ordini al conto paper
 #                  scripts/daily_paper.sh --dry-run -> solo prova, nessun ordine
@@ -30,50 +28,13 @@ for candidate in ".venv" "../.venv"; do
   fi
 done
 
-SUBMIT="--submit"
+MODE=""
 if [[ "${1:-}" == "--dry-run" ]]; then
-  SUBMIT=""
+  MODE="--dry-run"
 fi
 
-SYMBOLS=(SPY QQQ IWM EFA EEM IEF LQD TLT GLD VNQ)
-DATA="data/raw/bars_core.csv"
-LOG_DIR="reports/paper"
-mkdir -p "$LOG_DIR"
-RUN_LOG="$LOG_DIR/daily_runs.log"
-
-echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) avvio paper trading ${SUBMIT:-(prova)}" | tee -a "$RUN_LOG"
-
-python -m project_alpha fetch \
-  --symbols "${SYMBOLS[@]}" \
-  --start 2016-01-01 \
-  --output "$DATA" 2>&1 | tee -a "$RUN_LOG"
-
-python -m project_alpha check-data \
-  --input "$DATA" \
-  --symbols "${SYMBOLS[@]}" > "$LOG_DIR/last_data_check.json"
-
-# Il riepilogo va scritto anche se il ribilanciamento fallisce: è lì che
-# l'assistente di monitoraggio segnala il problema.
-status=0
-python -m project_alpha paper-rebalance \
-  --config configs/paper_core_v1.toml $SUBMIT 2>&1 | tee -a "$RUN_LOG" || status=$?
-
-python -m project_alpha paper-report \
-  --config configs/paper_core_v1.toml > /dev/null 2>&1 || true
-echo "Riepilogo: $LOG_DIR/daily_report.md" | tee -a "$RUN_LOG"
-
-# Notifica sul telefono (se almeno un dispositivo è iscritto dalla web app).
-python -m project_alpha paper-notify \
-  --config configs/paper_core_v1.toml >> "$RUN_LOG" 2>&1 || true
-
-# Prova in parallelo del portafoglio permanente (conto interno, stessi dati).
-python -m project_alpha paper-rebalance \
-  --config configs/paper_permanente_v1.toml $SUBMIT >> "$RUN_LOG" 2>&1 || true
-python -m project_alpha paper-report --config configs/paper_permanente_v1.toml \
-  --output reports/paper_permanente/daily_report.md > /dev/null 2>&1 || true
-
-# Notizie per la dashboard (solo informazione).
-python -m project_alpha news-fetch --days 2 >> "$RUN_LOG" 2>&1 || true
-
-echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) completato (esito $status)" | tee -a "$RUN_LOG"
-exit "$status"
+mkdir -p reports/paper
+# Tutto il lavoro serale è nel motore Python (dati, controllo, strategie,
+# riepiloghi, notifica, notizie). È idempotente per seduta: se l'app l'ha già
+# fatto, qui non succede nulla.
+python -m project_alpha daily-run $MODE 2>&1 | tee -a reports/paper/daily_runs.log
