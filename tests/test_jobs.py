@@ -182,3 +182,13 @@ def test_scheduler_catches_up_after_downtime_and_runs_hourly(repo) -> None:
     assert "daily:OK" in first and "hourly" in first
     assert again == []  # stessa ora, seduta già fatta
     assert jobs.read_marker(ctx)["session"] == "2026-11-17"
+
+
+def test_no_run_between_close_and_final_data(repo) -> None:
+    # 16:30 a New York: borsa chiusa ma barra del giorno non ancora definitiva.
+    settling = datetime(2026, 11, 17, 21, 30, tzinfo=UTC)
+    ctx, calls, _ = _context(repo, settling)
+
+    assert not daily_due(ctx)
+    assert daily_run(ctx)["status"] == "WAIT_FOR_CLOSE"
+    assert calls["fetch"] == 0
