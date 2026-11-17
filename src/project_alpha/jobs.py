@@ -51,6 +51,13 @@ RETRY_MINUTES = 30
 MAX_ATTEMPTS_PER_SESSION = 3
 
 
+def market_busy(now: datetime) -> bool:
+    """Seduta aperta o dati del giorno non ancora definitivi (lun–ven 9:30–17:00 NY)."""
+    local = pd.Timestamp(now).tz_convert(MARKET_TZ)
+    minutes = local.hour * 60 + local.minute
+    return local.weekday() < 5 and 9 * 60 + 30 <= minutes < DAILY_HOUR_NY * 60
+
+
 def last_complete_session(now: datetime) -> date:
     """Ultima seduta USA (lun–ven) già chiusa e con dati definitivi a ``now``."""
     local = pd.Timestamp(now).tz_convert(MARKET_TZ)
@@ -173,7 +180,7 @@ def daily_run(ctx: JobContext, *, submit: bool = True, force: bool = False) -> d
     now = ctx.clock()
     session = last_complete_session(now).isoformat()
 
-    if submit and us_market_open(now):
+    if submit and market_busy(now):
         return {"status": "WAIT_FOR_CLOSE", "session": session}
 
     marker = read_marker(ctx)
@@ -331,7 +338,7 @@ def hourly_run(ctx: JobContext) -> dict[str, Any]:
 def daily_due(ctx: JobContext) -> bool:
     """Il lavoro serale va fatto ora? (seduta nuova, borsa chiusa, tentativi residui)."""
     now = ctx.clock()
-    if us_market_open(now):
+    if market_busy(now):
         return False
     session = last_complete_session(now).isoformat()
     marker = read_marker(ctx)
