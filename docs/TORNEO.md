@@ -116,3 +116,11 @@ uguali).
   la verifica in avanti; per rispettare l'IPS serve una decisione esplicita
   (eccezione al limite del 20% per C8, oppure non avviarlo).
 - Nuove idee = nuove prove registrate qui, con la stessa procedura.
+
+### Decisione del proprietario (2026-11-17)
+
+- C8 in paper trading **in parallelo** dal 2026-11-17, con eccezione al
+  limite del 25% per posizione: `configs/paper_permanente_v1.toml`, conto
+  interno separato (ordini eseguiti all'apertura della seduta successiva,
+  5 punti base di costo), stesse soglie di rischio del core.
+- Il core attuale resta invariato.

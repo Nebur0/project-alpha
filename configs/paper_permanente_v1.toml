@@ -1,0 +1,46 @@
+# Project Alpha — prova in avanti del portafoglio permanente (C8 del torneo,
+# docs/TORNEO.md), in parallelo al core e con capitale virtuale separato.
+# Conto interno (registro locale): non tocca il conto Alpaca del core.
+# Eccezione all'IPS approvata dal proprietario il 2026-11-17: peso massimo
+# per posizione 25% (invece del 20%), solo per questa prova.
+# Regola fissa: non si modifica guardando i risultati.
+
+name = "permanente_v1"
+data = "data/raw/bars_core.csv"
+log = "reports/paper_permanente/paper_log.csv"
+state = "reports/paper_permanente/state.json"
+broker = "ledger"
+ledger = "data/paper_permanente/ledger.json"
+
+budget = 10000.0
+stop_drawdown = 0.12
+ips_max_drawdown = 0.15
+drift_threshold = 0.03
+exposure_threshold = 0.05
+
+# SPY 25%, Treasury 20+ anni 25%, oro 25%, liquidità 25% (il resto).
+[weights]
+SPY = 0.25
+TLT = 0.25
+GLD = 0.25
+
+[groups]
+SPY = "azioni"
+TLT = "obbligazioni"
+GLD = "reali"
+
+[risk]
+max_position_weight = 0.25
+max_gross_exposure = 1.0
+max_group_weight = 0.65
+max_daily_loss = 0.04
+max_drawdown = 0.10
+max_turnover = 1.0
+max_data_age_days = 4.0
+min_cash_weight = 0.0
+
+[orders]
+min_order_notional = 25.0
+allow_fractional = true
+fractional_decimals = 4
+cash_buffer = 0.0

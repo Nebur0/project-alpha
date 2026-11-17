@@ -171,6 +171,19 @@ La dashboard si installa sull'iPhone come app (**Alpha**) e manda una
 notifica dopo ogni esecuzione serale; accesso privato tramite Tailscale.
 Guida passo passo: `docs/APP.md`.
 
+### Notizie, sentinella oraria, prove in parallelo
+
+- `project-alpha news-fetch`: notizie sui 10 ETF e flusso di mercato
+  (Alpaca News/Benzinga, in inglese) nella sezione **Notizie** della
+  dashboard. Solo informazione.
+- `scripts/hourly_watch.sh` (ogni ora): notizie aggiornate e **sentinella**
+  che, a borsa USA aperta, controlla il conto e avvisa sul telefono se il
+  calo della giornata supera il 3% o il calo dal massimo supera le soglie.
+  Non fa operazioni.
+- `configs/paper_permanente_v1.toml`: portafoglio permanente in paper
+  trading in parallelo su un conto interno (`broker = "ledger"`), avviato
+  da `scripts/daily_paper.sh`; confronto nella dashboard.
+
 ### Fase 1: V1 congelata su ETF multi-asset
 
 ```bash

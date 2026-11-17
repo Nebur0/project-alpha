@@ -80,6 +80,20 @@ header {
 }
 .btn.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+#news-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 48px; }
+.news-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.tab { font: inherit; font-size: 13px; padding: 6px 12px; border: 0; background: var(--surface-0); color: var(--text-secondary); cursor: pointer; }
+.tab.active { background: var(--series-1); color: #fff; }
+#news-q { flex: 1; min-width: 180px; font: inherit; font-size: 13.5px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-0); color: var(--text-primary); }
+.news-day { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin: 14px 0 6px; text-transform: capitalize; }
+.news-item { padding: 8px 0; border-bottom: 1px solid var(--grid); }
+.news-item a { color: var(--text-primary); text-decoration: none; font-weight: 600; }
+.news-item a:hover { text-decoration: underline; }
+.news-meta { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.news-sum { color: var(--text-secondary); font-size: 13px; margin-top: 3px; }
+.chip { display: inline-block; font-size: 11px; border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; margin-left: 4px; color: var(--text-secondary); }
 header h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
 header .sub { color: var(--text-secondary); font-size: 13px; }
 header .spacer { flex: 1; }
@@ -144,6 +158,18 @@ details summary { cursor: pointer; color: var(--text-secondary); font-size: 12.5
 </header>
 <div id="push-wrap"><section class="card" id="push" aria-label="Notifiche"><h2>Notifiche sul telefono</h2><p class="hint" id="push-status">Verifica in corso…</p><div class="btn-row" id="push-actions"></div></section></div>
 <main id="app"><div class="card">Caricamento dati…</div></main>
+<div id="news-wrap"><section class="card" id="news" aria-label="Notizie">
+  <h2>Notizie</h2>
+  <p class="hint" id="news-hint">Solo informazione: il sistema non le usa per decidere.</p>
+  <div class="news-tools">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-feed="portfolio" role="tab">I tuoi ETF</button>
+      <button type="button" class="tab" data-feed="market" role="tab">Mercati</button>
+    </div>
+    <input type="search" id="news-q" placeholder="Cerca (es. Fed, inflazione, SPY)" aria-label="Cerca nelle notizie">
+  </div>
+  <div id="news-list"></div>
+</section></div>
 <div class="tooltip" id="tip" role="status"></div>
 
 <script>
@@ -354,6 +380,17 @@ function render(d) {
     <div class="card"><h2>Ordini dell'ultima esecuzione</h2><p class="hint">Inviati la sera, eseguiti all'apertura successiva.</p><div id="orders"></div></div>
   </section>`;
 
+  // strategie in prova
+  const strats = d.strategies || [];
+  if (strats.length > 1) {
+    h += `<section class="card"><h2>Strategie in paper trading</h2><p class="hint">Stesso budget virtuale (10.000), stesse regole di rischio; il confronto vale solo da qui in avanti.</p>
+      <div class="table-wrap"><table><thead><tr><th>Strategia</th><th class="num">Capitale</th><th class="num">Dall'avvio</th><th class="num">Dal massimo</th><th class="num">Investito</th><th>Conto</th></tr></thead><tbody>${
+      strats.map((r) => r.started
+        ? `<tr><td>${esc(r.name)}<br><span class="hint">dal ${date(r.since)} · ${r.runs} esecuzioni</span></td><td class="num">${money(r.equity)}</td><td class="num ${r.return >= 0 ? "pos" : "neg"}">${r.return >= 0 ? "+" : ""}${pct(r.return, 2)}</td><td class="num">${pct(r.drawdown)}</td><td class="num">${pct(r.exposure, 0)}</td><td>${r.broker === "ledger" ? "interno" : "Alpaca"}</td></tr>`
+        : `<tr><td>${esc(r.name)}</td><td colspan="5" class="hint">non ancora avviata</td></tr>`).join("")
+    }</tbody></table></div></section>`;
+  }
+
   // segnali + ricerca
   h += `<section class="grid2">
     <div class="card"><h2>Registro forward dei segnali (V1)</h2><p class="hint">Solo registrazione, nessun ordine.</p><div id="signals"></div></div>
@@ -429,6 +466,9 @@ function render(d) {
     }</tbody></table></div>`).join("")}</details>`;
 }
 
+const _render = render;
+render = function (d) { _render(d); try { renderNews(); } catch (e) {} };
+
 async function load() {
   try {
     const res = await fetch("/api/overview", { cache: "no-store" });
@@ -439,6 +479,38 @@ async function load() {
 }
 load();
 setInterval(load, 60000);
+
+// ---------- notizie ----------
+const newsState = { feed: "portfolio", q: "", items: [], stamp: null };
+function renderNews() {
+  const list = $("#news-list");
+  const n = (window.__data && window.__data.news) || { available: false };
+  if (!n.available) {
+    list.innerHTML = `<div class="empty">Ancora nessuna notizia: si aggiornano con <code>project-alpha news-fetch</code> (ogni ora con l'attività pianificata).</div>`;
+    return;
+  }
+  const q = newsState.q.trim().toLowerCase();
+  const rows = n.items.filter((it) => it.feeds.includes(newsState.feed)).filter((it) =>
+    !q || (it.headline + " " + it.summary + " " + it.symbols.join(" ")).toLowerCase().includes(q));
+  $("#news-hint").textContent = `Solo informazione: il sistema non le usa per decidere · ${rows.length} notizie · aggiornate ${datetime(n.updated)}`;
+  if (!rows.length) { list.innerHTML = `<div class="empty">Nessuna notizia per questa ricerca.</div>`; return; }
+  let html = "", day = "";
+  for (const it of rows.slice(0, 200)) {
+    const d = new Date(it.created_at);
+    const label = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+    if (label !== day) { day = label; html += `<div class="news-day">${esc(label)}</div>`; }
+    const chips = it.symbols.slice(0, 6).map((s) => `<span class="chip">${esc(s)}</span>`).join("");
+    const title = it.url && /^https?:\/\//.test(it.url)
+      ? `<a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.headline)}</a>` : `<strong>${esc(it.headline)}</strong>`;
+    html += `<div class="news-item">${title}<div class="news-meta">${d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} · ${esc(it.source)}${chips}</div>${it.summary ? `<div class="news-sum">${esc(it.summary)}</div>` : ""}</div>`;
+  }
+  list.innerHTML = html;
+}
+document.querySelectorAll("#news .tab").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("#news .tab").forEach((x) => x.classList.toggle("active", x === b));
+  newsState.feed = b.dataset.feed; renderNews();
+}));
+$("#news-q").addEventListener("input", (e) => { newsState.q = e.target.value; renderNews(); });
 
 // ---------- web app e notifiche push ----------
 const pushState = { reg: null, sub: null, key: null, devices: 0 };

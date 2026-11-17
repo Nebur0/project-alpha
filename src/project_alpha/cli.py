@@ -829,6 +829,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--samples", type=int, default=5000, help="Ricampionamenti del bootstrap."
     )
 
+    news = commands.add_parser(
+        "news-fetch",
+        help="Aggiorna le notizie per la dashboard (Alpaca News, solo informazione).",
+    )
+    news.add_argument("--config", type=Path, default=Path("configs/paper_core_v1.toml"))
+    news.add_argument("--days", type=int, default=3, help="Giorni di notizie da scaricare.")
+
+    watch = commands.add_parser(
+        "paper-watch",
+        help="Sentinella durante la seduta: controlla il conto e avvisa, senza operare.",
+    )
+    watch.add_argument("--config", type=Path, required=True, help="Configurazione TOML paper.")
+
     notify = commands.add_parser(
         "paper-notify",
         help="Invia ai dispositivi iscritti la notifica dell'ultima esecuzione.",
@@ -1657,11 +1670,21 @@ def main() -> None:
         from project_alpha.paper import load_paper_config, run_paper
 
         config = load_paper_config(args.config)
-        broker = AlpacaPaperBroker(Settings.from_env())
+        ledger = None
+        if config.broker == "ledger":
+            from project_alpha.execution.ledger import LedgerBroker
+
+            ledger = LedgerBroker.load(config.ledger, initial_cash=config.budget)
+            ledger.settle(pd.read_csv(config.data))
+            broker = ledger
+        else:
+            broker = AlpacaPaperBroker(Settings.from_env())
         try:
             outcome = run_paper(config, broker, submit=args.submit)
         except ValueError as exc:
             raise SystemExit(f"Paper trading fermato: {exc}") from exc
+        if ledger is not None and args.submit:
+            ledger.save()
         print(dumps_json(outcome.summary(), indent=2))
 
         if outcome.status in {"PARTIAL", "REJECTED_BY_RISK"}:
@@ -1703,6 +1726,27 @@ def main() -> None:
         }
         write_text_atomic(args.output / "manifest.json", dumps_json(manifest, indent=2))
         print(table.to_string())
+        return
+
+    if args.command == "news-fetch":
+        from project_alpha.config import Settings
+        from project_alpha.news import update_news
+        from project_alpha.paper import load_paper_config
+
+        config = load_paper_config(args.config)
+        added = update_news(Settings.from_env(), Path.cwd(), config.symbols, days=args.days)
+        print(dumps_json({"nuove": added}, indent=2))
+        return
+
+    if args.command == "paper-watch":
+        from project_alpha.config import Settings
+        from project_alpha.execution.alpaca_paper import AlpacaPaperBroker
+        from project_alpha.paper import load_paper_config
+        from project_alpha.watch import watch_paper
+
+        config = load_paper_config(args.config)
+        broker = AlpacaPaperBroker(Settings.from_env())
+        print(dumps_json(watch_paper(config, broker, Path.cwd()).to_dict(), indent=2))
         return
 
     if args.command == "paper-notify":

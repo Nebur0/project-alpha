@@ -24,3 +24,11 @@ reports/paper/daily_report.md
 
 # Notifiche push: chiave VAPID privata e iscrizioni dei dispositivi (locali)
 data/push/
+
+# Conti paper interni (registro locale) e stato delle prove in parallelo
+data/paper_permanente/
+reports/paper_permanente/state.json
+reports/paper_permanente/daily_report.md
+# Notizie (si riscaricano)
+data/news/
+reports/paper/hourly_watch.log

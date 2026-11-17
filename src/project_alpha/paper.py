@@ -87,6 +87,9 @@ class PaperConfig:
     # Perdita massima dichiarata nell'IPS (solo informativa: la fanno rispettare
     # risk.max_drawdown e stop_drawdown, che devono stare sotto).
     ips_max_drawdown: float | None = None
+    # "alpaca" (conto paper Alpaca) oppure "ledger" (conto interno, prove in parallelo).
+    broker: str = "alpaca"
+    ledger: Path | None = None
 
     def __post_init__(self) -> None:
         if not isfinite(self.budget) or self.budget <= 0:
@@ -112,6 +115,12 @@ class PaperConfig:
                 "stop_drawdown deve essere almeno pari al drawdown della modalità "
                 "solo-riduzione del Risk Engine (prima si smette di aumentare, poi si esce)."
             )
+
+        if self.broker not in ("alpaca", "ledger"):
+            raise ValueError("broker deve essere 'alpaca' o 'ledger'.")
+
+        if self.broker == "ledger" and self.ledger is None:
+            raise ValueError("Con broker = 'ledger' serve il percorso 'ledger'.")
 
         if self.ips_max_drawdown is not None and self.stop_drawdown >= self.ips_max_drawdown:
             raise ValueError("stop_drawdown deve essere inferiore alla perdita massima dell'IPS.")
@@ -222,6 +231,8 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         "state",
         "stop_drawdown",
         "ips_max_drawdown",
+        "broker",
+        "ledger",
         "drift_threshold",
         "exposure_threshold",
         "weights",
@@ -278,6 +289,8 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         orders=OrderPlanSettings(**section("orders", OrderPlanSettings)),
         log=_resolve(base, raw.get("log", "reports/paper/paper_log.csv")),
         state=_resolve(base, raw.get("state", "reports/paper/state.json")),
+        broker=str(raw.get("broker", "alpaca")),
+        ledger=_resolve(base, raw["ledger"]) if raw.get("ledger") else None,
     )
 
 
