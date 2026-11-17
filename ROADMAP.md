@@ -55,8 +55,9 @@ valutazione standard.
   (`scripts/daily_paper.sh`, registro `reports/paper/paper_log.csv`).
 - Torneo pre-registrato di 8 strategie note sugli ETF (`docs/TORNEO.md`,
   2026-11-17): nessuna batte la strategia attuale in modo significativo; il
-  portafoglio permanente è "promettente" (decisione aperta su paper in
-  parallelo).
+  portafoglio permanente è "promettente" e dal 2026-11-17 è in paper in
+  parallelo. Torneo 2 (decisione il 20 del mese sugli ultimi 20 giorni):
+  nessuna regola utile, niente cambia.
 - App con motore interno (`project-alpha app`): lavoro serale, recuperi,
   sentinella e notizie senza attività di Windows; simulatore di accumulo in
   dashboard; pacchetto Docker e guida per il cloud (`docs/CLOUD.md`).

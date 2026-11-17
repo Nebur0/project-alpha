@@ -123,3 +123,25 @@ def test_tournament_table_applies_the_criteria() -> None:
     assert table.loc[lab.REFERENCE, "esito"] == "riferimento"
     assert table.loc["migliore", "esito"] == "BATTE IL RIFERIMENTO"
     assert table.loc["uguale", "esito"] == "scartata"
+
+
+def test_day20_dates_pick_last_session_up_to_the_20th() -> None:
+    index = pd.bdate_range("2020-01-01", "2021-06-30")
+    dates = lab.day20_dates(index, min_history=0)
+
+    assert all(d.day <= 20 for d in dates)
+    assert pd.Timestamp("2021-03-19") in dates  # sabato 20 marzo → venerdì 19
+    assert pd.Timestamp("2021-04-20") in dates
+
+
+def test_20_day_strategies() -> None:
+    index = pd.bdate_range("2020-01-01", periods=40)
+    data = {s: np.linspace(100, 100, 40) for s in lab.UNIVERSE}
+    data["SPY"] = np.linspace(100, 120, 40)
+    data["TLT"] = np.linspace(100, 80, 40)
+    history = pd.DataFrame(data, index=index)
+
+    assert "SPY" in lab.direzione_20g(history) and "TLT" not in lab.direzione_20g(history)
+    assert "TLT" in lab.inversione_20g(history) and "SPY" not in lab.inversione_20g(history)
+    assert "SPY" in lab.migliori3_20g(history)
+    assert "TLT" in lab.peggiori3_20g(history)

@@ -110,6 +110,33 @@ def portafoglio_permanente(history: pd.DataFrame) -> Weights:
     return {"SPY": 0.25, "TLT": 0.25, "GLD": 0.25}
 
 
+LOOKBACK_20D = 20
+
+
+def _return_20d(history: pd.DataFrame) -> pd.Series:
+    return history.iloc[-1] / history.iloc[-1 - LOOKBACK_20D] - 1.0
+
+
+def direzione_20g(history: pd.DataFrame) -> Weights:
+    momentum = _return_20d(history)
+    return {s: w for s, w in CORE_WEIGHTS.items() if momentum[s] > 0}
+
+
+def inversione_20g(history: pd.DataFrame) -> Weights:
+    momentum = _return_20d(history)
+    return {s: w for s, w in CORE_WEIGHTS.items() if momentum[s] < 0}
+
+
+def migliori3_20g(history: pd.DataFrame) -> Weights:
+    ranked = _return_20d(history)[list(UNIVERSE)].sort_values(ascending=False)
+    return {s: 1.0 / 3.0 for s in ranked.index[:3]}
+
+
+def peggiori3_20g(history: pd.DataFrame) -> Weights:
+    ranked = _return_20d(history)[list(UNIVERSE)].sort_values(ascending=True)
+    return {s: 1.0 / 3.0 for s in ranked.index[:3]}
+
+
 REFERENCE = "R_attuale_vol_target"
 STRATEGIES: dict[str, Strategy] = {
     REFERENCE: attuale_vol_target,
@@ -123,6 +150,14 @@ STRATEGIES: dict[str, Strategy] = {
     "C8_portafoglio_permanente": portafoglio_permanente,
 }
 
+
+STRATEGIES_20D: dict[str, Strategy] = {
+    "R_attuale_vol_target": attuale_vol_target,
+    "D1_direzione_20g": direzione_20g,
+    "D2_inversione_20g": inversione_20g,
+    "D3_migliori3_20g": migliori3_20g,
+    "D4_peggiori3_20g": peggiori3_20g,
+}
 
 # ----------------------------------------------------------------------
 # Motore comune
@@ -155,6 +190,16 @@ def decision_dates(
     return [index[i] for i in month_ends if i >= min_history and i < len(index) - 1]
 
 
+def day20_dates(
+    index: pd.DatetimeIndex, *, min_history: int = LOOKBACK_12M + 1
+) -> list[pd.Timestamp]:
+    """Ultima seduta con giorno del mese ≤ 20, per ogni mese (torneo 2)."""
+    positions = pd.Series(np.arange(len(index)), index=index)
+    eligible = positions[index.day <= 20]
+    picks = eligible.groupby(eligible.index.to_period("M")).max()
+    return [index[i] for i in picks if i >= min_history and i < len(index) - 1]
+
+
 def run_strategy(
     closes: pd.DataFrame,
     strategy: Strategy,
@@ -162,11 +207,12 @@ def run_strategy(
     start: pd.Timestamp,
     cost_per_side: float = 0.001,
     cash_rate_annual: float = 0.0,
+    decision_rule: Callable[[pd.DatetimeIndex], list[pd.Timestamp]] | None = None,
 ) -> LabResult:
     """Simula la strategia dal giorno ``start`` (escluso) alla fine dei dati."""
     asset_returns = closes.pct_change().fillna(0.0)
     daily_cash = (1.0 + cash_rate_annual) ** (1.0 / TRADING_DAYS) - 1.0
-    decisions = set(decision_dates(closes.index))
+    decisions = set((decision_rule or decision_dates)(closes.index))
     index = closes.index
 
     holdings = pd.Series(0.0, index=closes.columns)  # pesi correnti (sull'equity)
@@ -256,10 +302,16 @@ def evaluate_tournament(
     *,
     reference: str = REFERENCE,
     samples: int = 5000,
+    total_trials: int | None = None,
 ) -> pd.DataFrame:
-    """Tabella del torneo con i criteri pre-registrati."""
+    """Tabella del torneo con i criteri pre-registrati.
+
+    ``total_trials``: prove complessive sugli stessi dati (correzione di
+    Bonferroni e DSR); di default i candidati di questo torneo.
+    """
     candidates = [name for name in results if name != reference]
-    alpha = 0.05 / max(len(candidates), 1)
+    trials = total_trials or len(candidates)
+    alpha = 0.05 / max(trials, 1)
     ref = results[reference].returns
     ref_summary = performance_summary(ref)
     daily_sharpes = [r.returns.mean() / r.returns.std(ddof=1) for r in results.values()]
@@ -279,9 +331,7 @@ def evaluate_tournament(
             "turnover_annuo": float(result.turnover.sum() / years),
             "esposizione_media": float(result.weights.sum(axis=1).mean()),
             "peso_max": float(result.weights.max().max()),
-            "dsr_9_prove": deflated_sharpe_ratio(
-                returns, trials=len(results), trials_sharpe_std=trials_std
-            ),
+            "dsr": deflated_sharpe_ratio(returns, trials=trials + 1, trials_sharpe_std=trials_std),
         }
 
         wins = 0
@@ -313,15 +363,24 @@ def evaluate_tournament(
     return table
 
 
+TOURNAMENTS = {
+    # nome: (strategie, regola delle date, prove complessive sugli stessi dati)
+    "1": (STRATEGIES, decision_dates, 8),
+    "2": (STRATEGIES_20D, day20_dates, 12),
+}
+
+
 def run_tournament(
     bars: pd.DataFrame,
     *,
     cost_per_side: float = 0.001,
     cash_rate_annual: float = 0.0,
     samples: int = 5000,
+    tournament: str = "1",
 ) -> tuple[pd.DataFrame, dict[str, LabResult]]:
+    strategies, rule, trials = TOURNAMENTS[tournament]
     closes = load_closes(bars)
-    start = decision_dates(closes.index)[0]
+    start = rule(closes.index)[0]
     results = {
         name: run_strategy(
             closes,
@@ -329,7 +388,8 @@ def run_tournament(
             start=start,
             cost_per_side=cost_per_side,
             cash_rate_annual=cash_rate_annual,
+            decision_rule=rule,
         )
-        for name, strategy in STRATEGIES.items()
+        for name, strategy in strategies.items()
     }
-    return evaluate_tournament(results, samples=samples), results
+    return evaluate_tournament(results, samples=samples, total_trials=trials), results

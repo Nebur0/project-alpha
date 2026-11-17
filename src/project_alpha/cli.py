@@ -846,6 +846,9 @@ def build_parser() -> argparse.ArgumentParser:
     tournament.add_argument(
         "--samples", type=int, default=5000, help="Ricampionamenti del bootstrap."
     )
+    tournament.add_argument(
+        "--tournament", choices=["1", "2"], default="1", help="Torneo (docs/TORNEO.md)."
+    )
 
     news = commands.add_parser(
         "news-fetch",
@@ -1748,7 +1751,10 @@ def main() -> None:
         from project_alpha.strategy_lab import run_tournament
 
         table, results = run_tournament(
-            pd.read_csv(args.data), cash_rate_annual=args.cash_rate, samples=args.samples
+            pd.read_csv(args.data),
+            cash_rate_annual=args.cash_rate,
+            samples=args.samples,
+            tournament=args.tournament,
         )
         args.output.mkdir(parents=True, exist_ok=True)
         write_csv_atomic(table.reset_index(), args.output / "torneo.csv")
@@ -1761,7 +1767,8 @@ def main() -> None:
             "samples": args.samples,
             "start": str(equity.index.min().date()),
             "end": str(equity.index.max().date()),
-            "trials": len(results),
+            "tournament": args.tournament,
+            "strategies": len(results),
         }
         write_text_atomic(args.output / "manifest.json", dumps_json(manifest, indent=2))
         print(table.to_string())
