@@ -124,3 +124,37 @@ uguali).
   interno separato (ordini eseguiti all'apertura della seduta successiva,
   5 punti base di costo), stesse soglie di rischio del core.
 - Il core attuale resta invariato.
+
+---
+
+# Torneo 2: decisione il 20 del mese sugli ultimi 20 giorni
+
+## Pre-registrazione (2026-11-17, prima dei risultati)
+
+**Idea del proprietario.** Ogni 20 del mese, in base all'andamento degli
+ultimi 20 giorni di borsa, capire che direzione prenderà il mercato e
+posizionarsi di conseguenza fino al mese successivo.
+
+**Regole comuni:** come il primo torneo (stessi 10 ETF, stessi dati,
+ritardo di un giorno, deriva dei pesi, 10 punti base per lato, liquidità
+0%), con una sola differenza: la decisione si prende **all'ultima chiusura
+disponibile al giorno 20 di ogni mese** (se il 20 è festivo o nel fine
+settimana, l'ultima seduta prima). Rendimento a 20 giorni = chiusura del
+giorno della decisione / chiusura di 20 sedute prima − 1.
+
+**Candidati (4 prove, parametri fissi):**
+
+| | Strategia | Regola |
+|---|---|---|
+| D1 | Direzione 20 giorni (segue il trend) | ogni ETF al peso del core se il rendimento a 20 giorni > 0, altrimenti liquidità |
+| D2 | Inversione 20 giorni (compra i ribassi) | ogni ETF al peso del core se il rendimento a 20 giorni < 0, altrimenti liquidità |
+| D3 | I 3 migliori a 20 giorni | i 3 ETF con il rendimento a 20 giorni più alto, 1/3 ciascuno |
+| D4 | I 3 peggiori a 20 giorni | i 3 ETF con il rendimento a 20 giorni più basso, 1/3 ciascuno |
+
+**Riferimento:** la strategia attuale (core con vol target 8%), simulata con
+le stesse date di decisione.
+
+**Criteri:** gli stessi del primo torneo, con la correzione per **12 prove
+complessive** sugli stessi dati (8 del primo torneo + 4): soglia p ≤
+0,05/12 ≈ 0,0042; almeno 2 sottoperiodi su 3; drawdown non peggiore del
+riferimento. Deflated Sharpe con 13 serie (riferimento + 12 prove).
