@@ -158,3 +158,37 @@ le stesse date di decisione.
 complessive** sugli stessi dati (8 del primo torneo + 4): soglia p ≤
 0,05/12 ≈ 0,0042; almeno 2 sottoperiodi su 3; drawdown non peggiore del
 riferimento. Deflated Sharpe con 13 serie (riferimento + 12 prove).
+
+## Risultati del torneo 2 (2026-11-17)
+
+Periodo: 2017-01-23 → 2026-11-06. Report: `reports/lab/etf_torneo_v2_20giorni/`
+(`project-alpha strategy-lab --tournament 2`).
+
+| Strategia | Rend. annuo | Volatilità | Sharpe | Max DD | Operazioni (turnover/anno) | Sottoperiodi vinti | p | Esito |
+|---|---|---|---|---|---|---|---|---|
+| R. Attuale (decisione il 20) | 4,7% | 9,1% | 0,56 | −21,9% | 1,0 | — | — | riferimento |
+| D1 Direzione 20 giorni | 4,8% | 7,7% | 0,65 | −14,5% | 5,6 | 2/3 | 0,35 | promettente (per i criteri) |
+| D2 Inversione 20 giorni | 3,2% | 7,8% | 0,44 | −19,3% | 5,5 | 2/3 | 0,68 | scartata |
+| D3 I 3 migliori a 20 giorni | 8,6% | 14,4% | 0,65 | −28,5% | 15,9 | 1/3 | 0,38 | scartata |
+| D4 I 3 peggiori a 20 giorni | 3,2% | 16,6% | 0,28 | −35,6% | 17,0 | 1/3 | 0,93 | scartata |
+
+Soglia statistica: p ≤ 0,0042 (12 prove). Nessuna strategia la supera.
+
+### Lettura
+
+1. **Gli ultimi 20 giorni non dicono in modo affidabile dove va il mercato
+   nel mese dopo.** Seguire la direzione (D1) rende quanto il riferimento
+   (4,8% contro 4,7%) con meno oscillazioni; fare il contrario (D2, D4) va
+   peggio; puntare sui 3 più forti (D3) rende di più ma con cadute fino al
+   −28% e quasi 16 volte il portafoglio scambiato ogni anno.
+2. **D1 è "promettente" solo per i criteri formali**, e non lo raccomando
+   per il paper trading:
+   - il riferimento stesso cambia molto con la sola data di
+     ribilanciamento (Sharpe 0,56 decidendo il 20, 0,66 decidendo a fine
+     mese): differenze di questa ampiezza sono rumore;
+   - rispetto ai candidati del primo torneo D1 non è migliore (portafoglio
+     permanente 0,92, media mobile 10 mesi 0,81);
+   - scambia il portafoglio 5–6 volte l'anno: con soldi veri ogni vendita
+     in guadagno paga il 26% e le perdite sugli ETF non compensano.
+3. Conclusione: **niente cambia** nel paper trading; resta in prova il
+   portafoglio permanente.
