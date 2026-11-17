@@ -1,0 +1,9 @@
+{
+  "data": "data/raw/bars_etf.csv",
+  "data_sha256": "b98e6490b77a6f47027be8ab1cec537bcd165619c5d838922f0fc366f5958b8b",
+  "cash_rate_annual": 0.02,
+  "samples": 5000,
+  "start": "2017-02-01",
+  "end": "2026-11-06",
+  "trials": 9
+}

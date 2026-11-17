@@ -53,6 +53,10 @@ valutazione standard.
 - Fase 3: registro forward dei segnali (PR #22) e paper trading del core su
   Alpaca paper, autorizzato dal proprietario il 2026-11-07
   (`scripts/daily_paper.sh`, registro `reports/paper/paper_log.csv`).
+- Torneo pre-registrato di 8 strategie note sugli ETF (`docs/TORNEO.md`,
+  2026-11-17): nessuna batte la strategia attuale in modo significativo; il
+  portafoglio permanente è "promettente" (decisione aperta su paper in
+  parallelo).
 - Fase 5 (anticipata in parte): dashboard locale in sola lettura
   (`project-alpha dashboard`) e gradino 1 "copilot": assistente di
   monitoraggio deterministico con avvisi e riepilogo serale in italiano

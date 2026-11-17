@@ -816,6 +816,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="File del riepilogo (Markdown).",
     )
 
+    tournament = commands.add_parser(
+        "strategy-lab",
+        help="Torneo pre-registrato delle strategie di allocazione (docs/TORNEO.md).",
+    )
+    tournament.add_argument("--data", type=Path, default=Path("data/raw/bars_etf.csv"))
+    tournament.add_argument("--output", type=Path, default=Path("reports/lab/etf_torneo_v1"))
+    tournament.add_argument(
+        "--cash-rate", type=float, default=0.0, help="Rendimento annuo della liquidità."
+    )
+    tournament.add_argument(
+        "--samples", type=int, default=5000, help="Ricampionamenti del bootstrap."
+    )
+
     notify = commands.add_parser(
         "paper-notify",
         help="Invia ai dispositivi iscritti la notifica dell'ultima esecuzione.",
@@ -1665,6 +1678,31 @@ def main() -> None:
         text = render_report(config, result)
         write_text_atomic(args.output, text)
         print(text)
+        return
+
+    if args.command == "strategy-lab":
+        from project_alpha.io_utils import write_csv_atomic
+        from project_alpha.research import file_sha256
+        from project_alpha.strategy_lab import run_tournament
+
+        table, results = run_tournament(
+            pd.read_csv(args.data), cash_rate_annual=args.cash_rate, samples=args.samples
+        )
+        args.output.mkdir(parents=True, exist_ok=True)
+        write_csv_atomic(table.reset_index(), args.output / "torneo.csv")
+        equity = pd.DataFrame({name: (1 + r.returns).cumprod() for name, r in results.items()})
+        write_csv_atomic(equity.reset_index(names="data"), args.output / "equity.csv")
+        manifest = {
+            "data": str(args.data),
+            "data_sha256": file_sha256(args.data),
+            "cash_rate_annual": args.cash_rate,
+            "samples": args.samples,
+            "start": str(equity.index.min().date()),
+            "end": str(equity.index.max().date()),
+            "trials": len(results),
+        }
+        write_text_atomic(args.output / "manifest.json", dumps_json(manifest, indent=2))
+        print(table.to_string())
         return
 
     if args.command == "paper-notify":
