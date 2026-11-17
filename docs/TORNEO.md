@@ -65,3 +65,54 @@ paper trading **in parallelo** (con capitale virtuale separato) per la
 verifica in avanti, che è il test vero. Tutti gli altri sono scartati.
 
 Si riporta anche il Deflated Sharpe Ratio con 9 prove (riferimento + 8).
+
+---
+
+## Risultati (2026-11-17, dopo la pre-registrazione)
+
+Periodo: 2017-02-01 → 2026-11-06 (9 anni e 9 mesi). Comando:
+`project-alpha strategy-lab` (report in `reports/lab/etf_torneo_v1/`,
+sensibilità con liquidità al 2% in `reports/lab/etf_torneo_v1_cash2/`).
+
+| Strategia | Rend. annuo | Volatilità | Sharpe | Max DD | Sottoperiodi vinti | p | Esito |
+|---|---|---|---|---|---|---|---|
+| R. Attuale (vol target 8%) | 5,7% | 9,1% | 0,66 | −20,2% | — | — | riferimento |
+| C1 Core al 100% | 9,0% | 12,0% | 0,77 | −25,2% | 3/3 | 0,15 | scartata (drawdown) |
+| C2 Pesi uguali | 8,5% | 11,7% | 0,76 | −25,8% | 3/3 | 0,23 | scartata (drawdown) |
+| C3 Momentum assoluto 12m | 6,3% | 9,1% | 0,71 | −18,5% | 1/3 | 0,36 | scartata |
+| C4 Media mobile 10 mesi | 6,1% | 7,7% | 0,81 | −14,0% | 1/3 | 0,27 | scartata |
+| C5 Momentum relativo top 3 | 8,8% | 15,2% | 0,63 | −31,2% | 2/3 | 0,59 | scartata |
+| C6 Dual momentum | 8,3% | 16,6% | 0,56 | −33,8% | 1/3 | 0,73 | scartata |
+| C7 Inverso della volatilità | 6,4% | 9,2% | 0,72 | −24,3% | 3/3 | 0,36 | scartata (drawdown) |
+| **C8 Portafoglio permanente** | 6,9% | 7,6% | **0,92** | −17,7% | **3/3** | 0,17 | **promettente** |
+
+Soglia statistica: p ≤ 0,00625 (0,05/8). Con la liquidità al 2% le
+conclusioni non cambiano (C8 Sharpe 0,98, p 0,15; tutti gli altri esiti
+uguali).
+
+### Lettura
+
+1. **Nessuna strategia batte il riferimento in modo statisticamente
+   solido.** Con meno di 10 anni di dati, differenze di Sharpe di questa
+   ampiezza non si distinguono dal caso.
+2. **Le strategie di timing e rotazione più famose non aiutano su questi
+   ETF:** momentum relativo e dual momentum hanno rendimenti simili ma
+   rischio e cadute molto maggiori (fino a −34%); momentum assoluto e media
+   mobile riducono le cadute ma vincono in un solo sottoperiodo su tre.
+3. **C8, portafoglio permanente** (azioni USA, Treasury lunghi, oro e
+   liquidità, 25% ciascuno), è l'unico **promettente**: Sharpe più alto in
+   tutti e tre i sottoperiodi e cadute minori del riferimento.
+   Non compatibile così com'è con l'IPS: peso del 25% per posizione contro
+   il limite del 20% (criterio 4), e la caduta massima storica (−17,7%)
+   supera il limite del 15%, gestito però dallo stop a −12%.
+4. **Il vol target attuale costa rendimento:** il core al 100% ha Sharpe più
+   alto del riferimento in tutti i sottoperiodi; il vol target serve solo a
+   ridurre le cadute (−20% contro −25%), coerente con la Fase 1.
+
+### Decisioni proposte (al proprietario)
+
+- **Nessun cambio al portafoglio in paper trading** sulla base del passato.
+- **C8 in paper trading in parallelo**, con capitale virtuale separato, per
+  la verifica in avanti; per rispettare l'IPS serve una decisione esplicita
+  (eccezione al limite del 20% per C8, oppure non avviarlo).
+- Nuove idee = nuove prove registrate qui, con la stessa procedura.
