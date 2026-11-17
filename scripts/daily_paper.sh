@@ -66,5 +66,14 @@ echo "Riepilogo: $LOG_DIR/daily_report.md" | tee -a "$RUN_LOG"
 python -m project_alpha paper-notify \
   --config configs/paper_core_v1.toml >> "$RUN_LOG" 2>&1 || true
 
+# Prova in parallelo del portafoglio permanente (conto interno, stessi dati).
+python -m project_alpha paper-rebalance \
+  --config configs/paper_permanente_v1.toml $SUBMIT >> "$RUN_LOG" 2>&1 || true
+python -m project_alpha paper-report --config configs/paper_permanente_v1.toml \
+  --output reports/paper_permanente/daily_report.md > /dev/null 2>&1 || true
+
+# Notizie per la dashboard (solo informazione).
+python -m project_alpha news-fetch --days 2 >> "$RUN_LOG" 2>&1 || true
+
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) completato (esito $status)" | tee -a "$RUN_LOG"
 exit "$status"

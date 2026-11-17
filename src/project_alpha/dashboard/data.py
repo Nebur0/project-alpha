@@ -205,6 +205,58 @@ def research_section(root: Path) -> dict[str, Any]:
     }
 
 
+def strategies_section(root: Path) -> list[dict[str, Any]]:
+    """Confronto tra le strategie in paper trading (una per configurazione)."""
+    rows = []
+    for path in sorted((root / "configs").glob("paper_*.toml")):
+        try:
+            config = load_paper_config(path, root=root)
+        except Exception:  # una configurazione rotta non deve spegnere la dashboard
+            continue
+        log = _read_csv(config.log)
+        row: dict[str, Any] = {"name": config.name, "broker": config.broker, "started": False}
+        if log is not None:
+            real = log.loc[log["mode"] == "SUBMIT"]
+            if not real.empty:
+                first = float(real["equity"].iloc[0])
+                last = real.iloc[-1]
+                row.update(
+                    {
+                        "started": True,
+                        "since": _clean(real["run_timestamp_utc"].iloc[0]),
+                        "equity": _clean(last["equity"]),
+                        "return": float(last["equity"]) / first - 1.0 if first else None,
+                        "drawdown": _clean(last["drawdown"]),
+                        "exposure": _clean(last["current_exposure"]),
+                        "status": _clean(last["status"]),
+                        "runs": int(len(real)),
+                    }
+                )
+        rows.append(row)
+    return rows
+
+
+NEWS_DAYS = 7
+NEWS_MAX = 400
+
+
+def news_section(root: Path) -> dict[str, Any]:
+    from project_alpha.news import NewsStore, news_directory
+
+    items = NewsStore(news_directory(root)).load()
+    if not items:
+        return {"available": False, "items": []}
+
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=NEWS_DAYS)
+    recent = [item for item in items if pd.Timestamp(item["created_at"]) >= cutoff][:NEWS_MAX]
+    return {
+        "available": True,
+        "total": len(items),
+        "updated": items[0]["created_at"],
+        "items": recent,
+    }
+
+
 def overview(root: Path | str, config_path: Path | str) -> dict[str, Any]:
     """Tutto ciò che mostra la dashboard, in un'unica struttura JSON."""
     repo = Path(root)
@@ -223,4 +275,6 @@ def overview(root: Path | str, config_path: Path | str) -> dict[str, Any]:
         "monitor": monitor,
         "signals": signals_section(repo / "reports" / "signals" / "signal_log.csv"),
         "research": research_section(repo),
+        "news": news_section(repo),
+        "strategies": strategies_section(repo),
     }
