@@ -850,6 +850,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--tournament", choices=["1", "2"], default="1", help="Torneo (docs/TORNEO.md)."
     )
 
+    fetch_intraday = commands.add_parser(
+        "fetch-intraday",
+        help="Scarica candele intraday da Alpaca (es. 15 minuti) per il laboratorio.",
+    )
+    fetch_intraday.add_argument("--symbols", nargs="+", default=["SPY", "QQQ"])
+    fetch_intraday.add_argument("--start", type=_iso_date, default=date(2020, 1, 1))
+    fetch_intraday.add_argument("--timeframe", default="15Min")
+    fetch_intraday.add_argument(
+        "--output", type=Path, default=Path("data/raw/bars_intraday_15min.csv")
+    )
+
+    intraday = commands.add_parser(
+        "intraday-lab",
+        help="Laboratorio intraday pre-registrato (docs/LAB_INTRADAY.md).",
+    )
+    intraday.add_argument("--data", type=Path, default=Path("data/raw/bars_intraday_15min.csv"))
+    intraday.add_argument("--output", type=Path, default=Path("reports/lab/intraday_v1"))
+    intraday.add_argument(
+        "--cost-bps", type=float, default=1.0, help="Costo per lato in punti base."
+    )
+
     news = commands.add_parser(
         "news-fetch",
         help="Aggiorna le notizie per la dashboard (Alpaca News, solo informazione).",
@@ -1772,6 +1793,42 @@ def main() -> None:
         }
         write_text_atomic(args.output / "manifest.json", dumps_json(manifest, indent=2))
         print(table.to_string())
+        return
+
+    if args.command == "fetch-intraday":
+        from project_alpha.config import Settings
+        from project_alpha.data.alpaca import fetch_daily_bars
+        from project_alpha.io_utils import write_csv_atomic
+
+        frame = fetch_daily_bars(
+            Settings.from_env(), args.symbols, args.start, timeframe=args.timeframe
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        write_csv_atomic(frame, args.output)
+        print(f"Salvate {len(frame):,} candele {args.timeframe} in {args.output}")
+        return
+
+    if args.command == "intraday-lab":
+        from project_alpha.intraday_lab import evaluate
+        from project_alpha.io_utils import write_csv_atomic
+        from project_alpha.research import file_sha256
+
+        table = evaluate(pd.read_csv(args.data), cost=args.cost_bps / 1e4)
+        args.output.mkdir(parents=True, exist_ok=True)
+        write_csv_atomic(table, args.output / "risultati.csv")
+        write_text_atomic(
+            args.output / "manifest.json",
+            dumps_json(
+                {
+                    "data": str(args.data),
+                    "data_sha256": file_sha256(args.data),
+                    "cost_bps_per_side": args.cost_bps,
+                    "alpha": table.attrs["alpha"],
+                },
+                indent=2,
+            ),
+        )
+        print(table.round(4).to_string(index=False))
         return
 
     if args.command == "news-fetch":

@@ -81,8 +81,11 @@ def fetch_daily_bars(
     max_retries: int = 4,
     backoff_seconds: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
+    timeframe: str = "1Day",
 ) -> pd.DataFrame:
-    """Scarica barre giornaliere aggiustate (split e dividendi) da Alpaca.
+    """Scarica barre aggiustate (split e dividendi) da Alpaca.
+
+    ``timeframe``: ``"1Day"`` (default) oppure intraday, es. ``"15Min"``.
 
     ``feed`` sceglie la fonte (``"iex"`` o ``"sip"``); se ``None`` decide
     Alpaca in base al piano dati. Registrare il feed usato rende i dati
@@ -106,7 +109,7 @@ def fetch_daily_bars(
     }
     params: dict[str, str | int] = {
         "symbols": ",".join(clean_symbols),
-        "timeframe": "1Day",
+        "timeframe": timeframe,
         "start": start.isoformat(),
         "limit": 10000,
         "adjustment": "all",
