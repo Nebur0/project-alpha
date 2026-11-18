@@ -1,0 +1,6 @@
+{
+  "data": "data/raw/bars_intraday_15min.csv",
+  "data_sha256": "2862f717943f2765be84c94fed2fa10d28482e43e59d30e23cd537bd3305b38f",
+  "cost_bps_per_side": 1.0,
+  "alpha": 0.005
+}

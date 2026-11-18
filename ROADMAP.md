@@ -58,6 +58,9 @@ valutazione standard.
   portafoglio permanente è "promettente" e dal 2026-11-17 è in paper in
   parallelo. Torneo 2 (decisione il 20 del mese sugli ultimi 20 giorni):
   nessuna regola utile, niente cambia.
+- Laboratorio intraday pre-registrato (`docs/LAB_INTRADAY.md`, candele da
+  15 minuti su SPY e QQQ, 5 regole × 2 simboli): tutte scartate; la
+  direzione delle prossime candele non è prevedibile dopo i costi.
 - App con motore interno (`project-alpha app`): lavoro serale, recuperi,
   sentinella e notizie senza attività di Windows; simulatore di accumulo in
   dashboard; pacchetto Docker e guida per il cloud (`docs/CLOUD.md`).
