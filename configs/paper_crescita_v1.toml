@@ -1,0 +1,67 @@
+# Project Alpha — prova in avanti del portafoglio di crescita (docs/CRESCITA.md),
+# in parallelo al core e al permanente, con capitale virtuale separato.
+# Conto interno (registro locale): non tocca il conto Alpaca del core.
+# Decisione del proprietario del 2026-11-23: priorità alla crescita, rischio
+# accettato ("non mi importa molto del rischio"); livello scelto da Claude.
+# Eccezione all'IPS solo per questa prova: perdita massima 35%, azioni 80%.
+# Regola fissa: non si modifica guardando i risultati.
+
+name = "crescita_v1"
+data = "data/raw/bars_core.csv"
+log = "reports/paper_crescita/paper_log.csv"
+state = "reports/paper_crescita/state.json"
+broker = "ledger"
+ledger = "data/paper_crescita/ledger.json"
+
+budget = 10000.0
+
+# Nessun freno di volatilità. Protezioni larghe:
+# -25% → il Risk Engine ammette solo riduzioni ([risk].max_drawdown);
+# -30% → tutto in cash e stop fino allo sblocco manuale.
+stop_drawdown = 0.30
+ips_max_drawdown = 0.35
+
+drift_threshold = 0.03
+exposure_threshold = 0.05
+
+# Stesse proporzioni interne del core, portate a 80% azioni, 15% obbligazioni,
+# 5% attivi reali.
+[weights]
+SPY = 0.2667
+QQQ = 0.1333
+IWM = 0.0667
+EFA = 0.2000
+EEM = 0.1333
+IEF = 0.0750
+LQD = 0.0500
+TLT = 0.0250
+GLD = 0.0250
+VNQ = 0.0250
+
+[groups]
+SPY = "azioni"
+QQQ = "azioni"
+IWM = "azioni"
+EFA = "azioni"
+EEM = "azioni"
+IEF = "obbligazioni"
+LQD = "obbligazioni"
+TLT = "obbligazioni"
+GLD = "reali"
+VNQ = "reali"
+
+[risk]
+max_position_weight = 0.30
+max_gross_exposure = 1.0
+max_group_weight = 0.85
+max_daily_loss = 0.06
+max_drawdown = 0.25
+max_turnover = 1.0
+max_data_age_days = 4.0
+min_cash_weight = 0.0
+
+[orders]
+min_order_notional = 25.0
+allow_fractional = true
+fractional_decimals = 4
+cash_buffer = 0.0
