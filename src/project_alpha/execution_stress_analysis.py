@@ -84,6 +84,10 @@ def analyze_frozen_selection_execution_stress(
 
     rows: list[dict[str, float | int | str]] = []
 
+    # Colonna solo se serve: con scenari senza slippage la tabella resta
+    # identica ai report esistenti.
+    report_slippage = any(execution.slippage_bps != 0.0 for _, execution in normalized)
+
     for name, execution in normalized:
         result = run_walk_forward_portfolio_backtest(
             frame,
@@ -95,13 +99,19 @@ def analyze_frozen_selection_execution_stress(
 
         metrics = result.portfolio.metrics
 
-        rows.append(
+        row: dict[str, float | int | str] = {
+            "scenario": name,
+            "execution_mode": execution.mode,
+            "delay_days": execution.delay_days,
+            "cash_rate_annual": execution.cash_rate_annual,
+            "cost_bps_per_side": cost * 10_000.0,
+        }
+
+        if report_slippage:
+            row["slippage_bps"] = float(execution.slippage_bps)
+
+        row.update(
             {
-                "scenario": name,
-                "execution_mode": execution.mode,
-                "delay_days": execution.delay_days,
-                "cash_rate_annual": execution.cash_rate_annual,
-                "cost_bps_per_side": cost * 10_000.0,
                 "total_return": float(metrics["total_return"]),
                 "cagr": float(metrics["cagr"]),
                 "annualized_sharpe": float(metrics["annualized_sharpe"]),
@@ -111,6 +121,8 @@ def analyze_frozen_selection_execution_stress(
                 "symbol_count": int(metrics["symbol_count"]),
             }
         )
+
+        rows.append(row)
 
     return ExecutionStressAnalysisResult(
         cost_per_side=cost,

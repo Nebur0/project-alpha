@@ -307,6 +307,15 @@ def _add_execution_arguments(
         default=0.0,
         help="Rendimento annuo della quota in cash (es. 0.03 = 3%%).",
     )
+    parser.add_argument(
+        "--slippage-bps",
+        type=float,
+        default=0.0,
+        help=(
+            "Slippage fisso in punti base per lato (es. 5 = 0,05%%), "
+            "sommato a --cost-per-side sul turnover."
+        ),
+    )
 
 
 def _execution_from_args(
@@ -317,6 +326,7 @@ def _execution_from_args(
         mode=getattr(args, "execution_mode", "close"),
         delay_days=getattr(args, "execution_delay_days", 0),
         cash_rate_annual=getattr(args, "cash_rate", 0.0),
+        slippage_bps=getattr(args, "slippage_bps", 0.0),
     )
 
     return None if execution.is_default else execution

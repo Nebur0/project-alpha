@@ -147,6 +147,11 @@ def test_run_research_writes_outputs_manifest_and_registry(workspace: Path) -> N
     assert manifest["run_id"] == result.run_id
     assert manifest["data"]["sha256"] == file_sha256(workspace / "data" / "bars.csv")
     assert manifest["config"]["grid_size"] == 2
+    assert manifest["config"]["execution"] == {
+        "mode": "close",
+        "delay_days": 0,
+        "cash_rate_annual": 0.0,
+    }
     assert manifest["data"]["quality_ok"] is True
     assert manifest["data"]["quality_issues"] == []
     assert manifest["trials_on_same_data"] == 1
@@ -210,6 +215,41 @@ def test_config_fingerprint_ignores_name_and_outputs(workspace: Path) -> None:
     renamed = load_research_config(renamed_path, base_dir=workspace)
 
     assert config_fingerprint(base) == config_fingerprint(renamed)
+
+
+def _config_with_execution(workspace: Path, name: str, execution: str):
+    path = workspace / f"{name}.toml"
+    path.write_text(CONFIG + f"\n[execution]\n{execution}\n", encoding="utf-8")
+    return load_research_config(path, base_dir=workspace)
+
+
+def test_config_fingerprint_ignores_zero_slippage(workspace: Path) -> None:
+    base = load_research_config(workspace / "research.toml", base_dir=workspace)
+    zero = _config_with_execution(workspace, "zero", "slippage_bps = 0.0")
+    five = _config_with_execution(workspace, "five", "slippage_bps = 5")
+
+    assert zero.execution.is_default
+    assert five.execution.slippage_bps == 5
+    assert config_fingerprint(base) == config_fingerprint(zero)
+    assert config_fingerprint(five) != config_fingerprint(base)
+
+
+def test_load_research_config_rejects_invalid_slippage(workspace: Path) -> None:
+    with pytest.raises(ValueError, match="slippage_bps"):
+        _config_with_execution(workspace, "bad", "slippage_bps = -1.0")
+
+
+def test_run_research_records_slippage_in_manifest(workspace: Path) -> None:
+    config = _config_with_execution(workspace, "slip", "slippage_bps = 5.0")
+
+    run_research(config, repo_dir=workspace)
+    manifest = json.loads(
+        (workspace / "reports" / "research" / "test_run" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert manifest["config"]["execution"]["slippage_bps"] == 5.0
 
 
 def test_run_research_rejects_missing_symbols(workspace: Path) -> None:

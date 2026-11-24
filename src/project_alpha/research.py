@@ -312,7 +312,7 @@ def config_fingerprint(config: ResearchConfig) -> str:
         "walk_forward": asdict(config.walk_forward),
         "grid": {key: sorted(set(values)) for key, values in sorted(config.grid.items())},
         "robust_score": asdict(config.robust_score) if config.robust_score else None,
-        "execution": asdict(config.execution),
+        "execution": config.execution.to_dict(),
     }
     encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -619,7 +619,7 @@ def run_research(
             "grid": config.grid,
             "grid_size": _grid_size(config.grid),
             "robust_score": asdict(config.robust_score) if config.robust_score else None,
-            "execution": asdict(config.execution),
+            "execution": config.execution.to_dict(),
             "analysis": asdict(analysis),
         },
         "data": {

@@ -738,7 +738,7 @@ def walk_forward_optimization_to_dict(
         ),
         "window_count": len(result.windows),
         "no_candidate_policy": (result.no_candidate_policy),
-        "execution": (asdict(result.execution) if result.execution is not None else None),
+        "execution": (result.execution.to_dict() if result.execution is not None else None),
         "flat_window_count": (result.flat_window_count),
         "windows_overlap": (result.windows_overlap),
         "compounding_enabled": (result.compounding_enabled),
