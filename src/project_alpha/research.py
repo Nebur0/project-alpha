@@ -23,7 +23,7 @@ import subprocess
 import tomllib
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +35,7 @@ from project_alpha import __version__
 from project_alpha.allocation import VolTargetConfig, volatility_target_exposure
 from project_alpha.backtest import ExecutionConfig
 from project_alpha.batch_optimization import (
+    BatchWalkForwardOptimizationResult,
     batch_walk_forward_comparison_to_frame,
     batch_walk_forward_optimization_to_frame,
     run_batch_walk_forward_optimization,
@@ -461,6 +462,104 @@ def _load_frame(config: ResearchConfig) -> pd.DataFrame:
     return frame.loc[frame["symbol"].astype(str).str.upper().isin(config.symbols)].copy()
 
 
+def run_walk_forward_batch(
+    config: ResearchConfig,
+    frame: pd.DataFrame | None = None,
+) -> BatchWalkForwardOptimizationResult:
+    """Walk-forward di tutti i simboli con le impostazioni della configurazione."""
+    data = _load_frame(config) if frame is None else frame
+    wf = config.walk_forward
+    execution = None if config.execution.is_default else config.execution
+
+    return run_batch_walk_forward_optimization(
+        data,
+        list(config.symbols),
+        config.grid,
+        train_size=wf.train_size,
+        test_size=wf.test_size,
+        step_size=wf.step_size,
+        initial_capital=wf.initial_capital,
+        cost_per_side=wf.cost_per_side,
+        score_metric=wf.score_metric,
+        minimum_completed_trades=wf.minimum_completed_trades,
+        robust_score_config=config.robust_score,
+        no_candidate_policy=wf.no_candidate_policy,
+        execution=execution,
+    )
+
+
+DEFAULT_SLIPPAGE_STRESS_BPS: tuple[float, ...] = (0.0, 5.0, 10.0, 20.0)
+
+
+def run_slippage_stress(
+    config: ResearchConfig,
+    output_dir: Path | str,
+    *,
+    slippages_bps: Sequence[float] = DEFAULT_SLIPPAGE_STRESS_BPS,
+    repo_dir: Path | str | None = None,
+) -> pd.DataFrame:
+    """Stress dello slippage a parametri fissati, fuori dal registro delle prove.
+
+    La selezione walk-forward viene calcolata una sola volta con le
+    impostazioni della configurazione e poi rivalutata a ogni livello di
+    slippage: cambia solo il costo di esecuzione, non le scelte. Scrive
+    ``slippage_stress.csv`` e ``manifest.json`` in ``output_dir``; non
+    aggiunge righe al registro, perché non è una nuova prova di selezione.
+    """
+    levels = sorted({float(value) for value in slippages_bps} | {0.0})
+    repo = Path(repo_dir) if repo_dir is not None else Path.cwd()
+    git = git_state(repo)
+    started = datetime.now(UTC)
+
+    frame = _load_frame(config)
+    wf = config.walk_forward
+    batch = run_walk_forward_batch(config, frame)
+
+    scenarios = [
+        (f"slippage_{level:g}bps", replace(config.execution, slippage_bps=level))
+        for level in levels
+    ]
+    table = analyze_frozen_selection_execution_stress(
+        frame,
+        batch,
+        scenarios=scenarios,
+        cost_per_side=wf.cost_per_side,
+        initial_capital=wf.initial_capital,
+    ).scenarios
+
+    baseline = table.iloc[0]
+    table.insert(
+        table.columns.get_loc("total_return"),
+        "final_equity",
+        wf.initial_capital * (1.0 + table["total_return"]),
+    )
+    table["delta_total_return"] = table["total_return"] - baseline["total_return"]
+    table["delta_cagr"] = table["cagr"] - baseline["cagr"]
+    table["delta_annualized_sharpe"] = table["annualized_sharpe"] - baseline["annualized_sharpe"]
+
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    write_csv_atomic(table, output / "slippage_stress.csv")
+    write_json_atomic(
+        output / "manifest.json",
+        {
+            "analysis": "slippage_stress",
+            "started_utc": started.isoformat(),
+            "config_file": str(config.source) if config.source else None,
+            "config_sha256": config_fingerprint(config),
+            "data": {"path": str(config.data), "sha256": file_sha256(config.data)},
+            "git": git,
+            "package_version": __version__,
+            "slippage_bps": levels,
+            "cost_bps_per_side": wf.cost_per_side * 10_000.0,
+            "selection": "walk-forward calcolato una volta con la configurazione, poi congelato",
+            "registry": "non registrato: nessuna nuova selezione di parametri",
+        },
+    )
+
+    return table
+
+
 def run_research(
     config: ResearchConfig,
     *,
@@ -480,23 +579,8 @@ def run_research(
     data_hash = file_sha256(config.data)
     data_quality = check_bars(frame, config.symbols)
     wf = config.walk_forward
-    execution = None if config.execution.is_default else config.execution
 
-    batch = run_batch_walk_forward_optimization(
-        frame,
-        list(config.symbols),
-        config.grid,
-        train_size=wf.train_size,
-        test_size=wf.test_size,
-        step_size=wf.step_size,
-        initial_capital=wf.initial_capital,
-        cost_per_side=wf.cost_per_side,
-        score_metric=wf.score_metric,
-        minimum_completed_trades=wf.minimum_completed_trades,
-        robust_score_config=config.robust_score,
-        no_candidate_policy=wf.no_candidate_policy,
-        execution=execution,
-    )
+    batch = run_walk_forward_batch(config, frame)
 
     write_csv_atomic(batch_walk_forward_optimization_to_frame(batch), output / "walk_forward.csv")
     write_csv_atomic(
