@@ -66,6 +66,19 @@ PAPER_LOG_COLUMNS = (
 
 
 @dataclass(frozen=True)
+class TrendFilterConfig:
+    """Filtro di tendenza: un simbolo si tiene solo se la chiusura è sopra la
+    sua media mobile semplice di ``sma_days`` sedute (altrimenti liquidità).
+    Con meno di ``sma_days`` sedute di storia il simbolo resta in liquidità."""
+
+    sma_days: int = 200
+
+    def __post_init__(self) -> None:
+        if int(self.sma_days) != self.sma_days or self.sma_days < 2:
+            raise ValueError("trend_filter.sma_days deve essere un intero ≥ 2.")
+
+
+@dataclass(frozen=True)
 class PaperConfig:
     name: str
     data: Path
@@ -90,6 +103,8 @@ class PaperConfig:
     # "alpaca" (conto paper Alpaca) oppure "ledger" (conto interno, prove in parallelo).
     broker: str = "alpaca"
     ledger: Path | None = None
+    # Facoltativo: filtro di tendenza per simbolo (assente = pesi fissi, come prima).
+    trend_filter: TrendFilterConfig | None = None
 
     def __post_init__(self) -> None:
         if not isfinite(self.budget) or self.budget <= 0:
@@ -240,6 +255,7 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         "vol_target",
         "risk",
         "orders",
+        "trend_filter",
     }
     unknown = set(raw) - allowed
     if unknown:
@@ -267,6 +283,11 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
             raise ValueError(f"Chiavi sconosciute nella sezione [vol_target]: {sorted(extra)}")
         vol_target = VolTargetConfig(**vol_values)
 
+    trend_values = raw.get("trend_filter")
+    trend_filter = None
+    if trend_values is not None:
+        trend_filter = TrendFilterConfig(**section("trend_filter", TrendFilterConfig))
+
     risk_values = section("risk", RiskPolicyV2)
     risk_values.pop("groups", None)
     risk_values.pop("allowed_symbols", None)
@@ -291,6 +312,7 @@ def load_paper_config(path: Path | str, *, root: Path | str | None = None) -> Pa
         state=_resolve(base, raw.get("state", "reports/paper/state.json")),
         broker=str(raw.get("broker", "alpaca")),
         ledger=_resolve(base, raw["ledger"]) if raw.get("ledger") else None,
+        trend_filter=trend_filter,
     )
 
 
@@ -376,6 +398,14 @@ def core_targets(frame: pd.DataFrame, config: PaperConfig) -> CoreTargets:
                 )
 
     weights = {symbol: weight * exposure for symbol, weight in config.weights.items()}
+
+    if config.trend_filter is not None:
+        days = config.trend_filter.sma_days
+        for symbol in config.symbols:
+            history = closes[symbol].dropna()
+            above = len(history) >= days and history.iloc[-1] > history.tail(days).mean()
+            if not above:
+                weights[symbol] = 0.0
 
     return CoreTargets(
         data_timestamp=pd.Timestamp(last_timestamp),

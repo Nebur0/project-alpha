@@ -92,6 +92,7 @@ esce a −12%, lasciando 3 punti di margine.
 | 2026-11-07 | Valori del proprietario: 10.000 €, max −15%, profilo intermedio; core bilanciato 60/30/10 con vol target 8%, stop a −12% | V1 non ha superato la Fase 1 (overlay a 0%); serve una base passiva per il paper trading |
 | 2026-11-17 | Eccezione: peso massimo 25% per posizione, solo per la prova in parallelo del portafoglio permanente (`configs/paper_permanente_v1.toml`, conto interno separato) | Torneo delle strategie (`docs/TORNEO.md`): C8 promettente, verifica in avanti approvata dal proprietario |
 | 2026-11-23 | Eccezione: prova in parallelo del portafoglio di crescita (`configs/paper_crescita_v1.toml`, conto interno separato): 80% azioni, nessun vol target, perdita massima 35%, stop a −30% | Il proprietario dà priorità alla crescita e accetta più rischio; livello scelto da Claude (`docs/CRESCITA.md`). Il core resta invariato |
+| 2026-11-24 | Eccezione: satellite bitcoin con filtro di tendenza a 200 sedute (`configs/paper_bitcoin_trend_v1.toml`, conto interno separato, 1.000): un solo strumento, perdita massima 60%, stop a −50% | Richiesta del proprietario (`docs/BITCOIN.md`). Il core resta invariato |
 
 ## 9. Verifica storica (una sola prova, non un'ottimizzazione)
 
