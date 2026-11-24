@@ -94,6 +94,12 @@ def test_execution_config_defaults_match_historical_behavior() -> None:
         ({"delay_days": True}, "delay_days"),
         ({"cash_rate_annual": float("nan")}, "cash_rate_annual"),
         ({"cash_rate_annual": -1.0}, "cash_rate_annual"),
+        ({"slippage_bps": -1.0}, "slippage_bps"),
+        ({"slippage_bps": float("nan")}, "slippage_bps"),
+        ({"slippage_bps": float("inf")}, "slippage_bps"),
+        ({"slippage_bps": 1_001.0}, "slippage_bps"),
+        ({"slippage_bps": True}, "slippage_bps"),
+        ({"slippage_bps": "5"}, "slippage_bps"),
     ],
 )
 def test_execution_config_rejects_invalid_values(kwargs, message) -> None:
@@ -164,6 +170,81 @@ def test_next_open_costs_are_charged_once_per_side() -> None:
 
     assert result.equity_curve["trading_cost"].sum() == pytest.approx(0.002)
     assert result.equity_curve["turnover"].tolist() == [0, 1, 0, 1, 0]
+
+
+def test_slippage_config_is_default_only_at_zero() -> None:
+    assert ExecutionConfig(slippage_bps=0.0).is_default
+    assert ExecutionConfig(slippage_bps=0).is_default
+    assert not ExecutionConfig(slippage_bps=5.0).is_default
+
+
+def test_slippage_to_dict_omits_zero_and_normalizes() -> None:
+    assert ExecutionConfig().to_dict() == {
+        "mode": "close",
+        "delay_days": 0,
+        "cash_rate_annual": 0.0,
+    }
+    assert type(ExecutionConfig(slippage_bps=5).to_dict()["slippage_bps"]) is float
+
+
+@pytest.mark.parametrize("mode", ["close", "next_open"])
+def test_zero_slippage_is_identical_to_default(mode: str) -> None:
+    implicit = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.001,
+        execution=ExecutionConfig(mode=mode),
+    )
+    explicit = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.001,
+        execution=ExecutionConfig(mode=mode, slippage_bps=0.0),
+    )
+
+    pd.testing.assert_frame_equal(implicit.equity_curve, explicit.equity_curve)
+    assert "slippage_cost" not in explicit.equity_curve.columns
+    assert implicit.metrics == explicit.metrics
+    assert "slippage_bps" not in explicit.metrics
+
+
+@pytest.mark.parametrize("mode", ["close", "next_open"])
+def test_slippage_is_charged_on_turnover(mode: str) -> None:
+    base = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.001,
+        execution=ExecutionConfig(mode=mode),
+    )
+    slipped = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.001,
+        execution=ExecutionConfig(mode=mode, slippage_bps=5.0),
+    )
+    curve = slipped.equity_curve
+
+    assert curve["slippage_cost"].tolist() == pytest.approx((curve["turnover"] * 0.0005).tolist())
+    assert (base.equity_curve["strategy_return"] - curve["strategy_return"]).tolist() == (
+        pytest.approx(curve["slippage_cost"].tolist())
+    )
+    assert slipped.metrics["final_equity"] < base.metrics["final_equity"]
+    assert slipped.metrics["slippage_bps"] == 5.0
+    assert slipped.metrics["cost_per_side"] == 0.001
+
+
+@pytest.mark.parametrize("mode", ["close", "next_open"])
+def test_slippage_is_equivalent_to_extra_cost(mode: str) -> None:
+    as_cost = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.0005,
+        execution=ExecutionConfig(mode=mode),
+    )
+    as_slippage = run_long_only_backtest(
+        _frame(),
+        cost_per_side=0.0,
+        execution=ExecutionConfig(mode=mode, slippage_bps=5.0),
+    )
+
+    assert as_slippage.equity_curve["equity"].tolist() == pytest.approx(
+        as_cost.equity_curve["equity"].tolist()
+    )
 
 
 def test_delay_shifts_execution_by_extra_days() -> None:
@@ -368,6 +449,24 @@ def test_execution_stress_analysis_builds_scenario_table() -> None:
         run_walk_forward_portfolio_backtest(frame, batch).portfolio.metrics["total_return"]
     )
     assert table.loc[0, "mean_gross_exposure"] == pytest.approx(table.loc[1, "mean_gross_exposure"])
+    assert "slippage_bps" not in table.columns
+
+
+def test_execution_stress_reports_slippage_scenarios() -> None:
+    frame, batch = _batch()
+
+    table = analyze_frozen_selection_execution_stress(
+        frame,
+        batch,
+        scenarios=[
+            ("close", ExecutionConfig()),
+            ("close_slip_20", ExecutionConfig(slippage_bps=20.0)),
+        ],
+    ).scenarios
+
+    assert table["slippage_bps"].tolist() == [0.0, 20.0]
+    assert table.loc[1, "total_return"] < table.loc[0, "total_return"]
+    assert table.loc[1, "mean_gross_exposure"] == pytest.approx(table.loc[0, "mean_gross_exposure"])
 
 
 def test_execution_stress_rejects_bad_scenarios() -> None:
@@ -423,3 +522,12 @@ def test_cli_execution_arguments_build_config() -> None:
         delay_days=1,
         cash_rate_annual=0.03,
     )
+
+
+def test_cli_slippage_argument_builds_config() -> None:
+    default = cli.build_parser().parse_args(["backtest", "--symbol", "SPY"])
+    assert default.slippage_bps == 0.0
+    assert cli._execution_from_args(default) is None
+
+    args = cli.build_parser().parse_args(["backtest", "--symbol", "SPY", "--slippage-bps", "5"])
+    assert cli._execution_from_args(args) == ExecutionConfig(slippage_bps=5.0)

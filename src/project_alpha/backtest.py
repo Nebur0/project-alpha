@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from math import sqrt
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,8 @@ EXECUTION_MODES = (
     "close",
     "next_open",
 )
+
+MAX_SLIPPAGE_BPS = 1_000.0
 
 
 @dataclass(frozen=True)
@@ -27,11 +30,15 @@ class ExecutionConfig:
     - ``delay_days``: giorni di ritardo aggiuntivi prima dell'esecuzione.
     - ``cash_rate_annual``: rendimento annuo della quota non investita
       (capitalizzato su 252 giorni). Default 0, come in passato.
+    - ``slippage_bps``: slippage fisso in punti base per lato, applicato al
+      turnover in aggiunta a ``cost_per_side`` (che copre commissione e
+      spread). Vale per ``close`` e ``next_open``. Default 0, come in passato.
     """
 
     mode: str = "close"
     delay_days: int = 0
     cash_rate_annual: float = 0.0
+    slippage_bps: float = 0.0
 
     def __post_init__(self) -> None:
         if self.mode not in EXECUTION_MODES:
@@ -56,9 +63,38 @@ class ExecutionConfig:
         ):
             raise ValueError("cash_rate_annual deve essere un numero finito maggiore di -1.")
 
+        slippage = self.slippage_bps
+
+        if (
+            isinstance(slippage, bool)
+            or not isinstance(slippage, (int, float))
+            or not np.isfinite(slippage)
+            or not 0.0 <= slippage <= MAX_SLIPPAGE_BPS
+        ):
+            raise ValueError(
+                "slippage_bps deve essere un numero finito tra 0 e "
+                f"{MAX_SLIPPAGE_BPS:g} (punti base per lato)."
+            )
+
     @property
     def is_default(self) -> bool:
         return self == ExecutionConfig()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serializzazione stabile per hash, manifest e risultati salvati.
+
+        ``slippage_bps`` è omesso quando vale zero, così hash delle
+        configurazioni e manifest storici non cambiano; altrimenti è
+        normalizzato a float (``5`` e ``5.0`` producono lo stesso hash).
+        """
+        data = asdict(self)
+
+        if self.slippage_bps:
+            data["slippage_bps"] = float(self.slippage_bps)
+        else:
+            del data["slippage_bps"]
+
+        return data
 
 
 DEFAULT_EXECUTION = ExecutionConfig()
@@ -117,6 +153,26 @@ def _completed_holding_lengths(
     return lengths
 
 
+def _charge_trading_cost(
+    data: pd.DataFrame,
+    execution: ExecutionConfig,
+    cost_per_side: float,
+) -> None:
+    """Costo di negoziazione sul turnover: costo per lato più slippage.
+
+    Con slippage nullo il calcolo è identico a quello storico e non viene
+    aggiunta nessuna colonna; altrimenti ``slippage_cost`` ne riporta la
+    quota, già inclusa in ``trading_cost``.
+    """
+    if not execution.slippage_bps:
+        data["trading_cost"] = data["turnover"] * cost_per_side
+        return
+
+    data["slippage_cost"] = data["turnover"] * (execution.slippage_bps / 10_000.0)
+
+    data["trading_cost"] = data["turnover"] * cost_per_side + data["slippage_cost"]
+
+
 def _apply_execution(
     data: pd.DataFrame,
     execution: ExecutionConfig,
@@ -135,7 +191,7 @@ def _apply_execution(
             data["executed_position"].diff().abs().fillna(data["executed_position"].abs())
         )
 
-        data["trading_cost"] = data["turnover"] * cost_per_side
+        _charge_trading_cost(data, execution, cost_per_side)
 
         data["strategy_return"] = (
             data["executed_position"] * data["asset_return"] - data["trading_cost"]
@@ -150,7 +206,7 @@ def _apply_execution(
 
         data["turnover"] = (data["executed_position"] - data["overnight_position"]).abs()
 
-        data["trading_cost"] = data["turnover"] * cost_per_side
+        _charge_trading_cost(data, execution, cost_per_side)
 
         data["strategy_return"] = (
             (1.0 + data["overnight_position"] * overnight_return)
@@ -317,6 +373,10 @@ def run_long_only_backtest(
         "execution_next_open": int(effective_execution.mode == "next_open"),
         "cash_rate_annual": float(effective_execution.cash_rate_annual),
     }
+
+    # Solo se attivo: le metriche (e i CSV che ne derivano) restano invariate.
+    if effective_execution.slippage_bps:
+        metrics["slippage_bps"] = float(effective_execution.slippage_bps)
 
     return BacktestResult(
         equity_curve=data,

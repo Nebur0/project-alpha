@@ -227,7 +227,13 @@ e i comandi `optimize-walk-forward`):
 - `--execution-mode close|next_open` — chiusura del giorno del segnale
   (default storico) o apertura del giorno dopo;
 - `--execution-delay-days N` — giorni di ritardo aggiuntivi;
-- `--cash-rate 0.03` — rendimento annuo della quota in cash.
+- `--cash-rate 0.03` — rendimento annuo della quota in cash;
+- `--slippage-bps 5` — slippage fisso in punti base per lato, sommato a
+  `--cost-per-side` sul turnover (default 0). Nelle configurazioni di
+  ricerca: `slippage_bps` nella sezione `[execution]`. Vale per backtest,
+  walk-forward, portafoglio e stress di esecuzione; non per `cost_stress.csv`,
+  il laboratorio di strategie e allocazione, quello intraday e il paper
+  trading, che hanno costi propri.
 
 Con `--no-candidate-policy flat` una finestra walk-forward senza candidati
 validi resta in cash invece di interrompere l'analisi.
