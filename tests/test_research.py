@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from project_alpha import cli
+from project_alpha.portfolio_walk_forward import run_walk_forward_portfolio_backtest
 from project_alpha.research import (
     REGISTRY_COLUMNS,
     config_fingerprint,
@@ -17,6 +18,8 @@ from project_alpha.research import (
     read_registry,
     registry_trials,
     run_research,
+    run_slippage_stress,
+    run_walk_forward_batch,
 )
 
 
@@ -250,6 +253,61 @@ def test_run_research_records_slippage_in_manifest(workspace: Path) -> None:
     )
 
     assert manifest["config"]["execution"]["slippage_bps"] == 5.0
+
+
+def test_run_slippage_stress_freezes_selection_and_skips_registry(workspace: Path) -> None:
+    config = load_research_config(workspace / "research.toml", base_dir=workspace)
+    output = workspace / "reports" / "risk" / "slip"
+
+    table = run_slippage_stress(config, output, slippages_bps=[20.0, 5.0], repo_dir=workspace)
+
+    assert table["scenario"].tolist() == ["slippage_0bps", "slippage_5bps", "slippage_20bps"]
+    assert table["slippage_bps"].tolist() == [0.0, 5.0, 20.0]
+    assert table["total_return"].is_monotonic_decreasing
+    assert table["mean_gross_exposure"].nunique() == 1
+    assert table.loc[0, "delta_total_return"] == 0.0
+    assert table.loc[0, "delta_annualized_sharpe"] == 0.0
+    assert table["final_equity"].tolist() == pytest.approx(
+        (config.walk_forward.initial_capital * (1.0 + table["total_return"])).tolist()
+    )
+
+    # Il livello 0 coincide con il portafoglio della ricerca.
+    frame = pd.read_csv(config.data, parse_dates=["timestamp"])
+    portfolio = run_walk_forward_portfolio_backtest(
+        frame,
+        run_walk_forward_batch(config, frame),
+        initial_capital=config.walk_forward.initial_capital,
+        cost_per_side=config.walk_forward.cost_per_side,
+    )
+    assert table.loc[0, "total_return"] == pytest.approx(
+        portfolio.portfolio.metrics["total_return"]
+    )
+
+    assert (output / "slippage_stress.csv").exists()
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["slippage_bps"] == [0.0, 5.0, 20.0]
+    assert manifest["config_sha256"] == config_fingerprint(config)
+    assert not config.registry.exists()
+
+
+def test_cli_slippage_stress_command(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(workspace)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["project-alpha", "slippage-stress", "--config", "research.toml", "--slippage-bps", "10"],
+    )
+
+    cli.main()
+
+    assert "slippage_10bps" in capsys.readouterr().out
+    assert (
+        workspace / "reports" / "risk" / "test_run_slippage_stress" / "slippage_stress.csv"
+    ).exists()
 
 
 def test_run_research_rejects_missing_symbols(workspace: Path) -> None:

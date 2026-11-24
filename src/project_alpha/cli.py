@@ -781,6 +781,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="File di configurazione TOML (es. configs/dev15_v1.toml).",
     )
 
+    slippage_stress = commands.add_parser(
+        "slippage-stress",
+        help=(
+            "Stress dello slippage a parametri fissati (selezione walk-forward "
+            "congelata); report separato, nessuna prova nel registro."
+        ),
+    )
+    slippage_stress.add_argument(
+        "--config",
+        type=Path,
+        required=True,
+        help="File di configurazione TOML (es. configs/dev15_v1.toml).",
+    )
+    slippage_stress.add_argument(
+        "--slippage-bps",
+        dest="slippage_levels_bps",
+        type=float,
+        nargs="+",
+        default=[0.0, 5.0, 10.0, 20.0],
+        help="Livelli di slippage in punti base per lato (0 è sempre incluso).",
+    )
+    slippage_stress.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Cartella del report (default: reports/risk/<nome>_slippage_stress).",
+    )
+
     signals = commands.add_parser(
         "signals",
         help=(
@@ -1683,6 +1711,29 @@ def main() -> None:
                 indent=2,
             )
         )
+        return
+
+    if args.command == "slippage-stress":
+        from project_alpha.research import (
+            load_research_config,
+            run_slippage_stress,
+        )
+
+        config = load_research_config(args.config)
+        output = args.output or Path("reports/risk") / f"{config.name}_slippage_stress"
+        table = run_slippage_stress(config, output, slippages_bps=args.slippage_levels_bps)
+        columns = [
+            "scenario",
+            "final_equity",
+            "cagr",
+            "annualized_sharpe",
+            "max_drawdown",
+            "delta_total_return",
+            "delta_annualized_sharpe",
+        ]
+
+        print(table[columns].to_string(index=False))
+        print(f"Report: {output / 'slippage_stress.csv'}")
         return
 
     if args.command == "signals":
