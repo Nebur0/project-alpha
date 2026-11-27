@@ -17,7 +17,7 @@ COPY reports/lab ./reports/lab
 COPY reports/research ./reports/research
 
 # Dati e risultati vivono su volumi persistenti (vedi deploy/compose.yaml).
-RUN mkdir -p data reports/paper reports/paper_permanente && chown -R alpha:alpha /app
+RUN mkdir -p data reports/paper reports/paper_permanente reports/paper_crescita reports/paper_bitcoin && chown -R alpha:alpha /app
 USER alpha
 
 CMD ["project-alpha", "app", "--port", "8050"]
