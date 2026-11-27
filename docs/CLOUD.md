@@ -15,42 +15,45 @@ dell'acquisto. Serve un account a tuo nome con un metodo di pagamento.
 ## ⚠️ Una sola istanza alla volta
 
 PC e server **non devono mai girare insieme**: ciascuno pensa di essere
-l'unico gestore del conto paper e gli ordini verrebbero duplicati. Prima di
-avviare il server, sul PC:
-
-1. elimina il collegamento `ProjectAlpha App` in
-   `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`;
-2. elimina l'attività pianificata "ProjectAlpha Paper"
-   (`schtasks /Delete /TN "ProjectAlpha Paper" /F`);
-3. chiudi il processo dell'app (Gestione attività → pythonw).
+l'unico gestore dei conti e gli ordini verrebbero duplicati. Il passaggio
+dal PC si fa con un solo script, che ferma l'app e prepara lo stato.
 
 ## Passi
 
-1. **Server**: crea un server Ubuntu, accedi via SSH, installa Docker e
-   Tailscale (`curl -fsSL https://tailscale.com/install.sh | sh`, poi
-   `sudo tailscale up` con il tuo account).
-2. **Codice**: `git clone https://github.com/Nebur0/project-alpha.git && cd project-alpha`.
-3. **Chiavi**: crea `.env` con `ALPACA_API_KEY=PK...` e
-   `ALPACA_API_SECRET=...` (le stesse chiavi paper del PC; mai chiavi live).
-4. **Stato dal PC** (così il server continua da dove era il PC, stesso
-   capitale, massimo, conto interno e notifiche): copia sul server, nei
-   volumi, il contenuto di
-   - `reports/paper/` (registro, `state.json`, `last_daily.json`),
-   - `reports/paper_permanente/`,
-   - `data/push/` (chiave delle notifiche e iPhone iscritti),
-   - `data/paper_permanente/` (conto interno del portafoglio permanente).
-   Senza `data/push/` l'iPhone va iscritto di nuovo; senza `state.json` il
-   sistema riparte con un nuovo massimo.
-5. **Avvio**: `docker compose -f deploy/compose.yaml up -d --build`.
-6. **Accesso**: `sudo tailscale serve --bg 8050` → nuovo indirizzo
-   `https://nome-server.….ts.net`; aggiungilo alla schermata Home
-   dell'iPhone e riattiva le notifiche se non hai copiato `data/push/`.
-7. **Controllo**: `docker compose -f deploy/compose.yaml logs -f` e
-   `reports/paper/engine.log` nel volume.
+1. **Server**: crea un server Ubuntu (24.04) dal provider, con il tuo
+   account e metodo di pagamento, e annota indirizzo e password o chiave SSH.
+2. **PC, il giorno del passaggio (non tra le 22 e le 24)**: doppio clic su
+   `scripts\windows\passa_al_cloud.bat`. Ferma l'app, ne disattiva l'avvio
+   automatico (reversibile: `schtasks /Change /TN "ProjectAlpha App" /ENABLE`)
+   e crea `alpha_stato.tgz` nella cartella del progetto con lo stato dei
+   quattro portafogli (`reports/paper*`, `data/paper_*`) e delle notifiche
+   (`data/push`). Il file `.env` non viene copiato.
+3. **Copia lo stato sul server** (dal PC, in un terminale):
+   `scp alpha_stato.tgz root@<indirizzo-server>:~/`
+4. **Server** (via SSH, nella cartella dove hai copiato il file):
+
+   ```bash
+   curl -fsSLO https://raw.githubusercontent.com/Nebur0/project-alpha/main/deploy/setup_server.sh
+   sudo bash setup_server.sh
+   ```
+
+   Lo script installa Docker e Tailscale (ti chiede di accedere a Tailscale
+   con il tuo account), scarica il codice in `/opt/project-alpha`, chiede le
+   chiavi **paper** di Alpaca (mai chiavi live; non vengono mostrate), crea
+   il container, ci copia lo stato **prima** di avviarlo, lo avvia e
+   pubblica la dashboard con `tailscale serve`.
+5. **iPhone**: apri il nuovo indirizzo `https://<nome-server>.….ts.net`
+   stampato alla fine, aggiungilo alla schermata Home e cancella la vecchia
+   icona del PC. Le notifiche restano attive (la chiave è in `data/push`).
+6. **Controllo**: `docker compose -f /opt/project-alpha/deploy/compose.yaml logs -f`
+   e, la mattina dopo, `engine.log` nel volume del registro paper.
+
+Ogni portafoglio ha il suo volume (`deploy/compose.yaml`); un test
+(`tests/test_deploy.py`) fallisce se un portafoglio nuovo non ha il volume.
 
 ## Aggiornamenti
 
-`git pull && docker compose -f deploy/compose.yaml up -d --build`. I volumi
+`cd /opt/project-alpha && git pull && docker compose -f deploy/compose.yaml up -d --build`. I volumi
 conservano dati e stato tra un aggiornamento e l'altro.
 
 ## Backup

@@ -9,7 +9,11 @@ services:
       - alpha-data:/app/data
       - alpha-paper:/app/reports/paper
       - alpha-permanente:/app/reports/paper_permanente
+      - alpha-crescita:/app/reports/paper_crescita
+      - alpha-bitcoin:/app/reports/paper_bitcoin
 volumes:
   alpha-data:
   alpha-paper:
   alpha-permanente:
+  alpha-crescita:
+  alpha-bitcoin:
